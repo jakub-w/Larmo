@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+message StreamingPort {
+  int32 port = 1;
+}
+
+message MpvResponse {
+  int32 response = 1;
+}
+
+message Empty {}
+
+service PlayerService {
+  rpc PlayFrom(StreamingPort) returns (MpvResponse) {}
+  rpc Stop(Empty) returns (MpvResponse) {}
+  rpc TogglePause(Empty) returns (MpvResponse) {}
+}
