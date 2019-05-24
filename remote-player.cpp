@@ -36,9 +36,9 @@ static char doc[] =
     "Lelo Remote Music Player -- Server that plays music client provides";
 
 static argp_option options[] = {
-  {"port", 'p', "NUM", 0, "Port for gRPC"},
-  {"config", 'c', "FILE", 0, "Use an alternative config file"},
-  {0}
+  {"port", 'p', "NUM", 0, "Port for gRPC", 0},
+  {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
+  {0, 0, 0, 0, 0, 0}
 };
 
 struct arguments {
@@ -77,7 +77,7 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
   return 0;
 }
 
-static argp argp = { options, parse_opt, 0, doc };
+static argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
 
 int initialize_config(arguments* args) {
   // This will throw if the config file cannot be loaded.
