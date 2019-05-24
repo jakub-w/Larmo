@@ -69,7 +69,8 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
   std::cout << "Connected.\n";
 
   std::cout << "Sockfd: " << tcp_sock_.native_handle() << "\n";
-  Input("fdclose://" + std::to_string(tcp_sock_.native_handle()));
+
+  Input("fd://" + std::to_string(tcp_sock_.native_handle()));
 
   return Play();
 }

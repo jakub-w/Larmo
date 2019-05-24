@@ -87,8 +87,12 @@ int initialize_config(arguments* args) {
   if (not args->grpc_port.empty()) {
     Config::Set("grpc_port", args->grpc_port);
   }
-  if (Config::Get("grpc_port").empty()) {
+  auto grpc_port = Config::Get("grpc_port");
+  if (grpc_port.empty()) {
     throw std::logic_error("Port for gRPC not provided.");
+  } else if (int port = std::stoi(grpc_port);
+             port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
+    throw std::logic_error("Port for gRPC (" + grpc_port + ") is invalid");
   }
 
   if (not args->grpc_host.empty()) {
@@ -102,8 +106,13 @@ int initialize_config(arguments* args) {
     Config::Set("streaming_port", args->streaming_port);
   }
   // This does not warrant a throw, we can set it to 0 to randomize the port
-  if (Config::Get("streaming_port").empty()) {
+  auto streaming_port = Config::Get("streaming_port");
+  if (streaming_port.empty()) {
     Config::Set("streaming_port", "0");
+  } else if (int port = std::stoi(streaming_port);
+             port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
+    throw std::logic_error("Port for streaming (" + streaming_port +
+                           ") is invalid");
   }
 
   return 0;
@@ -149,9 +158,9 @@ int main (int argc, char** argv) {
     creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
   }
 
-  PlayerClient remote(
-      std::stoi(Config::Get("streaming_port")),
-      grpc::CreateChannel(grpc_address, creds));
+  // TODO: check if this cast is safe
+  auto remote = PlayerClient{Config::Get("streaming_port"),
+                             grpc::CreateChannel(grpc_address, creds)};
 
   // remote.Play("/tmp/file.mp3");
   // std::this_thread::sleep_for(std::chrono::seconds(1));
