@@ -176,7 +176,6 @@ int main (int argc, char** argv) {
     creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
   }
 
-  // TODO: check if this cast is safe
   auto remote = PlayerClient{Config::Get("streaming_port"),
                              grpc::CreateChannel(grpc_address, creds)};
 
