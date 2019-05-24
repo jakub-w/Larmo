@@ -19,41 +19,63 @@
 project('remote-music-control', 'cpp',
 	default_options: ['cpp_std=c++17'])
 
-# if get_option('buildtype').startswith('debug')
-#   add_project_arguments('-Wall', '-Wextra', '-Werror', '-DFORTIFY_SOURCE=1',
-# 			'-ggdb3',
-# 			language : 'cpp')
-# endif
-# elif get_option('buildtype') == 'release'
-#   add_project_arguments('-DNDEBUG', '-O3', '-s',
-#   			language : 'cpp')
-# endif
+# Build types
+if get_option('buildtype').startswith('debug')
+  add_project_arguments('-Wall', '-Wextra', '-Werror', '-DFORTIFY_SOURCE=1',
+			'-Wno-unused-parameter',
+			'-ggdb3',
+			language : 'cpp')
+elif get_option('buildtype') == 'release'
+  add_project_arguments('-DNDEBUG', '-O3', '-s',
+  			language : 'cpp')
+endif
 
+
+# Dependencies
 mpv_dep = dependency('mpv')
 boost_dep = dependency('boost', modules: ['asio'])
 
-include = include_directories('include')
 
-sources = ['main.cpp']
-
+# Protobuff
 protobuf_dep = dependency('protobuf')
 grpc_dep = dependency('grpc++')
-grpc_sources = ['player_service.pb.cc', 'player_service.grpc.pb.cc']
 
+protoc = find_program('protoc')
+grpc_cpp_plugin = find_program('grpc_cpp_plugin')
+
+gen_protobuf = generator(protoc,
+			 output: ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
+			 arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
+				     '--cpp_out=@BUILD_DIR@',
+				     '@INPUT@'])
+gen_protobuf_grpc = generator(protoc,
+			      output: ['@BASENAME@.grpc.pb.cc',
+				       '@BASENAME@.grpc.pb.h'],
+			      arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
+					  '--grpc_out=@BUILD_DIR@',
+					  '--plugin=protoc-gen-grpc=' +
+					  grpc_cpp_plugin.path(),
+					  '@INPUT@'])
+
+protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
+		  gen_protobuf.process('player_service.proto')]
+
+
+# Includes
+include = include_directories('include')
+
+
+# Executables
 executable('remote-control',
 	   sources: ['remote-control.cpp',
 		     'Config.cpp',
 		     'PlayerClient.cpp',
 		     'TempFile.cpp',
 		     'Util.cpp',
-		     grpc_sources],
+		     protobuf_files],
 	   link_args: '-lstdc++fs',
 	   dependencies: [grpc_dep, protobuf_dep],
 	   include_directories: include)
-
-# TODO: protoc -I . --cpp_out=. player_service.proto
-# 	protoc -I . --grpc_out=. --plugin=protoc-gen-grpc=/usr/bin/grpc_cpp_plugin player_service.proto
-# 	/usr/bin/... can be replaced with $(which grpc_cpp_plugin)
 
 executable('remote-player',
 	   sources: ['remote-player.cpp',
@@ -61,7 +83,7 @@ executable('remote-player',
 		     'Player.cpp',
 		     'PlayerServiceImpl.cpp',
 		     'Util.cpp',
-		     grpc_sources],
+		     protobuf_files],
 	   include_directories: include,
 	   dependencies: [mpv_dep, grpc_dep, protobuf_dep])
 
