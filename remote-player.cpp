@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
   arguments args;
   argp_parse(&argp, argc, argv, 0, 0, &args);
 
+  try {
   initialize_config(&args);
 
   grpc::ServerBuilder builder;
@@ -124,6 +125,9 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
   server->Wait();
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << '\n';
+  }
 
   return 0;
 }

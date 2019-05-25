@@ -159,6 +159,7 @@ int main (int argc, char** argv) {
   arguments args;
   argp_parse(&argp, argc, argv, 0, 0, &args);
 
+  try {
   initialize_config(&args);
 
   grpc::string grpc_address(Config::Get("grpc_host") + ':' +
@@ -189,4 +190,7 @@ int main (int argc, char** argv) {
   std::this_thread::sleep_for(std::chrono::seconds(5));
   remote.Stop();
   // remote.TogglePause();
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << '\n';
+  }
 }
