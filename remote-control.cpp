@@ -43,6 +43,7 @@ static argp_option options[] = {
   {"host", 'h', "ADDRESS", 0, "Address of the gRPC server", 0},
   {"port", 'p', "NUM", 0, "Port for gRPC", 0},
   {"streaming-port", 's', "NUM", 0, "Port for streaming music", 0},
+  {"pass", 'P', "PASSPHRASE", 0, "Passphrase for queries to the server", 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -51,6 +52,7 @@ struct arguments {
   std::string grpc_host;
   std::string grpc_port;
   std::string streaming_port;
+  std::string passphrase;
 };
 
 static error_t parse_opt(int key, char* arg, argp_state* state) {
@@ -84,6 +86,9 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
       break;
     case 'h':
       args->grpc_host = arg;
+      break;
+    case 'P':
+      args->passphrase = arg;
       break;
     default:
       return ARGP_ERR_UNKNOWN;
@@ -131,6 +136,13 @@ int initialize_config(arguments* args) {
              port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
     throw std::logic_error("Port for streaming (" + streaming_port +
                            ") is invalid");
+  }
+
+  if (not args->passphrase.empty()) {
+    Config::Set("passphrase", args->passphrase);
+  }
+  if (Config::Get("passphrase").empty()) {
+    throw std::logic_error("Passphrase not provided.");
   }
 
   return 0;

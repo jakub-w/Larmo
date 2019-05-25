@@ -38,12 +38,14 @@ static char doc[] =
 static argp_option options[] = {
   {"port", 'p', "NUM", 0, "Port for gRPC", 0},
   {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
+  {"pass", 'P', "PASSPHRASE", 0, "Passphrase for client queries", 0},
   {0, 0, 0, 0, 0, 0}
 };
 
 struct arguments {
   std::string grpc_port;
   std::string config_file;
+  std::string passphrase;
 };
 
 static error_t parse_opt(int key, char* arg, argp_state* state) {
@@ -71,6 +73,9 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
         return EINVAL;
       }
       break;
+    case 'P':
+      args->passphrase = arg;
+      break;
     default:
       return ARGP_ERR_UNKNOWN;
   }
@@ -93,6 +98,13 @@ int initialize_config(arguments* args) {
   }
   if (Config::Get("grpc_port").empty()) {
     throw std::logic_error("Port for gRPC not provided.");
+  }
+
+  if (not args->passphrase.empty()) {
+    Config::Set("passphrase", args->passphrase);
+  }
+  if (Config::Get("passphrase").empty()) {
+    throw std::logic_error("Passphrase not provided.");
   }
 
   return 0;
