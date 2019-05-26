@@ -21,8 +21,6 @@
 #include <filesystem>
 #include <fstream>
 
-#include <mpv/client.h>
-
 #include "grpcpp/channel.h"
 
 #include "TempFile.h"
