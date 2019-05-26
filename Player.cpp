@@ -65,6 +65,43 @@ int Player::Stop() {
   return send_command_({"stop"});
 }
 
+int Player::Volume(std::string_view volume) {
+  try {
+    if (volume.empty()) {
+      throw std::invalid_argument("Volume argument is empty");
+    }
+
+    int64_t vol;
+
+    if (volume[0] == '+' or volume[0] == '-') {
+      int relative_volume;
+
+      // if just '+' or '-', increment or decrement by 5
+      if (volume.length() < 2) {
+        relative_volume = 5;
+      } else {
+        relative_volume = std::stoi(volume.data() + 1);
+      }
+
+      mpv_get_property(ctx_.get(), "volume", MPV_FORMAT_INT64, &vol);
+
+      if (volume[0] == '+') {
+        vol += relative_volume;
+      } else {
+        vol -= relative_volume;
+      }
+    } else {
+      vol = std::stoi(volume.data());
+    }
+    vol = std::clamp(vol, (int64_t)0, (int64_t)100);
+
+    return check_result(
+          mpv_set_property(ctx_.get(), "volume", MPV_FORMAT_INT64, &vol));
+  } catch (const std::invalid_argument& e) {
+    return MPV_ERROR_INVALID_PARAMETER;
+  }
+}
+
 int Player::PlayFrom(std::string_view host, std::string_view port) {
   std::cout << "Closing the socket...\n";
   tcp_sock_.close();

@@ -57,6 +57,9 @@ class Player {
   int Play();
   int TogglePause();
   int Stop();
+
+  // volume - can be a number from [0; 100] or +/-number, e.g. +10 or 75
+  int Volume(std::string_view volume);
   int PlayFrom(std::string_view host, std::string_view port);
 };
 }

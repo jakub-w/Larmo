@@ -46,6 +46,7 @@ class PlayerClient {
   int Play(std::string_view filename);
   int Stop();
   int TogglePause();
+  int Volume(std::string_view volume);
 };
 
 #endif // LRM_PLAYERCLIENT_H

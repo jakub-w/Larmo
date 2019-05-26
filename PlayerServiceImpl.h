@@ -42,6 +42,10 @@ class PlayerServiceImpl : public PlayerService::Service {
   Status TogglePause(ServerContext* context,
                      const Empty*,
                      MpvResponse* response);
+
+  Status Volume(ServerContext* context,
+                const VolumeMessage* volume,
+                MpvResponse* response);
 };
 
 #endif // LRM_PLAYERSERVICEIMPL_H

@@ -22,6 +22,10 @@ message StreamingPort {
   int32 port = 1;
 }
 
+message VolumeMessage {
+  string volume = 1;
+}
+
 message MpvResponse {
   int32 response = 1;
 }
@@ -32,4 +36,5 @@ service PlayerService {
   rpc PlayFrom(StreamingPort) returns (MpvResponse) {}
   rpc Stop(Empty) returns (MpvResponse) {}
   rpc TogglePause(Empty) returns (MpvResponse) {}
+  rpc Volume(VolumeMessage) returns (MpvResponse) {}
 }

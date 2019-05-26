@@ -81,3 +81,14 @@ PlayerServiceImpl::TogglePause(ServerContext* context,
 
   return Status::OK;
 }
+
+Status
+PlayerServiceImpl::Volume(ServerContext* context,
+                          const VolumeMessage* volume,
+                          MpvResponse* response) {
+  CHECK_PASSPHRASE(context);
+
+  response->set_response(player.Volume(volume->volume()));
+
+  return Status::OK;
+}

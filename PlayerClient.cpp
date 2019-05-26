@@ -304,3 +304,14 @@ int PlayerClient::TogglePause() {
   grpc::Status status = stub_->TogglePause(&context, Empty(), &response);
   return response.response();
 }
+
+int PlayerClient::Volume(std::string_view volume) {
+  ClientContext context;
+  MpvResponse response;
+
+  VolumeMessage vol_msg;
+  vol_msg.set_volume(volume.data());
+
+  grpc::Status status = stub_->Volume(&context, vol_msg, &response);
+  return response.response();
+}
