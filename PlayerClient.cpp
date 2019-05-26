@@ -64,17 +64,17 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
   FD_ZERO(&set);
   FD_SET(pipe_fd, &set);
 
-  std::cout << "Calling select...\n";
+  // std::cout << "Calling select...\n";
   int select_result = TEMP_FAILURE_RETRY(
       select(FD_SETSIZE, &set, nullptr, nullptr, &time));
-  std::cout << "Select returned with: " << select_result << ".\n";
+  // std::cout << "Select returned with: " << select_result << ".\n";
 
   switch (select_result) {
     case 1:
       char port_buffer[10]; // max port number is 5-digit
-      std::cout << "fgets...\n";
+      // std::cout << "fgets...\n";
       fgets(port_buffer, 10, port_stream);
-      std::cout << "fgets returns: " << port_buffer << '\n';
+      // std::cout << "fgets returns: " << port_buffer << '\n';
       fclose(port_stream);
       return (unsigned short) std::stoi(port_buffer);
     case 0:
@@ -103,7 +103,7 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
 // by the parent.
 int PlayerClient::stream_file(const std::string filename,
                               const unsigned short port) {
-  std::cout << "Forking the process...\n";
+  // std::cout << "Forking the process...\n";
   int port_pipe[2];
 
   if (0 != pipe(port_pipe)) {
@@ -222,7 +222,7 @@ int PlayerClient::stream_file(const std::string filename,
 
     std::_Exit(exit_code);
   } else {  // parent
-    std::cout << "Child pid: " << pid << '\n';
+    // std::cout << "Child pid: " << pid << '\n';
 
     close(port_pipe[1]);
 
@@ -261,7 +261,7 @@ PlayerClient::PlayerClient(const std::string& streaming_port,
 }
 
 int PlayerClient::Play(std::string_view filename) {
-  std::cout << "Opening a stream.\n";
+  // std::cout << "Opening a stream.\n";
   try {
     unsigned short port = stream_file(filename.data(), port_.port());
     port_.set_port(port);
@@ -274,11 +274,11 @@ int PlayerClient::Play(std::string_view filename) {
 
   ClientContext context;
   MpvResponse response;
-  std::cout << "Sending an RPC request.\n";
+  // std::cout << "Sending an RPC request.\n";
   grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
-    std::cout << "Status: ok\n";
+    // std::cout << "Status: ok\n";
     // stream_socket_ = stream_acceptor_.accept(io_context_);
     // stream_socket_.async_send(asio::buffer(bytes), handle_write);
 

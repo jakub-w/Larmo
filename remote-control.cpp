@@ -248,6 +248,9 @@ int main (int argc, char** argv) {
   arguments args;
   argp_parse(&argp, argc, argv, 0, 0, &args);
 
+  // std::cout << args.command << ' ' << args.command_arg << '\n';
+  // return 0;
+
   try {
   initialize_config(&args);
 
