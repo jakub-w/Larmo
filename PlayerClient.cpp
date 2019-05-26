@@ -266,6 +266,7 @@ int PlayerClient::Play(std::string_view filename) {
     unsigned short port = stream_file(filename.data(), port_.port());
     port_.set_port(port);
   } catch (const std::exception& e) {
+    // TODO: Rethrow
     std::cerr << "Error while trying to open a stream: "
               << e.what() << '\n';
     return -101;
@@ -283,9 +284,7 @@ int PlayerClient::Play(std::string_view filename) {
 
     return response.response();
   } else {
-    std::cerr << "gRPC error: " << status.error_message() << " ("
-              << status.error_details() << ')' << '\n';
-    return -100;
+    throw status;
   }
 }
 
@@ -294,7 +293,11 @@ int PlayerClient::Stop() {
   MpvResponse response;
 
   grpc::Status status = stub_->Stop(&context, Empty(), &response);
-  return response.response();
+  if (status.ok()) {
+    return response.response();
+  } else {
+    throw status;
+  }
 }
 
 int PlayerClient::TogglePause() {
@@ -302,7 +305,11 @@ int PlayerClient::TogglePause() {
   MpvResponse response;
 
   grpc::Status status = stub_->TogglePause(&context, Empty(), &response);
-  return response.response();
+  if (status.ok()) {
+    return response.response();
+  } else {
+    throw status;
+  }
 }
 
 int PlayerClient::Volume(std::string_view volume) {
@@ -313,5 +320,10 @@ int PlayerClient::Volume(std::string_view volume) {
   vol_msg.set_volume(volume.data());
 
   grpc::Status status = stub_->Volume(&context, vol_msg, &response);
-  return response.response();
+  if (status.ok()) {
+    return response.response();
+  } else {
+    throw status;
+  }
+}
 }

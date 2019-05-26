@@ -295,5 +295,11 @@ int main (int argc, char** argv) {
   // remote.TogglePause();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << '\n';
+    return -10;
+  } catch (const grpc::Status& s) {
+    // std::cerr << s.error_code() << ": ";
+    std::cerr << "gRPC error: " << s.error_message() << " ("
+              << s.error_details() << ")\n";
+    return s.error_code();
   }
 }
