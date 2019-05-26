@@ -38,6 +38,7 @@ int Player::send_command_(const std::vector<std::string>&& args) {
 Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy) {
   mpv_initialize(ctx_.get());
   mpv_set_property_string(ctx_.get(), "log-file", "mpv.log");
+  mpv_set_property_string(ctx_.get(), "video", "no");
   mpv_request_log_messages(ctx_.get(), "debug");
 }
 
