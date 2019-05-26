@@ -65,8 +65,7 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
       }
       break;
     case 'c':
-      struct stat buffer;
-      if (stat(arg, &buffer) == 0) {
+      if (lrm::file_exists(arg)) {
         args->config_file = arg;
       } else {
         argp_error(state, "File doesn't exist: %s", arg);

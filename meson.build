@@ -48,13 +48,15 @@ grpc_cpp_plugin = find_program('grpc_cpp_plugin')
 gen_protobuf = generator(protoc,
 			 output: ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
 			 arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
-				     '--cpp_out=@BUILD_DIR@',
+				     # '--cpp_out=@BUILD_DIR@',
+				     '--cpp_out=@CURRENT_SOURCE_DIR@',
 				     '@INPUT@'])
 gen_protobuf_grpc = generator(protoc,
 			      output: ['@BASENAME@.grpc.pb.cc',
 				       '@BASENAME@.grpc.pb.h'],
 			      arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
-					  '--grpc_out=@BUILD_DIR@',
+					  # '--grpc_out=@BUILD_DIR@',
+					  '--grpc_out=@CURRENT_SOURCE_DIR@',
 					  '--plugin=protoc-gen-grpc=' +
 					  grpc_cpp_plugin.path(),
 					  '@INPUT@'])

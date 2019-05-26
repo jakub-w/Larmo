@@ -44,9 +44,9 @@ Status
 PlayerServiceImpl::PlayFrom(ServerContext* context,
                             const StreamingPort* port,
                             MpvResponse* response) {
-  CHECK_PASSPHRASE(context)
+  CHECK_PASSPHRASE(context);
 
-      std::vector<std::string> peer = lrm::tokenize(context->peer(), ":");
+  std::vector<std::string> peer = lrm::tokenize(context->peer(), ":");
 
   if (peer.size() != 3 or not lrm::is_ipv4(peer[1])) {
     std::cerr << "Couldn't retrieve client's address.\n";
@@ -64,9 +64,9 @@ Status
 PlayerServiceImpl::Stop(ServerContext* context,
                         const Empty*,
                         MpvResponse* response) {
-  CHECK_PASSPHRASE(context)
+  CHECK_PASSPHRASE(context);
 
-      response->set_response(player.Stop());
+  response->set_response(player.Stop());
 
   return Status::OK;
 }
@@ -75,9 +75,9 @@ Status
 PlayerServiceImpl::TogglePause(ServerContext* context,
                                const Empty*,
                                MpvResponse* response) {
-  CHECK_PASSPHRASE(context)
+  CHECK_PASSPHRASE(context);
 
-      response->set_response(player.TogglePause());
+  response->set_response(player.TogglePause());
 
   return Status::OK;
 }
