@@ -92,3 +92,12 @@ PlayerServiceImpl::Volume(ServerContext* context,
 
   return Status::OK;
 }
+
+Status
+PlayerServiceImpl::Ping(ServerContext* context,
+                        const Empty*,
+                        Empty*) {
+  CHECK_PASSPHRASE(context);
+
+  return Status::OK;
+}

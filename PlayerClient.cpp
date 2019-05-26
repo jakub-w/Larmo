@@ -326,4 +326,12 @@ int PlayerClient::Volume(std::string_view volume) {
     throw status;
   }
 }
+
+bool PlayerClient::Ping() {
+  ClientContext context;
+  Empty empty;
+
+  grpc::Status status = stub_->Ping(&context, empty, &empty);
+
+  return status.ok();
 }

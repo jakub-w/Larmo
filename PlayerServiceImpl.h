@@ -46,6 +46,10 @@ class PlayerServiceImpl : public PlayerService::Service {
   Status Volume(ServerContext* context,
                 const VolumeMessage* volume,
                 MpvResponse* response);
+
+  Status Ping(ServerContext* context,
+              const Empty*,
+              Empty*);
 };
 
 #endif // LRM_PLAYERSERVICEIMPL_H

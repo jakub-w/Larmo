@@ -37,4 +37,5 @@ service PlayerService {
   rpc Stop(Empty) returns (MpvResponse) {}
   rpc TogglePause(Empty) returns (MpvResponse) {}
   rpc Volume(VolumeMessage) returns (MpvResponse) {}
+  rpc Ping(Empty) returns (Empty) {}
 }

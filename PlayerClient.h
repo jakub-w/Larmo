@@ -47,6 +47,7 @@ class PlayerClient {
   int Stop();
   int TogglePause();
   int Volume(std::string_view volume);
+  bool Ping();
 };
 
 #endif // LRM_PLAYERCLIENT_H

@@ -42,7 +42,8 @@ static char doc[] =
     "  play FILE\n"
     "  stop\n"
     "  toggle-pause\n"
-    "  volume VOL\t" "Absolute (e.g. 50) or relative (e.g. +10)";
+    "  volume VOL\t" "Absolute (e.g. 50) or relative (e.g. +10)\n"
+    "  ping";
 
 static argp_option options[] = {
   {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
@@ -68,7 +69,8 @@ static const std::unordered_map<std::string, bool> commands = {
   {"play", true},
   {"stop", false},
   {"toggle-pause", false},
-  {"volume", true}
+  {"volume", true},
+  {"ping", false}
 };
 
 static const char args_doc[] = "COMMAND [ARG]";
@@ -276,11 +278,8 @@ int main (int argc, char** argv) {
     result = remote.TogglePause();
   } else if (args.command == "volume") {
     result = remote.Volume(args.command_arg);
-  }
-
-  if (result < 0) {
-    std::cerr << "Error.\n";
-    return 1;
+  } else if (args.command == "ping") {
+    return (remote.Ping() ? 0 : 1);
   }
 
   // remote.Play("/tmp/file.mp3");
