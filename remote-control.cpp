@@ -22,7 +22,7 @@
 #include <tuple>
 #include <string_view>
 #include <thread>
-#include <unordered_set>
+#include <unordered_map>
 #include <future>
 #include <mutex>
 
@@ -63,11 +63,12 @@ struct arguments {
   std::string passphrase;
 };
 
-static const std::unordered_set<std::string> commands = {
-  "play",
-  "stop",
-  "toggle-pause",
-  "volume"
+// bool value is true if the command requires an argument
+static const std::unordered_map<std::string, bool> commands = {
+  {"play", true},
+  {"stop", false},
+  {"toggle-pause", false},
+  {"volume", true}
 };
 
 static const char args_doc[] = "COMMAND [ARG]";
@@ -90,7 +91,16 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
           break;
         }
       }
-
+      break;
+    case ARGP_KEY_SUCCESS:
+      if (auto cmd = commands.find(args->command);
+          (cmd != commands.end()) and
+          (cmd->second == true) and
+          (args->command_arg.empty())) {
+        argp_error(state, "Command '%s' requires an argument",
+                   cmd->first.c_str());
+        return EINVAL;
+      }
       break;
     case 'p': case 's':
       try {
