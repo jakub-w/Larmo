@@ -24,11 +24,17 @@
 #include <string_view>
 #include <vector>
 
+#include <sys/stat.h>
+
 namespace lrm {
 std::vector<std::string> tokenize(std::string_view str,
                                   std::string_view delimiters = " ");
 bool is_ipv4(std::string_view ip);
 std::string file_to_str(std::string_view filename);
+inline bool file_exists(std::string_view filename) {
+  struct stat buffer;
+  return stat(filename.data(), &buffer) == 0;
+}
 }
 
 #endif // LRM_UTIL_H

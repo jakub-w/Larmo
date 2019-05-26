@@ -22,6 +22,7 @@
 #include <tuple>
 #include <string_view>
 #include <thread>
+#include <unordered_set>
 #include <future>
 #include <mutex>
 
@@ -36,7 +37,12 @@
 const char* argp_program_version = "lrm-client 0.1";
 const char* argp_program_bug_address = "<doesnt@exist.addr>";
 static char doc[] =
-    "Lelo Remote Music Control -- Client for Lelo Remote Music Player";
+    "Lelo Remote Music Control -- Client for Lelo Remote Music Player\v"
+    "Commands:\n"
+    "  play FILE\n"
+    "  stop\n"
+    "  toggle-pause\n"
+    "  volume VOL\t" "Absolute (e.g. 50) or relative (e.g. +10)";
 
 static argp_option options[] = {
   {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
@@ -48,6 +54,8 @@ static argp_option options[] = {
 };
 
 struct arguments {
+  std::string command;
+  std::string command_arg;
   std::string config_file;
   std::string grpc_host;
   std::string grpc_port;
@@ -55,10 +63,35 @@ struct arguments {
   std::string passphrase;
 };
 
+static const std::unordered_set<std::string> commands = {
+  "play",
+  "stop",
+  "toggle-pause",
+  "volume"
+};
+
+static const char args_doc[] = "COMMAND [ARG]";
+
 static error_t parse_opt(int key, char* arg, argp_state* state) {
   arguments* args = (arguments*)state->input;
 
   switch(key) {
+    case ARGP_KEY_INIT:
+      // Check if "volume" command is used, in that case check its argument
+      // and if it's a negative number, replace '-' in front of it with 'm'.
+      // Otherwise argp would interpret this argument as an option which
+      // doesn't exist.
+      for (auto i = 0; i < state->argc; ++i) {
+        if ((std::strcmp(state->argv[i], "volume") == 0) and
+            (i + 1 < state->argc) and
+            (std::strlen(state->argv[i + 1]) > 1) and
+            (state->argv[i + 1][0] == '-')) {
+          state->argv[i + 1][0] = 'm';
+          break;
+        }
+      }
+
+      break;
     case 'p': case 's':
       try {
         int port = std::stoi(arg);
@@ -90,13 +123,45 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
     case 'P':
       args->passphrase = arg;
       break;
+    case ARGP_KEY_ARG:
+      if (commands.find(arg) == commands.end()) {
+        if (not args->command_arg.empty()) {
+          return ARGP_ERR_UNKNOWN;
+        }
+        if (args->command == "play") {
+          if (lrm::file_exists(arg)) {
+            args->command_arg = arg;
+          } else {
+            argp_error(state, "File doesn't exist: %s", arg);
+          }
+        } else if (args->command == "volume") {
+          int length = std::strlen(arg);
+          if (length > 1 and arg[0] == 'm') {
+            arg[0] = '-';
+          }
+
+          args->command_arg = arg;
+        } else {
+          argp_error(state, "Unknown command: %s", arg);
+          return EINVAL;
+        }
+      } else {
+        args->command = arg;
+      }
+      break;
+    case ARGP_KEY_NO_ARGS:
+      argp_usage(state);
+      // argp_state_help(state, state->err_stream,
+                      // ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR);
+      return EINVAL;
     default:
       return ARGP_ERR_UNKNOWN;
   }
   return 0;
 }
 
-static argp argp = { options, parse_opt, 0, doc, 0, 0, 0 };
+static argp argp = { options, parse_opt, args_doc,
+                     doc, 0, 0, 0 };
 
 int initialize_config(arguments* args) {
   // This will throw if the config file cannot be loaded.
@@ -192,15 +257,31 @@ int main (int argc, char** argv) {
   auto remote = PlayerClient{Config::Get("streaming_port"),
                              grpc::CreateChannel(grpc_address, creds)};
 
+  int result = 0;
+  if (args.command == "play") {
+    result = remote.Play(args.command_arg);
+  } else if (args.command == "stop") {
+    result = remote.Stop();
+  } else if (args.command == "toggle-pause") {
+    result = remote.TogglePause();
+  } else if (args.command == "volume") {
+    result = remote.Volume(args.command_arg);
+  }
+
+  if (result < 0) {
+    std::cerr << "Error.\n";
+    return 1;
+  }
+
   // remote.Play("/tmp/file.mp3");
   // std::this_thread::sleep_for(std::chrono::seconds(1));
-  remote.Play("/tmp/file.flac");
+  // remote.Play("/tmp/file.flac");
   // std::this_thread::sleep_for(std::chrono::seconds(10));
   // // remote.TogglePause();
   // // std::this_thread::sleep_for(std::chrono::seconds(1));
   // // remote.TogglePause();
-  std::this_thread::sleep_for(std::chrono::seconds(5));
-  remote.Stop();
+  // std::this_thread::sleep_for(std::chrono::seconds(1));
+  // remote.Stop();
   // remote.TogglePause();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << '\n';
