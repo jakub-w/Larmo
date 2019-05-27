@@ -64,8 +64,10 @@ std::string file_to_str(std::string_view filename) {
 
     in_stream.seekg(0, std::ios::beg);
 
-    char* str = new char[length];
+    char* str = new char[length+1];
     in_stream.read(str, length);
+    in_stream.read(str, length);
+    str[length] = '\0';
 
     std::string result(str);
     delete[] str;
