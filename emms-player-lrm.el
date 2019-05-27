@@ -63,6 +63,11 @@ These variables take precedence over `emms-player-lrm-config'."
   :type '(string)
   :group 'emms-player-lrm)
 
+(defcustom emms-player-lrm-cert nil
+  "The SSL certificate file for Lelo Remote Music Server."
+  :type '(file :must-match t)
+  :group 'emms-player-lrm)
+
 (emms-player-set emms-player-lrm
 		 'regex
                  (apply #'emms-player-simple-regexp
@@ -76,13 +81,13 @@ These variables take precedence over `emms-player-lrm-config'."
 		 'resume
 		 'emms-player-lrm-toggle-pause)
 
-(emms-player-set emms-player-lrm
-		 'seek
-		 'emms-player-lrm-seek)
+;; (emms-player-set emms-player-lrm
+;; 		 'seek
+;; 		 'emms-player-lrm-seek)
 
-(emms-player-set emms-player-lrm
-		 'seek-to
-		 'emms-player-lrm-seek-to)
+;; (emms-player-set emms-player-lrm
+;; 		 'seek-to
+;; 		 'emms-player-lrm-seek-to)
 
 ;; NOTE: Returning an error on failure is probably temporary.
 ;;       The user probably shouldn't be bothered by the backend.
@@ -97,9 +102,11 @@ These variables take precedence over `emms-player-lrm-config'."
 		args)
     (setq args (append pair args)))
   (with-temp-buffer
-    (let ((result (eval (append '(call-process emms-player-lrm-executable nil
-					       (current-buffer) nil)
-				args))))
+    (let* ((default-directory
+	     (file-name-directory emms-player-lrm-executable))
+	   (result (eval (append '(call-process emms-player-lrm-executable nil
+						(current-buffer) nil)
+				 args))))
       (when (/= 0 result)
 	(goto-char (point-min))
 	(error (buffer-substring (point) (point-at-eol))))
@@ -118,6 +125,14 @@ These variables take precedence over `emms-player-lrm-config'."
     (kill-buffer (process-buffer process)))))
 
 (defun emms-player-lrm-command-async (&rest args)
+  ;; wait for the process buffer to be deleted which will mean that the
+  ;; previous process finished
+  (when-let* ((buffer (get-buffer "*emms-player-lrm*")))
+    (cl-do* ((timeout 2000)
+    	     (sleep 500)
+    	     (time 0 (+ time sleep)))
+    	((or (not (buffer-live-p buffer)) (>= time timeout)))
+      (sleep-for 0 sleep)))
   (dolist (pair (seq-filter #'cadr
 			    `(("--host" ,emms-player-lrm-host)
 			      ("--port" ,emms-player-lrm-port)
@@ -125,20 +140,25 @@ These variables take precedence over `emms-player-lrm-config'."
 			      ("--config" ,emms-player-lrm-config)))
 		args)
     (setq args (append pair args)))
-  (make-process
-   :name "Lelo Remote Music"
-   :buffer (get-buffer-create "*emms-player-lrm*")
-   :command (cons emms-player-lrm-executable args)
-   :sentinel #'emms-player-lrm-command--sentinel))
+  (let ((default-directory (file-name-directory emms-player-lrm-executable))
+	(buffer (get-buffer-create "*emms-player-lrm*")))
+    (make-process
+     :name "Lelo Remote Music"
+     :buffer buffer
+     :command (cons emms-player-lrm-executable args)
+     :sentinel #'emms-player-lrm-command--sentinel)))
 ;; ------------------------------------------------------
 
 (defun emms-player-lrm-start (track)
   "Starts a process playing TRACK."
-  (emms-player-lrm-command-async "play" track))
+  (emms-player-lrm-command-async "play" (emms-track-name track))
+  ;; TODO: Check if play was successful, only then set a player as started
+  (emms-player-started 'emms-player-lrm))
 
 (defun emms-player-lrm-stop ()
   "Stop the currently playing track."
-  (emms-player-lrm-command "stop"))
+  (when (= 0 (emms-player-lrm-command "stop"))
+    (emms-player-stopped)))
 
 (defun emms-player-lrm-playable-p (track)
   "Check if a TRACK can be played."
@@ -169,12 +189,16 @@ These variables take precedence over `emms-player-lrm-config'."
       "~/Programming/remote-music-control/builddir/remote-control"
       emms-player-lrm-config
       "/home/lampilelo/Programming/remote-music-control/builddir/lrm.conf"
-      emms-player-lrm-host "archlelo")
-
-;; (emms-player-lrm-start "/data/lampilelo/Music/AC-DC - The Razors Edge (1990)/01-Thunderstruck.mp3")
-
-;; (emms-player-lrm-stop)
+      emms-player-lrm-host
+      "archlelo"
+      emms-player-lrm-cert
+      "/home/lampilelo/Programming/remote-music-control/builddir/server.crt")
+(add-to-list 'emms-player-list 'emms-player-lrm)
 
 (provide 'emms-player-lrm)
+
+;; (emms-player-lrm-start (emms-track 'file "/data/lampilelo/Music/AC-DC - The Razors Edge (1990)/01-Thunderstruck.mp3"))
+;; (emms-player-lrm-stop)
+;; (emms-player-lrm-command "stop")
 
 ;;; emms-player-lrm.el ends here
