@@ -51,9 +51,8 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
   struct timeval time = {timeout / 1000,  // tv_sec
                          (timeout % 1000) * 1000};  // tv_usec
 
-  FILE* port_stream;
-  if (port_stream = fdopen(pipe_fd, "r");
-      nullptr == port_stream) {
+  FILE* port_stream = fdopen(pipe_fd, "r");
+  if (nullptr == port_stream) {
     throw std::runtime_error("In wait_for_port: Couldn't open the file "
                              "descriptor");
   }
@@ -203,7 +202,6 @@ int PlayerClient::stream_file(const std::string filename,
                             }
                             context.stop();
                           });
-
         context.run();
 
       } catch (const std::exception& e) {
@@ -211,6 +209,7 @@ int PlayerClient::stream_file(const std::string filename,
         exit_code = EXIT_FAILURE;
       } catch (const asio::system_error& e) {
         log << "ASIO error: " << e.what() << '\n';
+        exit_code = EXIT_FAILURE;
       } catch (...) {
         exit_code = EXIT_FAILURE;
       }
@@ -259,6 +258,7 @@ PlayerClient::PlayerClient(const std::string& streaming_port,
 }
 
 int PlayerClient::Play(std::string_view filename) {
+  return 0; // TODO: not implemented
   // std::cout << "Opening a stream.\n";
   try {
     unsigned short port = stream_file(filename.data(), port_.port());

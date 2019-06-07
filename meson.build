@@ -16,7 +16,7 @@
 # along with Lelo Remote Music Player. If not, see
 # <https://www.gnu.org/licenses/>.
 
-project('remote-music-control', 'cpp',
+project('lelo-remote-music', 'cpp',
 	default_options: ['cpp_std=c++17'])
 
 # Build types
@@ -61,8 +61,17 @@ gen_protobuf_grpc = generator(protoc,
 					  grpc_cpp_plugin.path(),
 					  '@INPUT@'])
 
+gen_protobuf_daemon = generator(
+  protoc,
+  output: ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
+  arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
+	      '--cpp_out=@BUILD_DIR@',
+	      '@INPUT@'])
+
 protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 		  gen_protobuf.process('player_service.proto')]
+
+protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
 
 
 # Includes
@@ -73,12 +82,15 @@ include = include_directories('include')
 executable('remote-control',
 	   sources: ['remote-control.cpp',
 		     'Config.cpp',
+		     'Daemon.cpp',
+		     'GrpcCallAuthenticator.cpp',
 		     'PlayerClient.cpp',
 		     'TempFile.cpp',
 		     'Util.cpp',
-		     protobuf_files],
+		     protobuf_files,
+		     protobuf_daemon_files],
 	   link_args: '-lstdc++fs',
-	   dependencies: [grpc_dep, protobuf_dep],
+	   dependencies: [grpc_dep, protobuf_dep, boost_dep],
 	   include_directories: include)
 
 executable('remote-player',
@@ -93,5 +105,8 @@ executable('remote-player',
 
 
 executable('temp',
-	   sources: ['temp.cpp', 'Config.cpp', 'Util.cpp'],
-	   include_directories: include)
+	   sources: ['temp.cpp', 'Config.cpp'],
+	   include_directories: include,
+	   # dependencies: [boost_dep, protobuf_dep, grpc_dep],
+	   # link_args: ['-lpthread', '-lstdc++fs']
+	  )
