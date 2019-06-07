@@ -19,27 +19,55 @@
 #ifndef LRM_CONFIG_H
 #define LRM_CONFIG_H
 
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 #include <string>
-#include <map>
 
 class Config {
-  static const std::string default_conf_file_;
-  static std::map<std::string, std::string> config_;
-
-  static enum State {
+public:
+  enum State {
     NOT_LOADED,
     LOADED,
     ERROR
-  } state_;
+  };
 
-public:
+  Config() = delete;
+
   static void Load(std::string_view filename = default_conf_file_);
 
   static const std::string& Get(std::string_view variable);
   static inline State GetState() {
     return state_;
   }
+
+  // Set only if the 'value' is not empty. To unset use Config::Unset().
   static void Set(std::string_view variable, std::string_view value);
+
+  // Set only if the variable is not yet set (or is empty).
+  static void SetMaybe(std::string_view variable, std::string_view value);
+
+  static void Unset(std::string_view variable);
+
+  static void Require(std::string_view variable);
+
+  template<class InputIt>
+  static void Require(InputIt first, InputIt last);
+
+  static void Require(
+      std::initializer_list<std::unordered_set<std::string>::value_type>
+      variables);
+
+  // Returns a vector of names of the missing required variables from the
+  // config
+  static std::vector<const std::string*> CheckMissing();
+
+
+ private:
+  static const std::string default_conf_file_;
+  static std::unordered_map<std::string, std::string> config_;
+  static std::unordered_set<std::string> required_;
+  static State state_;
 };
 
 #endif // LRM_CONFIG_H
