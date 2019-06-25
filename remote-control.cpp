@@ -195,7 +195,6 @@ class daemon_init_error : public std::logic_error {
 }
 
 void init_logging(const std::filesystem::path& log_file) {
-  // TODO: Change the default logging location to something better
   std::filesystem::create_directories(log_file.parent_path());
 
   auto file_sink =
@@ -250,10 +249,17 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
             umask(0);
 
             std::filesystem::path log_file{Config::Get("log_file")};
+            // TODO: Change the default logging location to something better
             if (log_file.empty()) log_file = "/tmp/lrm/log";
             std::cout << "log_file = " << log_file.string() << '\n';
 
-            init_logging(log_file);
+            try {
+              init_logging(log_file);
+            } catch (const spdlog::spdlog_ex& ex) {
+              std::cout << "Log initialization failed: " << ex.what();
+              throw ex;
+            }
+
             std::cout << "Logging initialized\n";
 
             dinfo->log_file = log_file.string();
