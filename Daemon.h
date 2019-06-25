@@ -26,6 +26,8 @@
 
 #include "daemon_arguments.pb.h"
 
+#include "spdlog/spdlog.h"
+
 #include "PlayerClient.h"
 
 using namespace asio::local;
@@ -64,10 +66,8 @@ class Daemon {
   void start_accept();
   void connection_handler(std::unique_ptr<stream_protocol::socket>&& socket);
   void conn_handler(const asio::error_code& error);
-  std::ofstream& log();
 
   std::unique_ptr<daemon_info> dinfo_;
-  std::ofstream log_stream_;
 
   State state_ = UNINITIALIZED;
 
@@ -77,6 +77,8 @@ class Daemon {
   std::unique_ptr<stream_protocol::socket> connection_;
 
   std::unique_ptr<PlayerClient> remote_;
+
+  std::shared_ptr<spdlog::logger> log_;
 };
 }
 

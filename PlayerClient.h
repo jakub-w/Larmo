@@ -23,6 +23,8 @@
 
 #include "player_service.grpc.pb.h"
 
+#include "spdlog/spdlog.h"
+
 using namespace grpc;
 using namespace asio::ip;
 
@@ -56,6 +58,8 @@ class PlayerClient {
   tcp::acceptor streaming_acceptor_;
   tcp::endpoint streaming_endpoint_;
   tcp::socket streaming_socket_;
+
+  std::shared_ptr<spdlog::logger> log_;
 };
 
 #endif // LRM_PLAYERCLIENT_H

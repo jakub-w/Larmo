@@ -23,6 +23,8 @@
 
 #include "grpcpp/channel.h"
 
+#include "spdlog/spdlog.h"
+
 #include "TempFile.h"
 
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
@@ -229,20 +231,16 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
 
 int PlayerClient::stream_file(const std::string filename,
                               unsigned short port) {
-  // TODO: change the log file location
-  std::ofstream log("/tmp/lrm.log", std::ios::app);
-  std::unitbuf(log);
-
   streaming_endpoint_ = tcp::endpoint(tcp::v4(), port);
   streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
                         //.bind(streaming_endpoint_);
   port = streaming_acceptor_.local_endpoint().port();
-  log << "Opening port " << port << '\n';
+  log_->info("Opening port {}", port);
 
-  log << "Reading the file to a vector...\n";
+  log_->info("Reading the file to a vector...");
   streaming_file_ = read_file(filename);
 
-  log << "Waiting for connection...\n";
+  log_->info("Waiting for connection...");
   streaming_socket_.close();
   // streaming_socket_ = acceptor.accept();
   streaming_acceptor_.async_accept(
@@ -253,17 +251,18 @@ int PlayerClient::stream_file(const std::string filename,
           std::ofstream log("/tmp/lrm.log", std::ios::app);
           std::unitbuf(log);
           if (error) {
-            log << "ASIO error while trying to accept a connection:\n"
-                << '\t' << error.message() << '\n';
+            log_->error(
+                "ASIO error while trying to accept a connection:\n\t{}",
+                error.message());
             return;
           }
-          log << "Connection established. Sending the file.\n";
+          log_->info("Connection established. Sending the file.\n");
           size_t sent =
               asio::write(streaming_socket_, asio::buffer(streaming_file_));
-          log << "File uploaded. Bytes sent: " << sent << '\n';
+          log_->debug("File uploaded. Bytes sent: {}", sent);
         } catch (const asio::system_error& write_error) {
-          log << "ASIO error while uploading the file: "
-              << error.message() << '\n';
+          log_->error("ASIO error while uploading the file: {}",
+                      error.message());
         }
       });
 
@@ -273,7 +272,8 @@ int PlayerClient::stream_file(const std::string filename,
 PlayerClient::PlayerClient(std::shared_ptr<grpc_impl::Channel> channel)
     : stub_(PlayerService::NewStub(channel)),
       streaming_acceptor_(context_),
-      streaming_socket_(context_) {}
+      streaming_socket_(context_),
+      log_(spdlog::get("PlayerClient")) {}
 
 PlayerClient::PlayerClient(unsigned short streaming_port,
                            std::shared_ptr<Channel> channel)
@@ -305,25 +305,24 @@ unsigned short PlayerClient::set_port(unsigned short port) {
   return port;
 }
 
-int PlayerClient::Play(std::string_view filename) {
-  std::cout << "Opening a stream.\n";
+int PlayerClient::Play(std::string_view filename)
+{
+  log_->debug("PlayerClient::Play({})", filename);
+
   try {
     unsigned short port = stream_file(filename.data(), port_.port());
     port_.set_port(port);
   } catch (const std::exception& e) {
     // TODO: Rethrow
-    std::cerr << "Error while trying to open a stream: "
-              << e.what() << '\n';
+    log_->error("Error while trying to open a stream: {}", e.what());
     return -101;
   }
 
   ClientContext context;
   MpvResponse response;
-  // std::cout << "Sending an RPC request.\n";
   grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
-    // std::cout << "Status: ok\n";
     // stream_socket_ = stream_acceptor_.accept(io_context_);
     // stream_socket_.async_send(asio::buffer(bytes), handle_write);
 
@@ -334,6 +333,8 @@ int PlayerClient::Play(std::string_view filename) {
 }
 
 int PlayerClient::Stop() {
+  log_->debug("PlayerClient::Stop()");
+
   ClientContext context;
   MpvResponse response;
 
@@ -346,6 +347,8 @@ int PlayerClient::Stop() {
 }
 
 int PlayerClient::TogglePause() {
+  log_->debug("PlayerClient::TogglePause()");
+
   ClientContext context;
   MpvResponse response;
 
@@ -358,6 +361,8 @@ int PlayerClient::TogglePause() {
 }
 
 int PlayerClient::Volume(std::string_view volume) {
+  log_->debug("PlayerClient::Volume({})", volume);
+
   ClientContext context;
   MpvResponse response;
 
@@ -373,10 +378,15 @@ int PlayerClient::Volume(std::string_view volume) {
 }
 
 bool PlayerClient::Ping() {
+  log_->debug("PlayerClient::Ping()");
+
   ClientContext context;
   Empty empty;
 
   grpc::Status status = stub_->Ping(&context, empty, &empty);
-
-  return status.ok();
+  if (status.ok()) {
+    return status.ok();
+  } else {
+    throw status;
+  }
 }

@@ -32,6 +32,9 @@
 
 #include "asio.hpp"
 
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/basic_file_sink.h"
+
 #include "Config.h"
 #include "Daemon.h"
 #include "PlayerClient.h"
@@ -191,6 +194,41 @@ class daemon_init_error : public std::logic_error {
 };
 }
 
+void init_logging(const std::filesystem::path& log_file) {
+  // TODO: Change the default logging location to something better
+  std::filesystem::create_directories(log_file.parent_path());
+
+  auto file_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file.string(),
+                                                          true);
+
+  auto daemon_logger =
+      std::make_shared<spdlog::logger>("Daemon", file_sink);
+  spdlog::register_logger(daemon_logger);
+
+  auto playerclient_logger =
+      std::make_shared<spdlog::logger>("PlayerClient", file_sink);
+  spdlog::register_logger(playerclient_logger);
+
+  // Global settings
+#ifndef DNDEBUG
+  spdlog::set_level(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::debug);
+#else
+  auto debug_val = std::getenv("DEBUG");
+  if (debug_val == "true" or debug_val == "1") {
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_on(spdlog::level::debug);
+  } else {
+    spdlog::set_level(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::info);
+  }
+#endif // DNDEBUG
+
+  // This sets the logger globally for this process
+  // spdlog::set_default_logger(daemon_logger);
+}
+
 pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
   if (dinfo->config_file.empty()) {
     Config::Load();
@@ -207,20 +245,16 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
       {
         int exit_code = EXIT_SUCCESS;
         {
-          std::ofstream log;
-
           try {
             // Initialize a daemon process
             umask(0);
 
             std::filesystem::path log_file{Config::Get("log_file")};
-
-            // TODO: Change the default logging location to something better
             if (log_file.empty()) log_file = "/tmp/lrm/log";
-            std::filesystem::create_directories(log_file.parent_path());
+            std::cout << "log_file = " << log_file.string() << '\n';
 
-            log.open(log_file);
-            std::unitbuf(log);
+            init_logging(log_file);
+            std::cout << "Logging initialized\n";
 
             dinfo->log_file = log_file.string();
 
@@ -238,7 +272,7 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
             lrm::Daemon daemon(std::move(dinfo));
             daemon.Run();
           } catch (const std::exception& e) {
-            log << e.what() << std::endl;
+            spdlog::error(e.what());
             exit_code = EXIT_FAILURE;
           }
         }

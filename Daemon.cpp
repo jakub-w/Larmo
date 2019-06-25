@@ -22,6 +22,8 @@
 #include <filesystem>
 #include <fstream>
 
+#include "spdlog/spdlog.h"
+
 #include "daemon_arguments.pb.h"
 #include "grpcpp/create_channel.h"
 
@@ -36,7 +38,8 @@ namespace lrm {
 const std::filesystem::path Daemon::socket_path = "/tmp/lrm/socket";
 
 Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
-    : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_) {
+    : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_),
+      log_(spdlog::get("Daemon")) {
   assert(socket_path.is_absolute());
 
   std::filesystem::create_directories(socket_path.parent_path());
@@ -62,14 +65,14 @@ void Daemon::Run() {
   signals.async_wait([this](const asio::error_code& error,
                             int signal_number) {
                        if (not error) {
-                         log() << "Exiting on interrupt." << std::endl;
+                         log_->info("Exiting on interrupt");
                          context_.stop();
                        } else {
-                         log() << "[Error] " << error.message() << std::endl;
+                         log_->error(error.message());
                        }
                      });
 
-  log() << "Starting to Accept connections.\n";
+  log_->info("Starting to accept connections");
   start_accept();
 
   context_.run();
@@ -81,17 +84,17 @@ void Daemon::initialize_config() {
     return;
   }
 
-  log() << "Initializing the configuration from file: '";
+  std::filesystem::path conf;
+
   // This will throw if the config file cannot be loaded.
   if (dinfo_->config_file.empty()) {
-    // TODO: load config from /etc/ or XDG_CONFIG_HOME
-    Config::Load();
-    log() << Config::default_conf_file;
+    conf = Config::default_conf_file;
   } else {
-    Config::Load(dinfo_->config_file);
-    log() << dinfo_->config_file.string();
+    conf = dinfo_->config_file;
   }
-  log() << "'...\n";
+  log_->info("Initializing the configuration from file: '{}'...",
+               conf.string());
+  Config::Load(conf);
 
   // This will set config variables only if the arguments are not empty.
   // So it will overwrite only values that are set in dinfo_.
@@ -101,10 +104,13 @@ void Daemon::initialize_config() {
   Config::Set("passphrase", dinfo_->passphrase);
   Config::Set("cert_file", dinfo_->cert_file.string());
 
-  log() << "Settings:\n";
+  std::stringstream settings;
+  settings << "Settings:";
   for(auto& setting : Config::GetMap()) {
-    log() << '\t' << setting.first << " = " << setting.second << '\n';
+    if (setting.first.empty()) continue;
+    settings << "\n\t" << setting.first << " = " << setting.second;
   }
+  log_->info(settings.str());
 
   Config::Require({"grpc_port", "grpc_host", "passphrase", "cert_file"});
 
@@ -115,7 +121,7 @@ void Daemon::initialize_config() {
   }
   if (not missing.empty()) {
     error_message.erase(error_message.length() - 2);
-    log() << "[Error] " << error_message << '\n';
+    log_->error(error_message);
     throw std::logic_error(error_message);
   }
 
@@ -123,7 +129,7 @@ void Daemon::initialize_config() {
   if (int port = std::stoi(grpc_port);
       port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
     std::string error_message{"Port for gRPC (" + grpc_port + ") is invalid"};
-    log() << "[Error] " << error_message << '\n';
+    log_->error(error_message);
     throw std::logic_error(error_message);
   }
 
@@ -135,11 +141,12 @@ void Daemon::initialize_config() {
              port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
     std::string error_message{"Port for streaming (" + streaming_port +
                               ") is invalid"};
-    log() << "[Error] " << error_message << '\n';
+    log_->error(error_message);
     throw std::logic_error(error_message);
   }
 
   state_ = CONFIG_INITIALIZED;
+  log_->info("Configuration initialized.");
 }
 
 using namespace grpc;
@@ -150,12 +157,12 @@ void Daemon::initialize_grpc_client() {
     return;
   }
 
-  log() << "Initializing gRPC client...\n";
+  log_->info("Initializing gRPC client...");
 
   grpc::string grpc_address(Config::Get("grpc_host") + ':' +
                             Config::Get("grpc_port"));
 
-  log() << "Connecting to gRPC remote at: " << grpc_address << '\n';
+  log_->info("Connecting to gRPC remote at: {}", grpc_address);
 
   std::shared_ptr<grpc::ChannelCredentials> creds;
   {
@@ -166,7 +173,7 @@ void Daemon::initialize_grpc_client() {
     if (ssl_cert.empty()) {
       std::string error_message{"Certificate file '" +
                                 Config::Get("cert_file") + "'is empty"};
-      log() << "[Error] " << error_message << '\n';
+      log_->error(error_message);
       throw std::logic_error(error_message);
     }
     options.pem_root_certs = ssl_cert;
@@ -181,7 +188,7 @@ void Daemon::initialize_grpc_client() {
 
   state_ = GRPC_CLIENT_INITIALIZED;
 
-  log() << "gRPC client initialized\n";
+  log_->info("gRPC client initialized");
 }
 
 void Daemon::start_accept() {
@@ -198,8 +205,7 @@ void Daemon::start_accept() {
                       std::move(connection_)).detach();
           start_accept();
         } else {
-          log() << "[Error] Error in accept handler: " << error.message()
-                << std::endl;
+          log_->error("In accept handler: {}", error.message());
         }
       });
 }
@@ -209,8 +215,7 @@ void Daemon::connection_handler(
   DaemonArguments args;
   args.ParseFromFileDescriptor(socket->native_handle());
 
-  log() << "Request received: " << args.command() << " "
-        << args.command_arg() << std::endl;
+  log_->info("Request received: {} {}", args.command(), args.command_arg());
 
   DaemonResponse response;
 
@@ -239,7 +244,9 @@ void Daemon::connection_handler(
         response.set_response(std::string("[Error] ") + e.what());
       } catch (const grpc::Status& s) {
         response.set_exit_status(EXIT_FAILURE);
-        response.set_response("gRPC error: " + s.error_message());
+        response.set_response(
+            "gRPC error: " + s.error_message() +
+            (s.error_details().empty() ? "" : ", " + s.error_details()));
       }
       break;
     default:
@@ -251,16 +258,7 @@ void Daemon::connection_handler(
   response.SerializeToFileDescriptor(socket->native_handle());
   socket->close();
 
-  log() << "Response sent: (" << response.exit_status() << ") "
-        << response.response() << std::endl;
-}
-
-std::ofstream& Daemon::log() {
-  if (not log_stream_) {
-    std::filesystem::create_directories(dinfo_->log_file.parent_path());
-    log_stream_.open(dinfo_->log_file, std::ios::out);
-    std::unitbuf(log_stream_);
-  }
-  return log_stream_;
+  log_->info("Response sent: ({}) {}",
+             response.exit_status(), response.response());
 }
 }
