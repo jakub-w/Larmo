@@ -116,6 +116,11 @@ int main(int argc, char** argv) {
   try {
   initialize_config(&args);
 
+  std::cout << "Initializing with settings:\n"
+            << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
+            << "\tconfig_file: " << Config::Get("config_file") << '\n'
+            << "\tpassphrase: " << Config::Get("passphrase") << '\n';
+
   grpc::ServerBuilder builder;
   PlayerServiceImpl player_service;
 

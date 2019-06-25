@@ -291,6 +291,16 @@ int main(int argc, char** argv) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
           }
         }
+        std::cout << "Daemon started with settings:\n"
+                  << "\tconfig_file: " << Config::Get("config_file") << '\n'
+                  << "\tgrpc_host: " << Config::Get("grpc_host") << '\n'
+                  << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
+                  << "\tstreaming_port: " << Config::Get("streaming_port")
+                  << '\n'
+                  << "\tpassphrase: " << Config::Get("passphrase") << '\n'
+                  << "\tcert_file: " << Config::Get("cert_file") << "\n";
+
+        return EXIT_SUCCESS;
       } catch (const lrm::daemon_init_error&) {
         std::cerr << "Daemon not running. Use 'daemon' command.\n";
         return EXIT_FAILURE;
