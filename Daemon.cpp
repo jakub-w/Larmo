@@ -93,7 +93,7 @@ void Daemon::initialize_config() {
   Config::Set("grpc_host", dinfo_->grpc_host);
   Config::Set("streaming_port", dinfo_->streaming_port);
   Config::Set("passphrase", dinfo_->passphrase);
-  Config::Set("cert_file", dinfo_->cert_file);
+  Config::Set("cert_file", dinfo_->cert_file.string());
 
   Config::Require({"grpc_port", "grpc_host", "passphrase", "cert_file"});
 
@@ -228,6 +228,11 @@ void Daemon::connection_handler(
 }
 
 std::ofstream& Daemon::log() {
-  return *(dinfo_->log_file);
+  if (not log_stream_) {
+    std::filesystem::create_directories(dinfo_->log_file.parent_path());
+    log_stream_.open(dinfo_->log_file, std::ios::out);
+    std::unitbuf(log_stream_);
+  }
+  return log_stream_;
 }
 }

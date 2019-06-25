@@ -19,6 +19,7 @@
 #ifndef LRM_DAEMON_H_
 #define LRM_DAEMON_H_
 
+#include <fstream>
 #include <filesystem>
 
 #include <asio.hpp>
@@ -34,13 +35,13 @@ class Daemon {
  public:
   // TODO: make this struct be the argument for the constructor
   struct daemon_info {
-    std::string config_file;
-    std::ofstream* log_file;
+    std::filesystem::path config_file;
+    std::filesystem::path cert_file;
+    std::filesystem::path log_file;
     std::string grpc_host;
     std::string grpc_port;
     std::string streaming_port;
     std::string passphrase;
-    std::string cert_file;
   };
 
   enum State {
@@ -66,6 +67,7 @@ class Daemon {
   std::ofstream& log();
 
   std::unique_ptr<daemon_info> dinfo_;
+  std::ofstream log_stream_;
 
   State state_ = UNINITIALIZED;
 

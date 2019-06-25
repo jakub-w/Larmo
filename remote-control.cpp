@@ -195,8 +195,9 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
   if (dinfo->config_file.empty()) {
     Config::Load();
   } else {
-    Config::Load(dinfo->config_file);
+    Config::Load(dinfo->config_file.string());
   }
+  assert(Config::GetState() == Config::LOADED);
 
   pid_t pid = fork();
   switch (pid) {
@@ -212,23 +213,16 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
             // Initialize a daemon process
             umask(0);
 
-            assert(Config::GetState() == Config::LOADED);
-            // If no file path is specified default to /dev/null.
-            // Config::Get will not throw ever if the config is LOADED already
-            std::string config_file = Config::Get("config_file");
+            std::filesystem::path log_file{Config::Get("log_file")};
 
-            // TODO: Remove this. It's probably unnecessary.
-            // if (config_file.empty()) config_file = "/dev/null";
-            if (config_file.empty()) config_file = "/tmp/lrm/log";
-            std::cout << config_file << '\n';
+            // TODO: Change the default logging location to something better
+            if (log_file.empty()) log_file = "/tmp/lrm/log";
+            std::filesystem::create_directories(log_file.parent_path());
 
-            // TODO: Check if the path for config exists. This should be
-            //       fool-proof because you can't log not being able to open
-            //       the log for writing.
-            log.open(config_file);
+            log.open(log_file);
             std::unitbuf(log);
 
-            dinfo->log_file = &log;
+            dinfo->log_file = log_file.string();
 
             // if ((setsid() < 0) or
                 // (chdir("/") < 0)) {

@@ -19,6 +19,7 @@
 #ifndef LRM_CONFIG_H
 #define LRM_CONFIG_H
 
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -34,11 +35,17 @@ public:
 
   Config() = delete;
 
-  static void Load(std::string_view filename = default_conf_file_);
+  static void
+  Load(const std::filesystem::path& file_path = default_conf_file);
 
   static const std::string& Get(std::string_view variable);
   static inline State GetState() {
     return state_;
+  }
+
+  static inline const std::unordered_map<std::string, std::string>&
+  GetMap() {
+    return config_;
   }
 
   // Set only if the 'value' is not empty. To unset use Config::Unset().
@@ -62,9 +69,9 @@ public:
   // config
   static std::vector<const std::string*> CheckMissing();
 
+  static const std::string default_conf_file;
 
  private:
-  static const std::string default_conf_file_;
   static std::unordered_map<std::string, std::string> config_;
   static std::unordered_set<std::string> required_;
   static State state_;

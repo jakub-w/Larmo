@@ -22,23 +22,22 @@
 #include <iostream>
 #include <regex>
 
-const std::string Config::default_conf_file_ = "lrm.conf";
+const std::string Config::default_conf_file = "lrm.conf";
 std::unordered_map<std::string, std::string> Config::config_ = {};
 std::unordered_set<std::string> Config::required_ = {};
 Config::State Config::state_ = NOT_LOADED;
 
 // Define methods
-void Config::Load(std::string_view filename) {
+void Config::Load(const std::filesystem::path& file_path) {
   if (LOADED == state_) {
     return;
   }
 
-  // TODO: Consider not throwing, just not loading anything.
-  std::ifstream fs(filename.data());
+  std::ifstream fs(file_path);
   if (!fs) {
     state_ = ERROR;
     throw std::logic_error(std::string("Config file '")
-                           + filename.data() + "' could not be loaded.");
+                           + file_path.string() + "' could not be loaded.");
   }
 
   for (std::string line; std::getline(fs, line);) {
