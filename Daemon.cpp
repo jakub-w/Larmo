@@ -216,9 +216,9 @@ void Daemon::connection_handler(
 
   switch (state_) {
     case State::UNINITIALIZED:
-        response.set_exit_status(EXIT_FAILURE);
-        response.set_response("Daemon uninitialized. Use 'daemon' command.");
-        break;
+      response.set_exit_status(EXIT_FAILURE);
+      response.set_response("Daemon uninitialized. Use 'daemon' command.");
+      break;
     case State::GRPC_CLIENT_INITIALIZED:
       try {
         int result = 0;
@@ -236,7 +236,7 @@ void Daemon::connection_handler(
         response.set_exit_status(result);
       } catch (const std::exception& e) {
         response.set_exit_status(EXIT_FAILURE);
-        response.set_response(std::string("Error: ") + e.what());
+        response.set_response(std::string("[Error] ") + e.what());
       } catch (const grpc::Status& s) {
         response.set_exit_status(EXIT_FAILURE);
         response.set_response("gRPC error: " + s.error_message());

@@ -320,10 +320,8 @@ int main(int argc, char** argv) {
 
   if (args.command == "daemon") {
     std::cout << "Daemon already running.\n";
-    // TODO: Do stuff if daemon is running but the 'daemon' command was used
     return EXIT_SUCCESS;
   }
-
 
   DaemonArguments cmd;
   cmd.set_command(args.command);
