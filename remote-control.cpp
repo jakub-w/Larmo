@@ -29,6 +29,7 @@
 #include <argp.h>
 
 #include "grpcpp/create_channel.h"
+#include "grpc/support/log.h"
 
 #include "asio.hpp"
 
@@ -194,6 +195,14 @@ class daemon_init_error : public std::logic_error {
 };
 }
 
+void gpr_default_log(gpr_log_func_args* args);
+void gpr_log_function(struct gpr_log_func_args* args) {
+  if (args->severity == GPR_LOG_SEVERITY_ERROR) {
+    spdlog::error(args->message);
+  }
+  gpr_default_log(args);
+}
+
 void init_logging(const std::filesystem::path& log_file) {
   std::filesystem::create_directories(log_file.parent_path());
 
@@ -226,7 +235,10 @@ void init_logging(const std::filesystem::path& log_file) {
 #endif // DNDEBUG
 
   // This sets the logger globally for this process
-  // spdlog::set_default_logger(daemon_logger);
+  spdlog::set_default_logger(daemon_logger);
+
+  // Redirect gRPC error logs to the default logger
+  gpr_set_log_function(gpr_log_function);
 }
 
 pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {

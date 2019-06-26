@@ -92,7 +92,7 @@ executable('remote-control',
 		     'Util.cpp',
 		     protobuf_files,
 		     protobuf_daemon_files],
-	   link_args: '-lstdc++fs',
+	   link_args: ['-lstdc++fs', '-lgpr'],
 	   dependencies: [grpc_dep, protobuf_dep, boost_dep, spdlog_dep],
 	   include_directories: include)
 

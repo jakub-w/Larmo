@@ -214,13 +214,14 @@ void Daemon::initialize_grpc_client() {
                       state = channel->GetState(false);
 
                       std::string state_msg;
-                      spdlog::level::level_enum log_level =
-                          spdlog::level::debug;
+                      spdlog::level::level_enum log_level;
                       switch (state) {
                         case GRPC_CHANNEL_IDLE:
+                          log_level = spdlog::level::debug;
                           state_msg = "is idle";
                           break;
                         case GRPC_CHANNEL_CONNECTING:
+                          log_level = spdlog::level::info;
                           state_msg = "is connecting";
                           break;
                         case GRPC_CHANNEL_READY:
