@@ -206,11 +206,11 @@ int PlayerClient::stream_file(const std::string filename,
 
         context.run();
 
+      } catch (const asio::system_error& e) {
+        log << "ASIO error: " << e.what() << '\n';
       } catch (const std::exception& e) {
         log << "Error: " << e.what() << '\n';
         exit_code = EXIT_FAILURE;
-      } catch (const asio::system_error& e) {
-        log << "ASIO error: " << e.what() << '\n';
       } catch (...) {
         exit_code = EXIT_FAILURE;
       }

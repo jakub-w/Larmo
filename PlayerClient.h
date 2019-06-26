@@ -21,6 +21,7 @@
 
 #include <asio.hpp>
 
+#include "grpcpp/channel.h"
 #include "player_service.grpc.pb.h"
 
 using namespace grpc;

@@ -295,6 +295,7 @@ int main (int argc, char** argv) {
   // std::this_thread::sleep_for(std::chrono::seconds(1));
   // remote.Stop();
   // remote.TogglePause();
+    return result;
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << '\n';
     return -10;

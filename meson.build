@@ -92,6 +92,6 @@ executable('remote-player',
 	   dependencies: [mpv_dep, grpc_dep, protobuf_dep])
 
 
-executable('temp',
-	   sources: ['temp.cpp', 'Config.cpp', 'Util.cpp'],
-	   include_directories: include)
+# executable('temp',
+# 	   sources: ['temp.cpp', 'Config.cpp', 'Util.cpp'],
+# 	   include_directories: include)
