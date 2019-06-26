@@ -35,7 +35,8 @@
 using namespace asio::local;
 
 namespace lrm {
-const std::filesystem::path Daemon::socket_path = "/tmp/lrm/socket";
+const std::filesystem::path Daemon::socket_path =
+    std::filesystem::temp_directory_path().append("lrm/socket");
 
 Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
     : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_),

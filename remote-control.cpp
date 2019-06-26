@@ -251,7 +251,10 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
 
             std::filesystem::path log_file{Config::Get("log_file")};
             // TODO: Change the default logging location to something better
-            if (log_file.empty()) log_file = "/tmp/lrm/log";
+            if (log_file.empty()) {
+              log_file =
+                  std::filesystem::temp_directory_path().append("lrm/log");
+            }
             std::cout << "log_file = " << log_file.string() << '\n';
 
             try {
