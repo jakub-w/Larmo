@@ -210,12 +210,13 @@ void init_logging(const std::filesystem::path& log_file) {
   spdlog::register_logger(playerclient_logger);
 
   // Global settings
-#ifndef DNDEBUG
+#ifndef NDEBUG
   spdlog::set_level(spdlog::level::debug);
   spdlog::flush_on(spdlog::level::debug);
 #else
-  auto debug_val = std::getenv("DEBUG");
-  if (debug_val == "true" or debug_val == "1") {
+  char* debug_val = std::getenv("DEBUG");
+  if (debug_val and (std::strcmp(debug_val, "true") or
+                     std::strcmp(debug_val, "1"))) {
     spdlog::set_level(spdlog::level::debug);
     spdlog::flush_on(spdlog::level::debug);
   } else {
