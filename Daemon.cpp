@@ -43,8 +43,15 @@ Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
       log_(spdlog::get("Daemon")) {
   assert(socket_path.is_absolute());
 
-  std::filesystem::create_directories(socket_path.parent_path());
-  acceptor_ = stream_protocol::acceptor(context_, endpoint_, true);
+  try {
+    std::filesystem::create_directories(socket_path.parent_path());
+    acceptor_ = stream_protocol::acceptor(context_, endpoint_, true);
+  } catch (const std::filesystem::filesystem_error& e) {
+    log_->error("Couldn't create path ({}): {}",
+                e.path1().string(), e.what());
+  } catch (const asio::system_error& e) {
+    log_->error("Couldn't create the local socket: {}", e.what());
+  }
 }
 
 Daemon::~Daemon() noexcept {
