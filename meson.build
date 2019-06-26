@@ -104,7 +104,7 @@ executable('remote-player',
 		     'Util.cpp',
 		     protobuf_files],
 	   include_directories: include,
-	   dependencies: [mpv_dep, grpc_dep, protobuf_dep])
+	   dependencies: [mpv_dep, grpc_dep, protobuf_dep, spdlog_dep])
 
 
 executable('temp',

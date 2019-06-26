@@ -26,6 +26,7 @@
 
 #include "daemon_arguments.pb.h"
 #include "grpcpp/create_channel.h"
+#include "grpcpp/channel_impl.h"
 
 #include "Config.h"
 #include "GrpcCallAuthenticator.h"
@@ -59,9 +60,13 @@ Daemon::~Daemon() noexcept {
     std::filesystem::remove(socket_path);
   } catch (const std::filesystem::filesystem_error& e) {
     if (e.code() != std::errc::no_such_file_or_directory) {
-      // throw e;
+      log_->error("While removing a file '{}': {}",
+                  e.path1().string(), e.what());
     }
   }
+  try {
+    log_->flush();
+  } catch (...) {}
 }
 
 void Daemon::Run() {
@@ -161,6 +166,8 @@ using namespace grpc;
 
 void Daemon::initialize_grpc_client() {
   if (state_ != CONFIG_INITIALIZED) {
+    log_->warn("Called Daemon::initialize_grpc_client() while config was "
+               "not initialized");
     // TODO: probably throw
     return;
   }
@@ -177,22 +184,70 @@ void Daemon::initialize_grpc_client() {
     auto call_creds = grpc::MetadataCredentialsFromPlugin(
         std::make_unique<GrpcCallAuthenticator>(Config::Get("passphrase")));
     grpc::SslCredentialsOptions options;
+
     std::string ssl_cert = lrm::file_to_str(Config::Get("cert_file"));
+    // log_->debug("Certificate:\n{}", ssl_cert);
     if (ssl_cert.empty()) {
       std::string error_message{"Certificate file '" +
-                                Config::Get("cert_file") + "'is empty"};
+                                Config::Get("cert_file") + "' is empty"};
       log_->error(error_message);
       throw std::logic_error(error_message);
     }
-    options.pem_root_certs = ssl_cert;
+
+    options.pem_root_certs = std::move(ssl_cert);
     auto channel_creds = grpc::SslCredentials(options);
 
     creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
   }
 
-  remote_ = std::make_unique<PlayerClient>(
-      Config::Get("streaming_port"),
-      grpc::CreateChannel(grpc_address, creds));
+  {
+    auto channel = grpc::CreateChannel(grpc_address, creds);
+    // Trace the channel status
+    std::thread([=](){
+                  grpc_connectivity_state state = channel->GetState(true);
+                  for (;;) {
+                    if (channel->WaitForStateChange(
+                        state,
+                        std::chrono::system_clock::time_point(
+                            std::chrono::system_clock::now() +
+                            std::chrono::seconds(5)))) {
+                      state = channel->GetState(false);
+
+                      std::string state_msg;
+                      spdlog::level::level_enum log_level =
+                          spdlog::level::debug;
+                      switch (state) {
+                        case GRPC_CHANNEL_IDLE:
+                          state_msg = "is idle";
+                          break;
+                        case GRPC_CHANNEL_CONNECTING:
+                          state_msg = "is connecting";
+                          break;
+                        case GRPC_CHANNEL_READY:
+                          log_level = spdlog::level::info;
+                          state_msg = "is ready for work";
+                          break;
+                        case GRPC_CHANNEL_TRANSIENT_FAILURE:
+                          log_level = spdlog::level::warn;
+                          state_msg = "has seen a failure but expects"
+                                      " to recover";
+                          break;
+                        case GRPC_CHANNEL_SHUTDOWN:
+                          log_level = spdlog::level::err;
+                          state_msg = "has seen a failure that it"
+                                      " cannot recover from";
+                          break;
+                      }
+
+                      log_->log(log_level, "gRPC channel {}", state_msg);
+                    }
+                  }
+                }).detach();
+
+    remote_ = std::make_unique<PlayerClient>(
+        Config::Get("streaming_port"),
+        channel);
+  }
 
   state_ = GRPC_CLIENT_INITIALIZED;
 

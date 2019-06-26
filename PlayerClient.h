@@ -44,6 +44,8 @@ class PlayerClient {
                         std::shared_ptr<grpc_impl::Channel> channel) noexcept;
   explicit PlayerClient(const std::string& streaming_port,
                         std::shared_ptr<grpc_impl::Channel> channel) noexcept;
+  virtual ~PlayerClient() noexcept;
+
   int Play(std::string_view filename);
   int Stop();
   int TogglePause();

@@ -297,6 +297,12 @@ PlayerClient::PlayerClient(const std::string& streaming_port,
   port_.set_port(port);
 }
 
+PlayerClient::~PlayerClient() noexcept {
+  try {
+    log_->flush();
+  } catch (...) {}
+}
+
 unsigned short PlayerClient::set_port(unsigned short port) {
   if (not (port <= IPPORT_USERRESERVED and port != 0)) {
     port = 0;

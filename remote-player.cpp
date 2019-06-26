@@ -16,6 +16,7 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
+#include <filesystem>
 #include <random>
 
 #include <argp.h>
@@ -25,6 +26,10 @@
 
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 
 #include "Config.h"
 #include "PlayerServiceImpl.h"
@@ -109,6 +114,39 @@ int initialize_config(arguments* args) {
   return 0;
 }
 
+void init_logging(const std::filesystem::path& log_file) {
+  try {
+  std::filesystem::create_directories(log_file.parent_path());
+
+  std::vector<spdlog::sink_ptr> sinks;
+  sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+  sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+      log_file, /* 5 MB */ 1024 * 1024 * 5, 3, true));
+
+  auto combined_logger = std::make_shared<spdlog::logger>(
+      "remote-player", std::begin(sinks), std::end(sinks));
+
+  spdlog::set_default_logger(combined_logger);
+
+#ifndef NDEBUG
+  spdlog::set_level(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::debug);
+#else
+  char* debug_val = std::getenv("DEBUG");
+  if (debug_val and (std::strcmp(debug_val, "true") or
+                     std::strcmp(debug_val, "1"))) {
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_on(spdlog::level::debug);
+  } else {
+    spdlog::set_level(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::info);
+  }
+#endif // DNDEBUG
+  } catch (const spdlog::spdlog_ex& ex) {
+    std::cerr << "Log initialization failed: " << ex.what();
+  }
+}
+
 int main(int argc, char** argv) {
   arguments args;
   argp_parse(&argp, argc, argv, 0, 0, &args);
@@ -116,16 +154,46 @@ int main(int argc, char** argv) {
   try {
   initialize_config(&args);
 
-  std::cout << "Initializing with settings:\n"
-            << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
-            << "\tconfig_file: " << Config::Get("config_file") << '\n'
-            << "\tpassphrase: " << Config::Get("passphrase") << '\n';
+  // TODO: change it to "log_file"
+  std::filesystem::path log_file{Config::Get("player_log_file")};
+  // TODO: Change the default logging location to something better
+  if (log_file.empty()) {
+    log_file = std::filesystem::temp_directory_path()
+               .append("lrm/player.log");
+  }
+  std::cout << "log file: " << log_file.string() << '\n';
+
+  init_logging(log_file);
+
+  std::stringstream settings;
+  settings << "Settings:";
+  for(auto& setting : Config::GetMap()) {
+    if (setting.first.empty()) continue;
+    settings << "\n\t" << setting.first << " = " << setting.second;
+  }
+  spdlog::info(settings.str());
 
   grpc::ServerBuilder builder;
   PlayerServiceImpl player_service;
 
-  std::string ssl_cert = lrm::file_to_str("server.crt");
-  std::string ssl_key = lrm::file_to_str("server.key");
+  // TODO: get it from the config file or some default directory
+  Config::Set("cert_file", "server.crt");
+  Config::Set("key_file", "server.key");
+
+  std::string ssl_cert = lrm::file_to_str(Config::Get("cert_file"));
+  std::string ssl_key = lrm::file_to_str(Config::Get("key_file"));
+  if (ssl_cert.empty()) {
+    spdlog::error("Error: Certificate file '{}' is empty",
+                  Config::Get("cert_file"));
+    return EXIT_FAILURE;
+  }
+  if (ssl_key.empty()) {
+    spdlog::error("Error: Encryption key file '{}' is empty",
+                  Config::Get("key_file"));
+    return EXIT_FAILURE;
+  }
+
+  // spdlog::debug("Certificate:\n{}\n\nKey:\n{}", ssl_cert, ssl_key);
 
   grpc::SslServerCredentialsOptions ssl_options;
   ssl_options.pem_key_cert_pairs.push_back({ssl_key, ssl_cert});
@@ -137,9 +205,12 @@ int main(int argc, char** argv) {
 
   grpc::string address("0.0.0.0:" + Config::Get("grpc_port"));
   builder.AddListeningPort(address, creds);
+
   builder.RegisterService((Service*) &player_service);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
+  spdlog::info("gRPC listening on: '{}'...", address);
+
   server->Wait();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << '\n';
