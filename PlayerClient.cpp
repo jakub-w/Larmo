@@ -229,9 +229,12 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
 //   }
 // }
 
-int PlayerClient::stream_file(const std::string filename,
+int PlayerClient::start_streaming(const std::string filename,
                               unsigned short port) {
-  streaming_endpoint_ = tcp::endpoint(tcp::v4(), port);
+  streaming_acceptor_.close();
+  streaming_socket_.close();
+
+  streaming_endpoint_.port(port);
   streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
                         //.bind(streaming_endpoint_);
   port = streaming_acceptor_.local_endpoint().port();
@@ -240,31 +243,23 @@ int PlayerClient::stream_file(const std::string filename,
   log_->debug("Reading the file to a vector...");
   streaming_file_ = read_file(filename);
 
-  streaming_socket_.close();
-  // streaming_socket_ = acceptor.accept();
-  streaming_acceptor_.async_accept(
-      streaming_socket_,
-      streaming_endpoint_,
-      [&](const asio::error_code& error){
-        try {
-          std::ofstream log("/tmp/lrm.log", std::ios::app);
-          std::unitbuf(log);
-          if (error) {
-            log_->error(
-                "ASIO error while trying to accept a connection:\n\t{}",
-                error.message());
-            return;
-          }
-          log_->info("Connection established. Sending the file.\n");
-          size_t sent =
-              asio::write(streaming_socket_, asio::buffer(streaming_file_));
-          log_->debug("File uploaded. Bytes sent: {}", sent);
-        } catch (const asio::system_error& write_error) {
-          log_->error("ASIO error while uploading the file: {}",
-                      error.message());
-        }
-      });
   log_->debug("Waiting for the server...");
+  std::thread([this](){
+                try {
+                  streaming_socket_ = streaming_acceptor_.accept();
+
+                  log_->info("Sending the file on port {}...",
+                             streaming_socket_.local_endpoint().port());
+                  size_t sent = asio::write(streaming_socket_,
+                                            asio::buffer(streaming_file_));
+                  log_->debug("File uploaded. Bytes sent: {}", sent);
+                } catch (const asio::system_error& e) {
+                  if (e.code().value() != EBADF) {
+                    log_->error("ASIO error while uploading the file: {}",
+                                e.what());
+                  }
+                }
+              }).detach();
 
   return port;
 }
@@ -316,7 +311,7 @@ int PlayerClient::Play(std::string_view filename)
   log_->debug("PlayerClient::Play(\"{}\")", filename);
 
   try {
-    unsigned short port = stream_file(filename.data(), port_.port());
+    unsigned short port = start_streaming(filename.data(), port_.port());
     port_.set_port(port);
   } catch (const std::exception& e) {
     // TODO: Rethrow

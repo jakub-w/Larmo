@@ -34,7 +34,9 @@ class PlayerClient {
 
   // timeout - in milliseconds
   int wait_for_port(int pipe_fd, unsigned int timeout = 5000);
-  int stream_file(const std::string filename, unsigned short port);
+  /// Start streaming asynchronously.
+  /// Return port (it's randomized if port arg is 0)
+  int start_streaming(const std::string filename, unsigned short port);
 
   PlayerClient(std::shared_ptr<grpc_impl::Channel> channel);
   unsigned short set_port(unsigned short port);
