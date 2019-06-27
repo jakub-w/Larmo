@@ -202,6 +202,7 @@ void Daemon::initialize_grpc_client() {
 
   {
     auto channel = grpc::CreateChannel(grpc_address, creds);
+    // TODO: Make it a function instead of lambda
     // Trace the channel status
     std::thread([=](){
                   grpc_connectivity_state state = channel->GetState(true);

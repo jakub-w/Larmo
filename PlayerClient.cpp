@@ -236,7 +236,7 @@ int PlayerClient::start_streaming(const std::string filename,
 
   streaming_endpoint_.port(port);
   streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
-                        //.bind(streaming_endpoint_);
+
   port = streaming_acceptor_.local_endpoint().port();
   log_->debug("Opening port {}", port);
 

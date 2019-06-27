@@ -32,7 +32,7 @@ class PlayerClient {
   std::vector<char> read_file(std::string_view filename);
   std::ofstream make_temp_file(std::string_view filename);
 
-  // timeout - in milliseconds
+  /// timeout - in milliseconds
   int wait_for_port(int pipe_fd, unsigned int timeout = 5000);
   /// Start streaming asynchronously.
   /// Return port (it's randomized if port arg is 0)
