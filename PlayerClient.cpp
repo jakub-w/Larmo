@@ -235,12 +235,11 @@ int PlayerClient::stream_file(const std::string filename,
   streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
                         //.bind(streaming_endpoint_);
   port = streaming_acceptor_.local_endpoint().port();
-  log_->info("Opening port {}", port);
+  log_->debug("Opening port {}", port);
 
-  log_->info("Reading the file to a vector...");
+  log_->debug("Reading the file to a vector...");
   streaming_file_ = read_file(filename);
 
-  log_->info("Waiting for connection...");
   streaming_socket_.close();
   // streaming_socket_ = acceptor.accept();
   streaming_acceptor_.async_accept(
@@ -265,6 +264,7 @@ int PlayerClient::stream_file(const std::string filename,
                       error.message());
         }
       });
+  log_->debug("Waiting for the server...");
 
   return port;
 }
@@ -313,7 +313,7 @@ unsigned short PlayerClient::set_port(unsigned short port) {
 
 int PlayerClient::Play(std::string_view filename)
 {
-  log_->debug("PlayerClient::Play({})", filename);
+  log_->debug("PlayerClient::Play(\"{}\")", filename);
 
   try {
     unsigned short port = stream_file(filename.data(), port_.port());
@@ -367,7 +367,7 @@ int PlayerClient::TogglePause() {
 }
 
 int PlayerClient::Volume(std::string_view volume) {
-  log_->debug("PlayerClient::Volume({})", volume);
+  log_->debug("PlayerClient::Volume(\"{}\")", volume);
 
   ClientContext context;
   MpvResponse response;
