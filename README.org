@@ -53,7 +53,7 @@ The server needs to have a private key that signed the certificate. It will expe
 - grpc
 - asio
 ** For building
-- gcc or clang :: the version must support c++17
+- gcc or clang (the version must support c++17)
 - meson
 * Building
 #+BEGIN_SRC sh
