@@ -24,31 +24,47 @@
 #include "grpcpp/channel.h"
 #include "player_service.grpc.pb.h"
 
+#include "spdlog/spdlog.h"
+
 using namespace grpc;
 using namespace asio::ip;
 
 class PlayerClient {
-  const std::string STREAMING_PID_FILE = "lrm.pid";
-  std::unique_ptr<PlayerService::Stub> stub_;
-  StreamingPort port_;
-
   std::vector<char> read_file(std::string_view filename);
   std::ofstream make_temp_file(std::string_view filename);
 
-  // timeout - in milliseconds
+  /// timeout - in milliseconds
   int wait_for_port(int pipe_fd, unsigned int timeout = 5000);
-  int stream_file(const std::string filename, const unsigned short port);
+  /// Start streaming asynchronously.
+  /// Return port (it's randomized if port arg is 0)
+  int start_streaming(const std::string filename, unsigned short port);
+
+  PlayerClient(std::shared_ptr<grpc_impl::Channel> channel);
+  unsigned short set_port(unsigned short port);
 
  public:
-  PlayerClient(unsigned short streaming_port,
-               std::shared_ptr<Channel> channel);
-  PlayerClient(const std::string& streaming_port,
-               std::shared_ptr<Channel> channel);
+  explicit PlayerClient(unsigned short streaming_port,
+                        std::shared_ptr<grpc_impl::Channel> channel) noexcept;
+  explicit PlayerClient(const std::string& streaming_port,
+                        std::shared_ptr<grpc_impl::Channel> channel) noexcept;
+  virtual ~PlayerClient() noexcept;
+
   int Play(std::string_view filename);
   int Stop();
   int TogglePause();
   int Volume(std::string_view volume);
   bool Ping();
+
+ private:
+  std::unique_ptr<PlayerService::Stub> stub_;
+  StreamingPort port_;
+  asio::io_context context_;
+  std::vector<char> streaming_file_;
+  tcp::acceptor streaming_acceptor_;
+  tcp::endpoint streaming_endpoint_;
+  tcp::socket streaming_socket_;
+
+  std::shared_ptr<spdlog::logger> log_;
 };
 
 #endif // LRM_PLAYERCLIENT_H

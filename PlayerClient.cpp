@@ -23,6 +23,8 @@
 
 #include "grpcpp/channel.h"
 
+#include "spdlog/spdlog.h"
+
 #include "TempFile.h"
 
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
@@ -51,9 +53,8 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
   struct timeval time = {timeout / 1000,  // tv_sec
                          (timeout % 1000) * 1000};  // tv_usec
 
-  FILE* port_stream;
-  if (port_stream = fdopen(pipe_fd, "r");
-      nullptr == port_stream) {
+  FILE* port_stream = fdopen(pipe_fd, "r");
+  if (nullptr == port_stream) {
     throw std::runtime_error("In wait_for_port: Couldn't open the file "
                              "descriptor");
   }
@@ -99,184 +100,230 @@ int PlayerClient::wait_for_port(int pipe_fd, unsigned int timeout) {
 // try-catch scope, so everything it allocated, it deallocates.
 // std::_Exit() ensures that the child process doesn't touch anything created
 // by the parent.
-int PlayerClient::stream_file(const std::string filename,
-                              const unsigned short port) {
-  // std::cout << "Forking the process...\n";
-  int port_pipe[2];
+// int PlayerClient::stream_file(const std::string filename,
+//                               const unsigned short port) {
+//   // std::cout << "Forking the process...\n";
+//   int port_pipe[2];
 
-  if (0 != pipe(port_pipe)) {
-    throw std::runtime_error("In stream_file: Pipe couldn't be created");
-  }
+//   if (0 != pipe(port_pipe)) {
+//     throw std::runtime_error("In stream_file: Pipe couldn't be created");
+//   }
 
-  pid_t pid = fork();
-  if (pid < 0) {
-    throw std::runtime_error(std::string("In stream_file: "
-                                         "Couldn't stream a file: ") +
-                             strerror(errno));
-  } else if (pid == 0) {  // child
-    int exit_code = EXIT_SUCCESS;
-    close(port_pipe[0]);
+//   pid_t pid = fork();
+//   if (pid < 0) {
+//     throw std::runtime_error(std::string("In stream_file: "
+//                                          "Couldn't stream a file: ") +
+//                              strerror(errno));
+//   } else if (pid == 0) {  // child
+//     int exit_code = EXIT_SUCCESS;
+//     close(port_pipe[0]);
 
-    {
-      std::ofstream log("/tmp/lrm.log", std::ios::app);
-      std::unitbuf(log);
+//     {
+//       std::ofstream log("/tmp/lrm.log", std::ios::app);
+//       std::unitbuf(log);
 
-      // This file will exist as long as this child process is running.
-      TempFile pid_file;
-      try {
-        pid_t sid = setsid();
-        if (sid < 0) {
-          throw std::runtime_error("Couldn't set sid for the child process.");
-        }
+//       // This file will exist as long as this child process is running.
+//       TempFile pid_file;
+//       try {
+//         pid_t sid = setsid();
+//         if (sid < 0) {
+//           throw std::runtime_error("Couldn't set sid for the child process.");
+//         }
 
-        log << "sid: " << sid << '\n';
+//         log << "sid: " << sid << '\n';
 
-        try {
-          pid_file.Create(STREAMING_PID_FILE);
-        } catch (const std::filesystem::filesystem_error& e) {
-          // This means that another streaming process is running
-          if (e.code() == std::errc::file_exists) {
-            std::ifstream old_pid_file(pid_file.Path());
-            pid_t old_pid;
-            old_pid_file >> old_pid;
-            kill(old_pid, SIGINT);
+//         try {
+//           pid_file.Create(STREAMING_PID_FILE);
+//         } catch (const std::filesystem::filesystem_error& e) {
+//           // This means that another streaming process is running
+//           if (e.code() == std::errc::file_exists) {
+//             std::ifstream old_pid_file(pid_file.Path());
+//             pid_t old_pid;
+//             old_pid_file >> old_pid;
+//             kill(old_pid, SIGINT);
 
-            // Wait for the process to be terminated.
-            while (0 == kill(old_pid, 0)) {
-              std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            }
-            // If this doesn't succeed, just let the throw do its thing.
-            pid_file.Create(STREAMING_PID_FILE);
-          } else {
-            throw e;
-          }
-        }
-        // sid is guaranteed to be the same as pid
-        pid_file.Stream() << sid << std::flush;
+//             // Wait for the process to be terminated.
+//             while (0 == kill(old_pid, 0)) {
+//               std::this_thread::sleep_for(std::chrono::milliseconds(500));
+//             }
+//             // If this doesn't succeed, just let the throw do its thing.
+//             pid_file.Create(STREAMING_PID_FILE);
+//           } else {
+//             throw e;
+//           }
+//         }
+//         // sid is guaranteed to be the same as pid
+//         pid_file.Stream() << sid << std::flush;
 
-        log << "Saved pid in a temp file\n";
+//         log << "Saved pid in a temp file\n";
 
-        asio::io_context context;
-        log << "Creating signal_set...\n";
-        asio::signal_set signal(context, SIGINT, SIGTERM);
-        signal.async_wait([&context, &log]
-                          (const asio::error_code& error, int signal_number){
-                            log << "End streaming by SignalHandler.\n";
-                            context.stop();
-                          });
-        log << "signal_set created.\n";
+//         asio::io_context context;
+//         log << "Creating signal_set...\n";
+//         asio::signal_set signal(context, SIGINT, SIGTERM);
+//         signal.async_wait([&context, &log]
+//                           (const asio::error_code& error, int signal_number){
+//                             log << "End streaming by SignalHandler.\n";
+//                             context.stop();
+//                           });
+//         log << "signal_set created.\n";
 
-        tcp::acceptor acceptor(context, tcp::endpoint(tcp::v4(), port));
+//         tcp::acceptor acceptor(context, tcp::endpoint(tcp::v4(), port));
 
-        // Send the port number to a parent process
-        {
-          FILE* port_stream;
-          if (port_stream = fdopen(port_pipe[1], "w");
-              nullptr == port_stream) {
-            throw std::runtime_error("Couldn't open the pipe for writing.");
-          }
+//         // Send the port number to a parent process
+//         {
+//           FILE* port_stream;
+//           if (port_stream = fdopen(port_pipe[1], "w");
+//               nullptr == port_stream) {
+//             throw std::runtime_error("Couldn't open the pipe for writing.");
+//           }
 
-          if ((0 > fprintf(port_stream, "%hu\n",
-                           acceptor.local_endpoint().port()))
-              or
-              (0 != fclose(port_stream))) {
-            throw std::runtime_error("Couldn't write to a pipe.");
-          }
-        }
+//           if ((0 > fprintf(port_stream, "%hu\n",
+//                            acceptor.local_endpoint().port()))
+//               or
+//               (0 != fclose(port_stream))) {
+//             throw std::runtime_error("Couldn't write to a pipe.");
+//           }
+//         }
 
-        std::vector<char> bytes = read_file(filename);
-        log << "Read a music file.\n";
+//         std::vector<char> bytes = read_file(filename);
+//         log << "Read a music file.\n";
 
-        log << "Waiting for a server to connect...\n";
-        tcp::socket socket = acceptor.accept(context);
-        log << "Server connected. Sending the file...\n";
+//         log << "Waiting for a server to connect...\n";
+//         tcp::socket socket = acceptor.accept(context);
+//         log << "Server connected. Sending the file...\n";
 
-        asio::async_write(socket, asio::buffer(bytes),
-                          [&context, &log](const asio::error_code& error,
-                                           size_t transferred){
-                            if (!error) {
-                              log << "File uploaded. Bytes sent: "
-                                  << transferred << '\n';
-                            } else {
-                              log << "ASIO error while uploading the file: "
-                                  << error.message() << '\n';
-                            }
-                            context.stop();
-                          });
+//         asio::async_write(socket, asio::buffer(bytes),
+//                           [&context, &log](const asio::error_code& error,
+//                                            size_t transferred){
+//                             if (!error) {
+//                               log << "File uploaded. Bytes sent: "
+//                                   << transferred << '\n';
+//                             } else {
+//                               log << "ASIO error while uploading the file: "
+//                                   << error.message() << '\n';
+//                             }
+//                             context.stop();
+//                           });
+//         context.run();
 
-        context.run();
+//       } catch (const std::exception& e) {
+//         log << "Error: " << e.what() << '\n';
+//         exit_code = EXIT_FAILURE;
+//       } catch (const asio::system_error& e) {
+//         log << "ASIO error: " << e.what() << '\n';
+//         exit_code = EXIT_FAILURE;
+//       } catch (...) {
+//         exit_code = EXIT_FAILURE;
+//       }
 
-      } catch (const asio::system_error& e) {
-        log << "ASIO error: " << e.what() << '\n';
-      } catch (const std::exception& e) {
-        log << "Error: " << e.what() << '\n';
-        exit_code = EXIT_FAILURE;
-      } catch (...) {
-        exit_code = EXIT_FAILURE;
-      }
+//       log << "Exiting.\n";
+//     }
 
-      log << "Exiting.\n";
-    }
+//     std::_Exit(exit_code);
+//   } else {  // parent
+//     // std::cout << "Child pid: " << pid << '\n';
 
-    std::_Exit(exit_code);
-  } else {  // parent
-    // std::cout << "Child pid: " << pid << '\n';
+//     close(port_pipe[1]);
 
-    close(port_pipe[1]);
+//     return wait_for_port(port_pipe[0]);
+//   }
+// }
 
-    return wait_for_port(port_pipe[0]);
-  }
+int PlayerClient::start_streaming(const std::string filename,
+                              unsigned short port) {
+  streaming_acceptor_.close();
+  streaming_socket_.close();
+
+  streaming_endpoint_.port(port);
+  streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
+
+  port = streaming_acceptor_.local_endpoint().port();
+  log_->debug("Opening port {}", port);
+
+  log_->debug("Reading the file to a vector...");
+  streaming_file_ = read_file(filename);
+
+  log_->debug("Waiting for the server...");
+  std::thread([this](){
+                try {
+                  streaming_socket_ = streaming_acceptor_.accept();
+
+                  log_->info("Sending the file on port {}...",
+                             streaming_socket_.local_endpoint().port());
+                  size_t sent = asio::write(streaming_socket_,
+                                            asio::buffer(streaming_file_));
+                  log_->debug("File uploaded. Bytes sent: {}", sent);
+                } catch (const asio::system_error& e) {
+                  if (e.code().value() != EBADF) {
+                    log_->error("ASIO error while uploading the file: {}",
+                                e.what());
+                  }
+                }
+              }).detach();
+
+  return port;
 }
+
+PlayerClient::PlayerClient(std::shared_ptr<grpc_impl::Channel> channel)
+    : stub_(PlayerService::NewStub(channel)),
+      streaming_acceptor_(context_),
+      streaming_socket_(context_),
+      log_(spdlog::get("PlayerClient")) {}
 
 PlayerClient::PlayerClient(unsigned short streaming_port,
                            std::shared_ptr<Channel> channel)
-    : stub_(PlayerService::NewStub(channel)) {
-  if (streaming_port <= IPPORT_USERRESERVED and streaming_port != 0) {
-    throw std::invalid_argument(
-        "PlayerClient: Invalid 'streaming_port' argument: " +
-        std::to_string(streaming_port));
-  }
-  port_.set_port(streaming_port);
+    noexcept
+    : PlayerClient(channel) {
+  set_port(streaming_port);
 }
 
 PlayerClient::PlayerClient(const std::string& streaming_port,
                            std::shared_ptr<Channel> channel)
-    : stub_(PlayerService::NewStub(channel)) {
+    noexcept
+    : PlayerClient(channel) {
   int port;
 
   try {
     port = std::stoi(streaming_port.data());
-    if ((port <= IPPORT_USERRESERVED or port > USHRT_MAX)
-        and port != 0) {
-      throw;
-    }
+    if (port > USHRT_MAX) throw;
   } catch (...) {
-    throw std::invalid_argument(
-        "PlayerClient: Invalid 'streaming_port' argument: " + streaming_port);
+    port = 0;
   }
-
   port_.set_port(port);
 }
 
-int PlayerClient::Play(std::string_view filename) {
-  // std::cout << "Opening a stream.\n";
+PlayerClient::~PlayerClient() noexcept {
   try {
-    unsigned short port = stream_file(filename.data(), port_.port());
+    log_->flush();
+  } catch (...) {}
+}
+
+unsigned short PlayerClient::set_port(unsigned short port) {
+  if (not (port <= IPPORT_USERRESERVED and port != 0)) {
+    port = 0;
+  }
+  port_.set_port(port);
+  return port;
+}
+
+int PlayerClient::Play(std::string_view filename)
+{
+  log_->debug("PlayerClient::Play(\"{}\")", filename);
+
+  try {
+    unsigned short port = start_streaming(filename.data(), port_.port());
     port_.set_port(port);
   } catch (const std::exception& e) {
     // TODO: Rethrow
-    std::cerr << "Error while trying to open a stream: "
-              << e.what() << '\n';
+    log_->error("Error while trying to open a stream: {}", e.what());
     return -101;
   }
 
   ClientContext context;
   MpvResponse response;
-  // std::cout << "Sending an RPC request.\n";
   grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
-    // std::cout << "Status: ok\n";
     // stream_socket_ = stream_acceptor_.accept(io_context_);
     // stream_socket_.async_send(asio::buffer(bytes), handle_write);
 
@@ -287,6 +334,8 @@ int PlayerClient::Play(std::string_view filename) {
 }
 
 int PlayerClient::Stop() {
+  log_->debug("PlayerClient::Stop()");
+
   ClientContext context;
   MpvResponse response;
 
@@ -299,6 +348,8 @@ int PlayerClient::Stop() {
 }
 
 int PlayerClient::TogglePause() {
+  log_->debug("PlayerClient::TogglePause()");
+
   ClientContext context;
   MpvResponse response;
 
@@ -311,6 +362,8 @@ int PlayerClient::TogglePause() {
 }
 
 int PlayerClient::Volume(std::string_view volume) {
+  log_->debug("PlayerClient::Volume(\"{}\")", volume);
+
   ClientContext context;
   MpvResponse response;
 
@@ -326,10 +379,15 @@ int PlayerClient::Volume(std::string_view volume) {
 }
 
 bool PlayerClient::Ping() {
+  log_->debug("PlayerClient::Ping()");
+
   ClientContext context;
   Empty empty;
 
   grpc::Status status = stub_->Ping(&context, empty, &empty);
-
-  return status.ok();
+  if (status.ok()) {
+    return status.ok();
+  } else {
+    throw status;
+  }
 }

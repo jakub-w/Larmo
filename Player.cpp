@@ -22,6 +22,8 @@
 
 #include "mpv/client.h"
 
+#include "spdlog/spdlog.h"
+
 namespace lrm {
 int Player::send_command_(const std::vector<std::string>&& args) {
   const char* command[16];
@@ -103,13 +105,12 @@ int Player::Volume(std::string_view volume) {
 }
 
 int Player::PlayFrom(std::string_view host, std::string_view port) {
-  std::cout << "Closing the socket...\n";
+  try {
+  spdlog::debug("Closing the socket...");
   tcp_sock_.close();
-  std::cout << "Socket closed.\n";
+  spdlog::debug("Socket closed");
 
-  std::cout << "Created a socket, connecting...\n";
-  std::cout << "Playing from: " << host << ", " << port << '\n';
-
+  // Resolve the address from 'host' argument
   endpoint_.address(address());
   endpoint_.port(0);
   tcp::resolver::query query(host.data(), port.data());
@@ -121,13 +122,22 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
         break;
       }
   }
-  tcp_sock_.connect(endpoint_);
-  std::cout << "Connected.\n";
+  spdlog::info("Playing from: {}:{}",
+               endpoint_.address().to_string(), endpoint_.port());
 
-  std::cout << "Sockfd: " << tcp_sock_.native_handle() << "\n";
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  tcp_sock_.connect(endpoint_);
+  spdlog::debug("Connected");
+
+  spdlog::debug("Sockfd: {}", tcp_sock_.native_handle());
 
   Input("fd://" + std::to_string(tcp_sock_.native_handle()));
 
   return Play();
+  } catch (const std::exception& e) {
+    // TODO: proper error handling
+    spdlog::error(e.what());
+    return -1;
+  }
 }
 }

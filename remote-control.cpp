@@ -29,8 +29,15 @@
 #include <argp.h>
 
 #include "grpcpp/create_channel.h"
+#include "grpc/support/log.h"
+
+#include "asio.hpp"
+
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/basic_file_sink.h"
 
 #include "Config.h"
+#include "Daemon.h"
 #include "PlayerClient.h"
 #include "Util.h"
 
@@ -43,7 +50,8 @@ static char doc[] =
     "  stop\n"
     "  toggle-pause\n"
     "  volume VOL\t" "Absolute (e.g. 50) or relative (e.g. +10)\n"
-    "  ping";
+    "  ping\n"
+    "  daemon";
 
 static argp_option options[] = {
   {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
@@ -51,8 +59,11 @@ static argp_option options[] = {
   {"port", 'p', "NUM", 0, "Port for gRPC", 0},
   {"streaming-port", 's', "NUM", 0, "Port for streaming music", 0},
   {"pass", 'P', "PASSPHRASE", 0, "Passphrase for queries to the server", 0},
+  {"daemon", 1, 0, 0, "Start a daemon", 0},
   {0, 0, 0, 0, 0, 0}
 };
+
+static const int DAEMON_TIMEOUT = 3;
 
 struct arguments {
   std::string command;
@@ -62,6 +73,7 @@ struct arguments {
   std::string grpc_port;
   std::string streaming_port;
   std::string passphrase;
+  std::string cert_file;
 };
 
 // bool value is true if the command requires an argument
@@ -70,7 +82,8 @@ static const std::unordered_map<std::string, bool> commands = {
   {"stop", false},
   {"toggle-pause", false},
   {"volume", true},
-  {"ping", false}
+  {"ping", false},
+  {"daemon", false}
 };
 
 static const char args_doc[] = "COMMAND [ARG]";
@@ -175,134 +188,212 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
 static argp argp = { options, parse_opt, args_doc,
                      doc, 0, 0, 0 };
 
-int initialize_config(arguments* args) {
-  // This will throw if the config file cannot be loaded.
-  if (args->config_file.empty()) {
-    // TODO: load config from /etc/ or XDG_CONFIG_HOME
-    Config::Load();
-  } else {
-    Config::Load(args->config_file);
-  }
-
-  if (not args->grpc_port.empty()) {
-    Config::Set("grpc_port", args->grpc_port);
-  }
-  auto grpc_port = Config::Get("grpc_port");
-  if (grpc_port.empty()) {
-    throw std::logic_error("Port for gRPC not provided.");
-  } else if (int port = std::stoi(grpc_port);
-             port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
-    throw std::logic_error("Port for gRPC (" + grpc_port + ") is invalid");
-  }
-
-  if (not args->grpc_host.empty()) {
-    Config::Set("grpc_host", args->grpc_host);
-  }
-  if (Config::Get("grpc_host").empty()) {
-    throw std::logic_error("Host for gRPC not provided.");
-  }
-
-  if (not args->streaming_port.empty()) {
-    Config::Set("streaming_port", args->streaming_port);
-  }
-  // This does not warrant a throw, we can set it to 0 to randomize the port
-  auto streaming_port = Config::Get("streaming_port");
-  if (streaming_port.empty()) {
-    Config::Set("streaming_port", "0");
-  } else if (int port = std::stoi(streaming_port);
-             port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
-    throw std::logic_error("Port for streaming (" + streaming_port +
-                           ") is invalid");
-  }
-
-  if (not args->passphrase.empty()) {
-    Config::Set("passphrase", args->passphrase);
-  }
-  if (Config::Get("passphrase").empty()) {
-    throw std::logic_error("Passphrase not provided.");
-  }
-
-  return 0;
+namespace lrm {
+class daemon_init_error : public std::logic_error {
+ public:
+  daemon_init_error() : std::logic_error("Couldn't create a daemon") {}
+};
 }
 
-using namespace grpc;
-using namespace asio::ip;
-
-class CallAuthenticator : public grpc::MetadataCredentialsPlugin {
-  grpc::string passphrase_;
-
- public:
-  CallAuthenticator(std::string_view passphrase) : passphrase_(passphrase) {}
-
-  grpc::Status GetMetadata(
-      grpc::string_ref service_url, grpc::string_ref method_name,
-      const grpc::AuthContext& channel_auth_context,
-      std::multimap<grpc::string, grpc::string>* metadata) override {
-    metadata->insert(std::make_pair("x-custom-passphrase", passphrase_));
-
-    return grpc::Status::OK;
+void gpr_default_log(gpr_log_func_args* args);
+void gpr_log_function(struct gpr_log_func_args* args) {
+  if (args->severity == GPR_LOG_SEVERITY_ERROR) {
+    spdlog::error(args->message);
   }
-};
+  gpr_default_log(args);
+}
 
-int main (int argc, char** argv) {
+void init_logging(const std::filesystem::path& log_file) {
+  std::filesystem::create_directories(log_file.parent_path());
+
+  auto file_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file.string(),
+                                                          true);
+
+  auto daemon_logger =
+      std::make_shared<spdlog::logger>("Daemon", file_sink);
+  spdlog::register_logger(daemon_logger);
+
+  auto playerclient_logger =
+      std::make_shared<spdlog::logger>("PlayerClient", file_sink);
+  spdlog::register_logger(playerclient_logger);
+
+  // Global settings
+#ifndef NDEBUG
+  spdlog::set_level(spdlog::level::debug);
+  spdlog::flush_on(spdlog::level::debug);
+#else
+  char* debug_val = std::getenv("DEBUG");
+  if (debug_val and (std::strcmp(debug_val, "true") or
+                     std::strcmp(debug_val, "1"))) {
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_on(spdlog::level::debug);
+  } else {
+    spdlog::set_level(spdlog::level::info);
+    spdlog::flush_on(spdlog::level::info);
+  }
+#endif // DNDEBUG
+
+  // This sets the logger globally for this process
+  spdlog::set_default_logger(daemon_logger);
+
+  // Redirect gRPC error logs to the default logger
+  gpr_set_log_function(gpr_log_function);
+}
+
+pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
+  if (dinfo->config_file.empty()) {
+    Config::Load();
+  } else {
+    Config::Load(dinfo->config_file.string());
+  }
+  assert(Config::GetState() == Config::LOADED);
+
+  pid_t pid = fork();
+  switch (pid) {
+    case -1:
+      throw std::system_error(errno, std::system_category());
+    case 0:
+      {
+        int exit_code = EXIT_SUCCESS;
+        {
+          try {
+            // Initialize a daemon process
+            umask(0);
+
+            std::filesystem::path log_file{Config::Get("log_file")};
+            // TODO: Change the default logging location to something better
+            if (log_file.empty()) {
+              log_file = std::filesystem::temp_directory_path()
+                         .append("lrm/daemon.log");
+            }
+            std::cout << "log_file = " << log_file.string() << '\n';
+
+            try {
+              init_logging(log_file);
+            } catch (const spdlog::spdlog_ex& ex) {
+              std::cerr << "Log initialization failed: " << ex.what();
+              throw ex;
+            }
+
+            std::cout << "Logging initialized\n";
+
+            dinfo->log_file = log_file.string();
+
+            // if ((setsid() < 0) or
+                // (chdir("/") < 0)) {
+            if (setsid() < 0) {
+              throw std::system_error(errno, std::system_category());
+            }
+
+            close(STDIN_FILENO);
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+            // End of initialization
+
+            lrm::Daemon daemon(std::move(dinfo));
+            daemon.Run();
+          } catch (const std::exception& e) {
+            spdlog::error(e.what());
+            exit_code = EXIT_FAILURE;
+          }
+        }
+        std::_Exit(exit_code);
+      }
+    default:
+      return pid;
+  }
+}
+
+int main(int argc, char** argv) {
   arguments args;
   argp_parse(&argp, argc, argv, 0, 0, &args);
 
-  // std::cout << args.command << ' ' << args.command_arg << '\n';
-  // return 0;
+  asio::io_context context;
+  asio::local::stream_protocol::socket socket(context);
+  asio::local::stream_protocol::endpoint endpoint(lrm::Daemon::socket_path);
 
   try {
-  initialize_config(&args);
+    socket.connect(endpoint);
+  } catch (const asio::system_error& e) {
+    if (e.code().value() == ENOENT) {
+      // Daemon is not running.
+      try {
+        if (args.command != "daemon") {
+          throw lrm::daemon_init_error();
+        }
 
-  grpc::string grpc_address(Config::Get("grpc_host") + ':' +
-                            Config::Get("grpc_port"));
+        auto dinfo = std::make_unique<lrm::Daemon::daemon_info>();
+        dinfo->config_file = args.config_file;
+        dinfo->grpc_host = args.grpc_host;
+        dinfo->grpc_port = args.grpc_port;
+        dinfo->streaming_port = args.streaming_port;
+        dinfo->passphrase = args.passphrase;
+        dinfo->cert_file = args.cert_file;
 
-  std::shared_ptr<grpc::ChannelCredentials> creds;
-  {
-    auto call_creds = grpc::MetadataCredentialsFromPlugin(
-        std::make_unique<CallAuthenticator>(Config::Get("passphrase")));
-    grpc::SslCredentialsOptions options;
-    std::string ssl_cert = lrm::file_to_str("server.crt");
-    options.pem_root_certs = ssl_cert;
-    auto channel_creds = grpc::SslCredentials(options);
+        start_daemon(std::move(dinfo));
 
-    creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
+        // Try for DAEMON_TIMEOUT seconds to connect to a daemon
+        int count = 0;
+        for(;; ++count) {
+          try {
+            socket.connect(endpoint);
+            break;
+          } catch (const asio::system_error&) {
+            if (count > DAEMON_TIMEOUT) {
+              throw std::runtime_error(
+                  "Timeout reached. Couldn't connect to a daemon");
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+          }
+        }
+        std::cout << "Daemon started with settings:\n"
+                  << "\tconfig_file: " << Config::Get("config_file") << '\n'
+                  << "\tgrpc_host: " << Config::Get("grpc_host") << '\n'
+                  << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
+                  << "\tstreaming_port: " << Config::Get("streaming_port")
+                  << '\n'
+                  << "\tpassphrase: " << Config::Get("passphrase") << '\n'
+                  << "\tcert_file: " << Config::Get("cert_file") << "\n";
+
+        return EXIT_SUCCESS;
+      } catch (const lrm::daemon_init_error&) {
+        std::cerr << "Daemon not running. Use 'daemon' command.\n";
+        return EXIT_FAILURE;
+      } catch (const std::system_error& e) {
+        std::cerr << "System error (" << e.code() << "): "
+                  << e.what() << '\n';
+        return EXIT_FAILURE;
+      } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << '\n';
+        return EXIT_FAILURE;
+      }
+    } else {
+      std::cerr << e.what() << '\n';
+      return EXIT_FAILURE;
+    }
   }
 
-  auto remote = PlayerClient{Config::Get("streaming_port"),
-                             grpc::CreateChannel(grpc_address, creds)};
-
-  int result = 0;
-  if (args.command == "play") {
-    result = remote.Play(args.command_arg);
-  } else if (args.command == "stop") {
-    result = remote.Stop();
-  } else if (args.command == "toggle-pause") {
-    result = remote.TogglePause();
-  } else if (args.command == "volume") {
-    result = remote.Volume(args.command_arg);
-  } else if (args.command == "ping") {
-    return (remote.Ping() ? 0 : 1);
+  if (args.command == "daemon") {
+    std::cout << "Daemon already running.\n";
+    return EXIT_SUCCESS;
   }
 
-  // remote.Play("/tmp/file.mp3");
-  // std::this_thread::sleep_for(std::chrono::seconds(1));
-  // remote.Play("/tmp/file.flac");
-  // std::this_thread::sleep_for(std::chrono::seconds(10));
-  // // remote.TogglePause();
-  // // std::this_thread::sleep_for(std::chrono::seconds(1));
-  // // remote.TogglePause();
-  // std::this_thread::sleep_for(std::chrono::seconds(1));
-  // remote.Stop();
-  // remote.TogglePause();
-    return result;
-  } catch (const std::exception& e) {
-    std::cerr << "Error: " << e.what() << '\n';
-    return -10;
-  } catch (const grpc::Status& s) {
-    // std::cerr << s.error_code() << ": ";
-    std::cerr << "gRPC error: " << s.error_message() << " ("
-              << s.error_details() << ")\n";
-    return s.error_code();
-  }
+  DaemonArguments cmd;
+  cmd.set_command(args.command);
+  cmd.set_command_arg(args.command_arg);
+
+  cmd.SerializeToFileDescriptor(socket.native_handle());
+  socket.shutdown(socket.shutdown_send);
+  std::cout << "Sent the command\n";
+
+  DaemonResponse response;
+  response.ParseFromFileDescriptor(socket.native_handle());
+
+  std::cout << response.exit_status() << ": " << response.response() << '\n';
+
+  return response.exit_status();
+
+  // std::cout << args.command << ' ' << args.command_arg << '\n';
+  // return EXIT_SUCCESS;
 }
