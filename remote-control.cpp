@@ -134,8 +134,7 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
       }
       break;
     case 'c':
-      struct stat buffer;
-      if (stat(arg, &buffer) == 0) {
+      if (lrm::file_exists(arg)) {
         args->config_file = arg;
       } else {
         argp_error(state, "File doesn't exist: %s", arg);
@@ -176,8 +175,6 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
       break;
     case ARGP_KEY_NO_ARGS:
       argp_usage(state);
-      // argp_state_help(state, state->err_stream,
-                      // ARGP_HELP_STD_HELP | ARGP_HELP_EXIT_ERR);
       return EINVAL;
     default:
       return ARGP_ERR_UNKNOWN;
@@ -393,7 +390,4 @@ int main(int argc, char** argv) {
   std::cout << response.exit_status() << ": " << response.response() << '\n';
 
   return response.exit_status();
-
-  // std::cout << args.command << ' ' << args.command_arg << '\n';
-  // return EXIT_SUCCESS;
 }

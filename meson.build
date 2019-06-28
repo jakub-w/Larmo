@@ -73,13 +73,16 @@ protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 
 protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
 
+
 # spdlog
 spdlog_dep = declare_dependency(sources: 'spdlog/src/spdlog.cpp',
 				compile_args: '-DSPDLOG_COMPILED_LIB',
 				include_directories : 'spdlog/include')
 
+
 # Includes
 include = include_directories('include')
+
 
 # Executables
 executable('remote-control',

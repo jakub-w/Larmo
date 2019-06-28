@@ -65,7 +65,6 @@ class Daemon {
   void initialize_grpc_client();
   void start_accept();
   void connection_handler(std::unique_ptr<stream_protocol::socket>&& socket);
-  void conn_handler(const asio::error_code& error);
 
   std::unique_ptr<daemon_info> dinfo_;
 
