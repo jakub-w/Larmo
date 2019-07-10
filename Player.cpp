@@ -140,4 +140,26 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
     return -1;
   }
 }
+
+int64_t Player::get_property_int64_(const std::string_view prop_name) const {
+  int64_t prop_value = 0;
+  int result = mpv_get_property(ctx_.get(), prop_name.data(),
+                                MPV_FORMAT_INT64, &prop_value);
+  if (MPV_ERROR_SUCCESS != result) {
+    throw lrm::MpvException((mpv_error)result);
+  }
+
+  return prop_value;
+}
+
+double Player::get_property_double_(const std::string_view prop_name) const {
+  double prop_value = 0;
+  int result = mpv_get_property(ctx_.get(), prop_name.data(),
+                                MPV_FORMAT_DOUBLE, &prop_value);
+  if (MPV_ERROR_SUCCESS != result) {
+    throw lrm::MpvException((mpv_error)result);
+  }
+
+  return prop_value;
+}
 }
