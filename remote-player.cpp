@@ -214,6 +214,7 @@ int main(int argc, char** argv) {
   server->Wait();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << '\n';
+    return EXIT_FAILURE;
   }
 
   return 0;
