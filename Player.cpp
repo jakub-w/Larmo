@@ -49,7 +49,11 @@ Player::~Player() {
 }
 
 int Player::Play() {
-  return send_command_({"loadfile", input_});
+  int result = send_command_({"loadfile", input_});
+  if (MPV_ERROR_SUCCESS == result) {
+    status_ = PLAYING;
+  }
+  return result;
 }
 
 int Player::TogglePause() {
@@ -59,12 +63,22 @@ int Player::TogglePause() {
 
   int pause_flag = is_paused == 0 ? 1 : 0;
 
-  return check_result(mpv_set_property(ctx_.get(), "pause",
-                                       MPV_FORMAT_FLAG, &pause_flag));
+  int result =  check_result(mpv_set_property(ctx_.get(), "pause",
+                                              MPV_FORMAT_FLAG, &pause_flag));
+  if (MPV_ERROR_SUCCESS == result) {
+    status_ = (pause_flag == 1 ? PAUSED : PLAYING);
+  }
+
+  return result;
 }
 
 int Player::Stop() {
-  return send_command_({"stop"});
+  int result = send_command_({"stop"});
+  if (MPV_ERROR_SUCCESS == result) {
+    status_ = STOPPED;
+  }
+
+  return result;
 }
 
 int Player::Volume(std::string_view volume) {

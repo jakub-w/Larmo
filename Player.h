@@ -56,6 +56,12 @@ class Player {
   double get_property_double_(const std::string_view prop_name) const;
 
  public:
+  enum Status {
+    PLAYING,
+    PAUSED,
+    STOPPED
+  };
+
   Player();
   ~Player();
 
@@ -95,6 +101,8 @@ class Player {
   tcp::socket tcp_sock_ = tcp::socket(io_context_);
   tcp::endpoint endpoint_;
   tcp::resolver tcp_resolver_ = tcp::resolver(io_context_);
+
+  Status status_ = STOPPED;
 };
 }
 
