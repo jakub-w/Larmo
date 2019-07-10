@@ -34,7 +34,7 @@ class PlayerClient {
 
   /// Start streaming asynchronously.
   /// Return port (it's randomized if port arg is 0)
-  int start_streaming(const std::string filename, unsigned short port);
+  int start_streaming(const std::string& filename, unsigned short port);
 
   unsigned short set_port(unsigned short port);
 

@@ -45,8 +45,8 @@ std::vector<char> PlayerClient::read_file(std::string_view filename) {
   return output;
 }
 
-int PlayerClient::start_streaming(const std::string filename,
-                              unsigned short port) {
+int PlayerClient::start_streaming(const std::string& filename,
+                                  unsigned short port) {
   streaming_acceptor_.close();
   streaming_socket_.close();
 

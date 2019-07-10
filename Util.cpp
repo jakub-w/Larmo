@@ -18,6 +18,7 @@
 
 #include "Util.h"
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -33,13 +34,12 @@ std::vector<std::string> tokenize(std::string_view str,
   const char* tk_begin = current;
 
   while (current < str.end()) {
-    for(const char delimiter : delimiters) {
-      if (delimiter == *current) {
-        result.emplace_back(tk_begin, current);
-        tk_begin = current + 1;
-        break;
-      }
+    if (std::any_of(std::begin(delimiters), std::end(delimiters),
+                    [current](char delim){return delim == *current;})) {
+      result.emplace_back(tk_begin, current);
+      tk_begin = current + 1;
     }
+
     ++current;
   }
   result.emplace_back(tk_begin, str.end());

@@ -139,6 +139,7 @@ void Daemon::initialize_config() {
   }
 
   auto grpc_port = Config::Get("grpc_port");
+  // FIXME: This std::stoi can throw!
   if (int port = std::stoi(grpc_port);
       port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
     std::string error_message{"Port for gRPC (" + grpc_port + ") is invalid"};
@@ -150,6 +151,7 @@ void Daemon::initialize_config() {
   auto streaming_port = Config::Get("streaming_port");
   if (streaming_port.empty()) {
     Config::Set("streaming_port", "0");
+  // FIXME: This std::stoi can throw!
   } else if (int port = std::stoi(streaming_port);
              port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
     std::string error_message{"Port for streaming (" + streaming_port +
