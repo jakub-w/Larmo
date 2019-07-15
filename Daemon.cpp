@@ -136,7 +136,6 @@ void Daemon::initialize_config() {
   }
   if (not missing.empty()) {
     error_message.erase(error_message.length() - 2);
-    log_->error(error_message);
     throw std::logic_error(error_message);
   }
 
@@ -150,10 +149,8 @@ void Daemon::initialize_config() {
                              std::to_string(USHRT_MAX) + ")");
     }
   } catch (const std::exception& e) {
-    std::string error_message{"Port for gRPC (" + grpc_port + ") is invalid: "
-                              + e.what()};
-    log_->error(error_message);
-    throw std::logic_error(error_message);
+    throw std::logic_error("Port for gRPC (" + grpc_port + ") is invalid: " +
+                           e.what());
   }
 
   auto streaming_port = Config::Get("streaming_port");
@@ -171,10 +168,8 @@ void Daemon::initialize_config() {
                              std::to_string(USHRT_MAX) + ")");
     }
   } catch  (const std::exception& e) {
-    std::string error_message{"Port for streaming (" + streaming_port +
-                              ") is invalid: " + e.what()};
-    log_->error(error_message);
-    throw std::logic_error(error_message);
+    throw std::logic_error("Port for streaming (" + streaming_port +
+                           ") is invalid: " + e.what());
   }
 
   state_ = CONFIG_INITIALIZED;
