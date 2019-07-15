@@ -139,23 +139,38 @@ void Daemon::initialize_config() {
   }
 
   auto grpc_port = Config::Get("grpc_port");
-  // FIXME: This std::stoi can throw!
-  if (int port = std::stoi(grpc_port);
-      port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
-    std::string error_message{"Port for gRPC (" + grpc_port + ") is invalid"};
+
+  try {
+    int port = std::stoi(grpc_port);
+    if (port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
+      throw std::logic_error("Port should be in the range: [" +
+                             std::to_string(IPPORT_RESERVED) + "; " +
+                             std::to_string(USHRT_MAX) + ")");
+    }
+  } catch (const std::exception& e) {
+    std::string error_message{"Port for gRPC (" + grpc_port + ") is invalid: "
+                              + e.what()};
     log_->error(error_message);
     throw std::logic_error(error_message);
   }
 
-  // This does not warrant a throw, we can set it to 0 to randomize the port
   auto streaming_port = Config::Get("streaming_port");
   if (streaming_port.empty()) {
+    streaming_port = "0";
     Config::Set("streaming_port", "0");
-  // FIXME: This std::stoi can throw!
-  } else if (int port = std::stoi(streaming_port);
-             port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
+  }
+
+  try {
+    int port = std::stoi(streaming_port);
+    if ((port <= IPPORT_USERRESERVED or port > USHRT_MAX) and
+        (port != 0)) {
+      throw std::logic_error("Port should be in the range: [" +
+                             std::to_string(IPPORT_RESERVED) + "; " +
+                             std::to_string(USHRT_MAX) + ")");
+    }
+  } catch  (const std::exception& e) {
     std::string error_message{"Port for streaming (" + streaming_port +
-                              ") is invalid"};
+                              ") is invalid: " + e.what()};
     log_->error(error_message);
     throw std::logic_error(error_message);
   }
