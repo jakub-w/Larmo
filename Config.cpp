@@ -41,6 +41,8 @@ void Config::Load(const std::filesystem::path& file_path) {
   }
 
   for (std::string line; std::getline(fs, line);) {
+    if ('#' == line[0]) continue;
+
     std::smatch smatch;
     if (false == std::regex_match(line, smatch,
                                   std::regex("(\\w+)\\s?=\\s?(\\S+)"))) {
