@@ -294,8 +294,12 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
             close(STDERR_FILENO);
             // End of initialization
 
-            lrm::Daemon daemon(std::move(dinfo));
-            daemon.Run();
+            {
+              lrm::Daemon daemon(std::move(dinfo));
+              daemon.Run();
+            }
+            // The daemon fell out of scope without any crashes.
+            spdlog::info("Daemon exited gracefully");
           } catch (const std::exception& e) {
             spdlog::error(e.what());
             exit_code = EXIT_FAILURE;
