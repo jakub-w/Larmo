@@ -195,7 +195,10 @@ class daemon_init_error : public std::logic_error {
 void gpr_default_log(gpr_log_func_args* args);
 void gpr_log_function(struct gpr_log_func_args* args) {
   if (args->severity == GPR_LOG_SEVERITY_ERROR) {
-    spdlog::error(args->message);
+    spdlog::get("gRPC")->error(args->message);
+  }
+  if (args->severity == GPR_LOG_SEVERITY_DEBUG) {
+    spdlog::get("gRPC")->debug(args->message);
   }
   gpr_default_log(args);
 }
@@ -214,6 +217,9 @@ void init_logging(const std::filesystem::path& log_file) {
   auto playerclient_logger =
       std::make_shared<spdlog::logger>("PlayerClient", file_sink);
   spdlog::register_logger(playerclient_logger);
+
+  auto grpc_logger = std::make_shared<spdlog::logger>("gRPC", file_sink);
+  spdlog::register_logger(grpc_logger);
 
   // Global settings
 #ifndef NDEBUG
