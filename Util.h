@@ -19,14 +19,41 @@
 #ifndef LRM_UTIL_H
 #define LRM_UTIL_H
 
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include <sys/stat.h>
 
 namespace lrm {
+class InterruptableSleeper {
+ public:
+  template<class Rep, class Period>
+  void SleepFor(const std::chrono::duration<Rep, Period>& sleep_duration) {
+    std::unique_lock<std::mutex> lck(cv_mtx_);
+    cv_.wait_for(lck, sleep_duration);
+  }
+  template<class Clock, class Duration>
+  void SleepUntil(const std::chrono::time_point<Clock, Duration>&
+                  sleep_time) {
+    std::unique_lock<std::mutex> lck(cv_mtx_);
+    cv_.wait_until(lck, sleep_time);
+  }
+
+  void Interrupt() {
+    std::lock_guard<std::mutex> lck(cv_mtx_);
+    cv_.notify_all();
+  }
+
+ private:
+  std::condition_variable cv_;
+  std::mutex cv_mtx_;
+};
+
 std::vector<std::string> tokenize(std::string_view str,
                                   std::string_view delimiters = " ");
 bool is_ipv4(std::string_view ip);
