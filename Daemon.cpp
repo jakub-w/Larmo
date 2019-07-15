@@ -78,7 +78,7 @@ void Daemon::Run() {
   signals.async_wait([this](const asio::error_code& error,
                             int signal_number) {
                        if (not error) {
-                         log_->info("Exiting on interrupt");
+                         log_->info("Exiting on interrupt...");
                          context_.stop();
                        } else {
                          log_->error(error.message());
@@ -219,11 +219,14 @@ void Daemon::initialize_grpc_client() {
 
   {
     auto channel = grpc::CreateChannel(grpc_address, creds);
+    // FIXME: don't detach it, make a variable and join in the destructor!
     // TODO: Make it a function instead of lambda
     // Trace the channel status
     std::thread([=](){
                   grpc_connectivity_state state = channel->GetState(true);
                   for (;;) {
+                    // An error is generated every time the timeout is
+                    // reached, so the gRPC logs can be spammy
                     if (channel->WaitForStateChange(
                         state,
                         std::chrono::system_clock::time_point(
@@ -282,6 +285,8 @@ void Daemon::start_accept() {
       endpoint_,
       [this](const asio::error_code& error){
         if (not error) {
+          // FIXME: this could outlive the daemon, it should join
+          //        in the destructor!
           std::thread(&Daemon::connection_handler,
                       this,
                       std::move(connection_)).detach();

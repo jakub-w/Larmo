@@ -60,6 +60,9 @@ int PlayerClient::start_streaming(const std::string& filename,
   streaming_file_ = read_file(filename);
 
   log_->debug("Waiting for the server...");
+  // FIXME: It could outlive PlayerClient, join in the destructor!
+  //        To break asio::write() just close streamin_socket_.
+  //        Adjust the catch block to reflect the change.
   std::thread([this](){
                 try {
                   streaming_socket_ = streaming_acceptor_.accept();
