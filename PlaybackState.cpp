@@ -1,0 +1,40 @@
+#include "PlaybackState.h"
+
+namespace lrm {
+const std::map<PlaybackState::State, std::string>
+PlaybackState::state_names_ = {{UNDEFINED, "UNDEFINED"},
+                               {PLAYING, "PLAYING"},
+                               {PAUSED, "PAUSED"},
+                               {STOPPED, "STOPPED"},
+                               {FINISHED, "FINISHED"},
+                               {FINISHED_ERROR, "FINISHED_ERROR"}};
+
+PlaybackState::PlaybackState(State state) : state_(state) {}
+PlaybackState::PlaybackState() : PlaybackState(UNDEFINED) {}
+
+void PlaybackState::SetState(State new_state) {
+  if (FINISHED == state_ or FINISHED_ERROR == state_) {
+    state_ = STOPPED;
+  }
+  else {
+    state_ = new_state;
+  }
+
+  // Ensure that there is no race to state_change_callback_ and that the
+  // unknown code in callback won't block forever (so locking only for the
+  // copy)
+  StateChangeCallback callback;
+  {
+    std::lock_guard<std::mutex> lck(state_callback_mutex_);
+    callback = state_change_callback_;
+  }
+  if (callback) {
+    callback(new_state);
+  }
+}
+
+void PlaybackState::SetStateChangeCallback(StateChangeCallback&& callback) {
+  std::lock_guard<std::mutex> lck(state_callback_mutex_);
+  state_change_callback_ = callback;
+}
+};

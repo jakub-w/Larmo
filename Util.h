@@ -29,6 +29,9 @@
 
 #include <sys/stat.h>
 
+#include "player_service.pb.h"
+#include "PlaybackState.h"
+
 namespace lrm {
 class InterruptableSleeper {
  public:
@@ -62,6 +65,16 @@ inline bool file_exists(std::string_view filename) {
   struct stat buffer;
   return stat(filename.data(), &buffer) == 0;
 }
+
+// TODO: Rethink if this should be here
+const static std::map<TimeInfo::PlaybackState, lrm::PlaybackState::State>
+time_info_playback_state_translation_map =
+{{TimeInfo::NOT_CHANGED, lrm::PlaybackState::UNDEFINED},
+ {TimeInfo::PLAYING, lrm::PlaybackState::PLAYING},
+ {TimeInfo::PAUSED, lrm::PlaybackState::PAUSED},
+ {TimeInfo::STOPPED, lrm::PlaybackState::STOPPED},
+ {TimeInfo::FINISHED, lrm::PlaybackState::FINISHED},
+ {TimeInfo::FINISHED_ERROR, lrm::PlaybackState::FINISHED_ERROR}};
 }
 
 #endif // LRM_UTIL_H

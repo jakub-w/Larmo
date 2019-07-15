@@ -72,6 +72,7 @@ int PlayerClient::start_streaming(const std::string& filename,
                   size_t sent = asio::write(streaming_socket_,
                                             asio::buffer(streaming_file_));
                   log_->debug("File uploaded. Bytes sent: {}", sent);
+                  streaming_socket_.close();
                 } catch (const asio::system_error& e) {
                   if (e.code().value() != EBADF) {
                     log_->error("ASIO error while uploading the file: {}",
@@ -83,22 +84,68 @@ int PlayerClient::start_streaming(const std::string& filename,
   return port;
 }
 
+void PlayerClient::set_playback_state(lrm::PlaybackState::State state) {
+  // TODO: Probably refactor that.
+  //       The state could be acquired by asking the server, that way it
+  //       would be the same as in the mpv player.
+
+  playback_state_.SetState(state);
+}
+
+void PlayerClient::start_updating_info() {
+  spdlog::info("Starting song info stream...");
+  try {
+    song_info_updater_.Start();
+  } catch (const std::system_error& e) {
+    spdlog::error("Couldn't start song info stream: {}", e.what());
+  }
+}
+void PlayerClient::stop_updating_info() {
+  song_info_updater_.Stop();
+}
+
 PlayerClient::PlayerClient(std::shared_ptr<grpc_impl::Channel> channel)
     : stub_(PlayerService::NewStub(channel)),
       streaming_acceptor_(context_),
       streaming_socket_(context_),
-      log_(spdlog::get("PlayerClient")) {}
+      song_info_updater_(stub_.get(), &song_info_),
+      log_(spdlog::get("PlayerClient")) {
+  try {
+    song_info_updater_.SetCallbackOnStatusChange(
+        [this](lrm::PlaybackState::State state){
+          playback_state_.SetState(state);
+
+          if (lrm::PlaybackState::FINISHED == state or
+              lrm::PlaybackState::FINISHED_ERROR == state) {
+            // Copy the callback to prevent data races and to not lock the
+            // mutex while executing unknown code.
+            SongFinishedCallback callback;
+            {
+              std::lock_guard<std::mutex> lck(song_finished_mtx_);
+              callback = song_finished_callback_;
+            }
+            if (callback) {
+              callback(state);
+            }
+          }
+
+          spdlog::debug("Received playback state change from server: {}",
+                        lrm::PlaybackState::StateName(state));
+        });
+  } catch (const std::system_error& e) {
+    spdlog::error("Couldn't register the state change callback: {}",
+                  e.what());
+  }
+}
 
 PlayerClient::PlayerClient(unsigned short streaming_port,
-                           std::shared_ptr<Channel> channel)
-    noexcept
+                           std::shared_ptr<Channel> channel) noexcept
     : PlayerClient(channel) {
   set_port(streaming_port);
 }
 
 PlayerClient::PlayerClient(const std::string& streaming_port,
-                           std::shared_ptr<Channel> channel)
-    noexcept
+                           std::shared_ptr<Channel> channel) noexcept
     : PlayerClient(channel) {
   int port;
 
@@ -143,9 +190,9 @@ int PlayerClient::Play(std::string_view filename)
   grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
-    // stream_socket_ = stream_acceptor_.accept(io_context_);
-    // stream_socket_.async_send(asio::buffer(bytes), handle_write);
-
+    // TODO: Shouldn't that be received from the server?
+    //       What about inconsistencies in state?
+    song_info_.SetFilename(filename.data());
     return response.response();
   } else {
     throw status;
@@ -197,6 +244,10 @@ int PlayerClient::Volume(std::string_view volume) {
   }
 }
 
+SongInfo PlayerClient::GetSongInfo() {
+  return song_info_;
+}
+
 bool PlayerClient::Ping() {
   log_->debug("PlayerClient::Ping()");
 
@@ -209,4 +260,9 @@ bool PlayerClient::Ping() {
   } else {
     throw status;
   }
+}
+
+void PlayerClient::SetSongFinishedCallback(SongFinishedCallback&& callback) {
+  std::lock_guard<std::mutex> lck(song_finished_mtx_);
+  song_finished_callback_ = callback;
 }

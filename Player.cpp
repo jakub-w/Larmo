@@ -37,22 +37,23 @@ int Player::send_command_(const std::vector<std::string>&& args) {
   return check_result(mpv_command(ctx_.get(), command));
 }
 
-Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy) {
+Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy),
+                   playback_state_(PlaybackState::STOPPED) {
   mpv_initialize(ctx_.get());
   mpv_set_property_string(ctx_.get(), "log-file", "mpv.log");
   mpv_set_property_string(ctx_.get(), "video", "no");
   mpv_request_log_messages(ctx_.get(), "debug");
+
+  start_event_loop();
 }
 
 Player::~Player() {
+  stop_event_loop();
   tcp_sock_.close();
 }
 
 int Player::Play() {
   int result = send_command_({"loadfile", input_});
-  if (MPV_ERROR_SUCCESS == result) {
-    status_ = PLAYING;
-  }
   return result;
 }
 
@@ -66,7 +67,8 @@ int Player::TogglePause() {
   int result =  check_result(mpv_set_property(ctx_.get(), "pause",
                                               MPV_FORMAT_FLAG, &pause_flag));
   if (MPV_ERROR_SUCCESS == result) {
-    status_ = (pause_flag == 1 ? PAUSED : PLAYING);
+    playback_state_.SetState(
+        pause_flag == 1 ? PlaybackState::PAUSED : PlaybackState::PLAYING);
   }
 
   return result;
@@ -74,9 +76,6 @@ int Player::TogglePause() {
 
 int Player::Stop() {
   int result = send_command_({"stop"});
-  if (MPV_ERROR_SUCCESS == result) {
-    status_ = STOPPED;
-  }
 
   return result;
 }
@@ -125,8 +124,9 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
   // Resolve the address from 'host' argument
   endpoint_.address(address());
   endpoint_.port(0);
-  tcp::resolver::query query(host.data(), port.data());
-  auto endpoints = tcp_resolver_.resolve(query);
+  spdlog::debug("Trying to resolve address: {}:{}...",
+                host.data(), port.data());
+  auto endpoints = tcp_resolver_.resolve(host.data(), port.data());
 
   for (auto it = endpoints.begin(); it != endpoints.end(); ++it) {
       if (it->endpoint().protocol() == tcp::v4()) {
@@ -174,5 +174,80 @@ double Player::get_property_double_(const std::string_view prop_name) const {
   }
 
   return prop_value;
+}
+
+void Player::start_event_loop() {
+  if (event_loop_running_) {
+    spdlog::error("Tried to start mpv event loop while it's already running");
+    return;
+  }
+  event_loop_running_ = true;
+
+  try {
+    event_loop_thread_ = std::thread(&Player::mpv_event_loop, this);
+  } catch (const std::system_error& e) {
+    spdlog::error("Couldn't start the mpv event loop thread: {}",
+                  e.what());
+    event_loop_running_ = false;
+  }
+}
+
+void Player::stop_event_loop() {
+  event_loop_running_ = false;
+}
+
+void Player::mpv_event_loop() {
+  mpv_event* event;
+
+  spdlog::debug("Starting mpv event loop...");
+  while (event_loop_running_) {
+    event =  mpv_wait_event(ctx_.get(), 1);
+
+    if (event->error != MPV_ERROR_SUCCESS) {
+      spdlog::error("mpv event '{}': {}",
+                    mpv_event_name(event->event_id),
+                    mpv_error_string(event->error));
+      continue;
+    }
+
+    switch (event->event_id) {
+      case MPV_EVENT_NONE:
+        continue;
+      case MPV_EVENT_END_FILE:
+        {
+          mpv_event_end_file* end_file_data =
+              (mpv_event_end_file*)event->data;
+
+          switch (end_file_data->reason) {
+            case MPV_END_FILE_REASON_EOF:
+              // playback_state_.SetState(PlaybackState::FINISHED);
+              playback_state_.SetState(PlaybackState::STOPPED);
+              break;
+            case MPV_END_FILE_REASON_ERROR:
+              spdlog::error("mpv file ended: {}",
+                            mpv_error_string(end_file_data->error));
+              // playback_state_.SetState(PlaybackState::FINISHED_ERROR);
+              playback_state_.SetState(PlaybackState::STOPPED);
+              break;
+            case MPV_END_FILE_REASON_STOP: case MPV_END_FILE_REASON_QUIT:
+              playback_state_.SetState(PlaybackState::STOPPED);
+              break;
+            case MPV_END_FILE_REASON_REDIRECT:
+              spdlog::warn("MPV_END_FILE_REASON_REDIRECT not implemented");
+              break;
+            default:
+              spdlog::warn("Unknown mpv end file reason");
+              break;
+          }
+        }
+        break;
+      case MPV_EVENT_FILE_LOADED:
+        playback_state_.SetState(PlaybackState::PLAYING);
+        break;
+      default:
+        continue;
+    }
+  }
+  spdlog::debug("Mpv event loop stopped");
 }
 }

@@ -26,6 +26,10 @@
 
 #include "spdlog/spdlog.h"
 
+#include "PlaybackState.h"
+#include "SongInfo.h"
+#include "SongInfoUpdater.h"
+
 using namespace grpc;
 using namespace asio::ip;
 
@@ -35,6 +39,14 @@ class PlayerClient {
   /// Start streaming asynchronously.
   /// Return port (it's randomized if port arg is 0)
   int start_streaming(const std::string& filename, unsigned short port);
+
+  /// Set the current state of playback
+  void set_playback_state(lrm::PlaybackState::State state);
+  /// Start a thread that will continuously update song_info_, taking
+  /// information from the remote server.
+  void start_updating_info();
+  /// Stop the thread started by start_updating_info()
+  void stop_updating_info();
 
   unsigned short set_port(unsigned short port);
 
@@ -51,18 +63,34 @@ class PlayerClient {
   int Stop();
   int TogglePause();
   int Volume(std::string_view volume);
+  SongInfo GetSongInfo();
   bool Ping();
+
+  inline void StreamInfoStart() {
+    start_updating_info();
+  }
+
+  using SongFinishedCallback = std::function<void(lrm::PlaybackState::State)>;
+  void SetSongFinishedCallback(SongFinishedCallback&& callback);
 
  private:
   std::unique_ptr<PlayerService::Stub> stub_;
   StreamingPort port_;
+
   asio::io_context context_;
   std::vector<char> streaming_file_;
   tcp::acceptor streaming_acceptor_;
   tcp::endpoint streaming_endpoint_;
   tcp::socket streaming_socket_;
 
+  lrm::PlaybackState playback_state_;
+  SongInfo song_info_;
+  SongInfoUpdater song_info_updater_;
+
   std::shared_ptr<spdlog::logger> log_;
+
+  SongFinishedCallback song_finished_callback_;
+  std::mutex song_finished_mtx_;
 };
 
 #endif // LRM_PLAYERCLIENT_H

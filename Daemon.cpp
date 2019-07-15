@@ -74,6 +74,8 @@ void Daemon::Run() {
   initialize_grpc_client();
   // The two above may throw
 
+  remote_->StreamInfoStart();
+
   auto signals = asio::signal_set(context_, SIGINT, SIGTERM);
   signals.async_wait([this](const asio::error_code& error,
                             int signal_number) {

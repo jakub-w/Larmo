@@ -22,6 +22,7 @@
 #include "player_service.grpc.pb.h"
 
 #include "Player.h"
+#include "Util.h"
 
 using namespace grpc;
 
@@ -31,6 +32,9 @@ class PlayerServiceImpl : public PlayerService::Service {
   bool check_passphrase_(const ServerContext* context) const;
 
  public:
+  PlayerServiceImpl();
+  virtual ~PlayerServiceImpl();
+
   Status PlayFrom(ServerContext* context,
                   const StreamingPort* port,
                   MpvResponse* response);
@@ -50,6 +54,17 @@ class PlayerServiceImpl : public PlayerService::Service {
   Status Ping(ServerContext* context,
               const Empty*,
               Empty*);
+
+  Status TimeInfoStream(ServerContext* context,
+                            ServerReaderWriter<TimeInfo, TimeInterval>*
+                            stream);
+
+ private:
+  // Variables for TimeInfoBidiStream
+  lrm::PlaybackState::State playback_state_ = lrm::PlaybackState::UNDEFINED;
+  std::mutex playback_state_mtx_;
+  std::condition_variable playback_state_cv_;
+  // End of variables for TimeInfoBidiStream
 };
 
 #endif // LRM_PLAYERSERVICEIMPL_H

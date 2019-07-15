@@ -25,6 +25,8 @@
 
 #include "asio.hpp"
 
+#include "PlaybackState.h"
+
 namespace lrm {
 class MpvException : public std::runtime_error {
  public:
@@ -55,13 +57,11 @@ class Player {
   int64_t get_property_int64_(const std::string_view prop_name) const;
   double get_property_double_(const std::string_view prop_name) const;
 
- public:
-  enum Status {
-    PLAYING,
-    PAUSED,
-    STOPPED
-  };
+  void start_event_loop();
+  void stop_event_loop();
+  void mpv_event_loop();
 
+ public:
   Player();
   ~Player();
 
@@ -89,8 +89,13 @@ class Player {
   inline double PlayTimeRemaining() const {
     return get_property_double_("playtime-remaining");
   }
-  inline Status GetStatus() const {
-    return status_;
+  inline PlaybackState::State GetPlaybackState() const {
+    return playback_state_.GetState();
+  }
+  inline void SetStateChangeCallback(PlaybackState::StateChangeCallback&&
+                                     callback) {
+    playback_state_.SetStateChangeCallback(
+        std::forward<PlaybackState::StateChangeCallback>(callback));
   }
 
  private:
@@ -102,7 +107,10 @@ class Player {
   tcp::endpoint endpoint_;
   tcp::resolver tcp_resolver_ = tcp::resolver(io_context_);
 
-  Status status_ = STOPPED;
+  PlaybackState playback_state_;
+
+  std::atomic<bool> event_loop_running_ = false;
+  std::thread event_loop_thread_;
 };
 }
 
