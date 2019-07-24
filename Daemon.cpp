@@ -121,9 +121,9 @@ void Daemon::initialize_config() {
 
   std::stringstream settings;
   settings << "Settings:";
-  for(auto& setting : Config::GetMap()) {
-    if (setting.first.empty()) continue;
-    settings << "\n\t" << setting.first << " = " << setting.second;
+  for(const auto& [key, value] : Config::GetMap()) {
+    if (key.empty()) continue;
+    settings << "\n\t" << key << " = " << value;
   }
   log_->info(settings.str());
 
