@@ -16,53 +16,72 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#ifndef LRM_SONGINFOUPDATER_H_
-#define LRM_SONGINFOUPDATER_H_
+#ifndef LRM_PLAYBACKSYNCHRONIZER_H_
+#define LRM_PLAYBACKSYNCHRONIZER_H_
 
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 
+#include "spdlog/spdlog.h"
+
 #include "player_service.grpc.pb.h"
 
 #include "PlaybackState.h"
-#include "SongInfo.h"
 
-class SongInfoUpdater {
+namespace lrm {
+class PlaybackSynchronizer {
  public:
-  using StateChangeCallback = std::function<void(lrm::PlaybackState::State)>;
+  using StateChangeCallback = PlaybackState::StateChangeCallback;
 
-  SongInfoUpdater(PlayerService::Stub* stub,
-                  SongInfo* song_info) noexcept
-      : stub_(stub), song_info_(song_info) {}
+  struct PlaybackInfo {
+    std::string title;
+    std::string album;
+    std::string artist;
 
-  virtual ~SongInfoUpdater();
+    std::chrono::duration<double> total_time;
+    std::chrono::duration<double> elapsed_time;
+    std::chrono::duration<double> remaining_time;
 
+    PlaybackState::State playback_state = PlaybackState::UNDEFINED;
+  };
+
+  PlaybackSynchronizer(PlayerService::Stub* stub) noexcept : stub_(stub) {}
+
+  virtual ~PlaybackSynchronizer();
+
+  /// If \b update_interval is set to \b std::chrono::duration::max() the
+  /// update will occur only on the playback status change.
   void Start(std::chrono::milliseconds update_interval =
              std::chrono::milliseconds(1000));
   void Stop();
 
-  /// \exception std::system_error May throw what std::mutex::lock() throws.
+  PlaybackInfo GetPlaybackInfo() const;
+
   inline void SetCallbackOnStatusChange(StateChangeCallback&& callback) {
-    std::lock_guard<std::mutex> lck(state_callback_mtx_);
-    state_change_callback_ = callback;
+    playback_state_.SetStateChangeCallback(
+        std::forward<StateChangeCallback>(callback));
   }
 
  private:
   void continuous_update(std::chrono::milliseconds update_interval);
 
-  std::thread thread_;
-
   PlayerService::Stub* stub_;
-  SongInfo* song_info_;
-
-  std::mutex state_callback_mtx_;
-
-  StateChangeCallback state_change_callback_;
 
   std::condition_variable is_updating_cv_;
   std::mutex is_updating_mtx_;
   bool is_updating_ = false;
-};
+  std::thread updating_thread_;
 
-#endif  // LRM_SONGINFOUPDATER_H_
+  struct BasePlaybackInfo {
+    mutable std::mutex mtx;
+    PlaybackInfo info;
+    std::chrono::time_point<std::chrono::steady_clock> last_update;
+  } base_playback_info;
+
+  PlaybackState playback_state_;
+};
+}
+
+#endif  // LRM_PLAYBACKSYNCHRONIZER_H_

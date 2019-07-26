@@ -39,7 +39,7 @@ class PlaybackState {
     /// playback was stopped because of an error
     FINISHED_ERROR
   };
-  using StateChangeCallback = std::function<void(const State&)>;
+  typedef std::function<void(const State&)> StateChangeCallback;
 
   PlaybackState(State state);
   PlaybackState();

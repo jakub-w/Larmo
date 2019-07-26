@@ -84,37 +84,27 @@ int PlayerClient::start_streaming(const std::string& filename,
   return port;
 }
 
-void PlayerClient::set_playback_state(lrm::PlaybackState::State state) {
-  // TODO: Probably refactor that.
-  //       The state could be acquired by asking the server, that way it
-  //       would be the same as in the mpv player.
-
-  playback_state_.SetState(state);
-}
-
 void PlayerClient::start_updating_info() {
   spdlog::info("Starting song info stream...");
   try {
-    song_info_updater_.Start();
+    synchronizer_.Start();
   } catch (const std::system_error& e) {
     spdlog::error("Couldn't start song info stream: {}", e.what());
   }
 }
 void PlayerClient::stop_updating_info() {
-  song_info_updater_.Stop();
+  synchronizer_.Stop();
 }
 
 PlayerClient::PlayerClient(std::shared_ptr<grpc_impl::Channel> channel)
     : stub_(PlayerService::NewStub(channel)),
       streaming_acceptor_(context_),
       streaming_socket_(context_),
-      song_info_updater_(stub_.get(), &song_info_),
+      synchronizer_(stub_.get()),
       log_(spdlog::get("PlayerClient")) {
   try {
-    song_info_updater_.SetCallbackOnStatusChange(
+    synchronizer_.SetCallbackOnStatusChange(
         [this](lrm::PlaybackState::State state){
-          playback_state_.SetState(state);
-
           if (lrm::PlaybackState::FINISHED == state or
               lrm::PlaybackState::FINISHED_ERROR == state) {
             // Copy the callback to prevent data races and to not lock the
@@ -190,9 +180,6 @@ int PlayerClient::Play(std::string_view filename)
   grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
-    // TODO: Shouldn't that be received from the server?
-    //       What about inconsistencies in state?
-    song_info_.SetFilename(filename.data());
     return response.response();
   } else {
     throw status;
@@ -244,8 +231,8 @@ int PlayerClient::Volume(std::string_view volume) {
   }
 }
 
-SongInfo PlayerClient::GetSongInfo() {
-  return song_info_;
+lrm::PlaybackSynchronizer::PlaybackInfo PlayerClient::GetPlaybackInfo() {
+  return synchronizer_.GetPlaybackInfo();
 }
 
 bool PlayerClient::Ping() {

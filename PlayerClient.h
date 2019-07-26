@@ -26,9 +26,7 @@
 
 #include "spdlog/spdlog.h"
 
-#include "PlaybackState.h"
-#include "SongInfo.h"
-#include "SongInfoUpdater.h"
+#include "PlaybackSynchronizer.h"
 
 using namespace grpc;
 using namespace asio::ip;
@@ -40,8 +38,6 @@ class PlayerClient {
   /// Return port (it's randomized if port arg is 0)
   int start_streaming(const std::string& filename, unsigned short port);
 
-  /// Set the current state of playback
-  void set_playback_state(lrm::PlaybackState::State state);
   /// Start a thread that will continuously update song_info_, taking
   /// information from the remote server.
   void start_updating_info();
@@ -63,7 +59,7 @@ class PlayerClient {
   int Stop();
   int TogglePause();
   int Volume(std::string_view volume);
-  SongInfo GetSongInfo();
+  lrm::PlaybackSynchronizer::PlaybackInfo GetPlaybackInfo();
   bool Ping();
 
   inline void StreamInfoStart() {
@@ -83,9 +79,7 @@ class PlayerClient {
   tcp::endpoint streaming_endpoint_;
   tcp::socket streaming_socket_;
 
-  lrm::PlaybackState playback_state_;
-  SongInfo song_info_;
-  SongInfoUpdater song_info_updater_;
+  lrm::PlaybackSynchronizer synchronizer_;
 
   std::shared_ptr<spdlog::logger> log_;
 
