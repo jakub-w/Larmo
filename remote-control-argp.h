@@ -14,12 +14,15 @@ const char* argp_program_bug_address = "<doesnt@exist.addr>";
 static char doc[] =
     "Lelo Remote Music Control -- Client for Lelo Remote Music Player\v"
     "Commands:\n"
-    "  play FILE\n"
-    "  stop\n"
-    "  toggle-pause\n"
-    "  volume VOL\t" "Absolute (e.g. 50) or relative (e.g. +10)\n"
-    "  ping\n"
-    "  daemon";
+    "  daemon\t\t" "Start a daemon\n"
+    "  info FORMAT\t\t" "Print an info about the currently playing file\n"
+    "  ping\t\t\t" "Ping the server\n"
+    "  play FILE\t\t" "Play the FILE\n"
+    "  stop\t\t\t" "Stop the playback\n"
+    "  toggle-pause\t\t" "Pause or unpause the playback\n"
+    "  volume VOL\t\t" "Absolute (e.g. 50) or relative (e.g. +10)\n"
+    "\nDAEMON\n"
+    "  For more info about creating a daemon invoke 'daemon --help'.";
 
 static argp_option global_options[] = {
   {0, 0, 0, 0, 0, 0}
