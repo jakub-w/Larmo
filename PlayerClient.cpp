@@ -18,8 +18,10 @@
 
 #include "PlayerClient.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 #include "grpcpp/channel.h"
 
@@ -247,6 +249,52 @@ bool PlayerClient::Ping() {
   } else {
     throw status;
   }
+}
+
+std::string PlayerClient::info_get(
+    std::string_view token,
+    const lrm::PlaybackSynchronizer::PlaybackInfo* playback_info) {
+  if (token == "artist") {
+    return playback_info->artist;
+  } else if (token == "album") {
+    return playback_info->album;
+  } else if (token == "title") {
+    return playback_info->title;
+  } else if (token == "tt") {
+    return std::to_string(playback_info->total_time.count());
+  } else if (token == "et") {
+    return std::to_string(playback_info->elapsed_time.count());
+  } else if (token == "rt") {
+    return std::to_string(playback_info->remaining_time.count());
+  } else {
+    return "";
+  }
+}
+
+std::string PlayerClient::Info(std::string_view format) {
+  lrm::PlaybackSynchronizer::PlaybackInfo playback_info = GetPlaybackInfo();
+
+  std::stringstream result_stream;
+
+  auto begin = format.cbegin();
+  auto tok_beg = format.cbegin();
+  while ((tok_beg = std::find(begin, format.cend(), '%')) != format.cend()) {
+    result_stream.write(begin, tok_beg - begin);
+
+    ++tok_beg;
+    auto tok_end = std::find_if(tok_beg, format.cend(),
+                                [](char c) {
+                                  return std::isblank(c);
+                                });
+
+    std::string token(tok_beg, tok_end - tok_beg);
+
+    result_stream << info_get(token, &playback_info);
+
+    begin = tok_end;
+  }
+
+  return result_stream.str();
 }
 
 void PlayerClient::SetSongFinishedCallback(SongFinishedCallback&& callback) {

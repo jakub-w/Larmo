@@ -321,6 +321,9 @@ void Daemon::connection_handler(
           result = remote_->Volume(args.command_arg());
         } else if (args.command() == "ping") {
           result = (remote_->Ping() ? 0 : 1);
+        } else if (args.command() == "info") {
+          response.set_response(remote_->Info(args.command_arg()));
+          result = 0;
         }
         response.set_exit_status(result);
       } catch (const std::exception& e) {

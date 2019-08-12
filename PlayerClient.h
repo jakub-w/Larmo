@@ -46,6 +46,10 @@ class PlayerClient {
 
   unsigned short set_port(unsigned short port);
 
+  std::string info_get(
+      std::string_view token,
+      const lrm::PlaybackSynchronizer::PlaybackInfo* playback_info);
+
   PlayerClient(std::shared_ptr<grpc_impl::Channel> channel);
 
  public:
@@ -61,6 +65,7 @@ class PlayerClient {
   int Volume(std::string_view volume);
   lrm::PlaybackSynchronizer::PlaybackInfo GetPlaybackInfo();
   bool Ping();
+  std::string Info(std::string_view format);
 
   inline void StreamInfoStart() {
     start_updating_info();

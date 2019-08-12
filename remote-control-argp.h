@@ -43,7 +43,8 @@ static const std::unordered_map<std::string, bool> commands = {
   {"toggle-pause", false},
   {"volume", true},
   {"ping", false},
-  {"daemon", false}
+  {"daemon", false},
+  {"info", true}
 };
 
 static const char args_doc[] = "COMMAND [ARG]";
@@ -145,6 +146,8 @@ static error_t global_parse_opt(int key, char* arg, argp_state* state) {
           if (length > 1 and arg[0] == 'm') {
             arg[0] = '-';
           }
+          args->command_arg = arg;
+        } else if (args->command == "info") {
           args->command_arg = arg;
         } else {
           argp_error(state, "Unknown command: %s", arg);
