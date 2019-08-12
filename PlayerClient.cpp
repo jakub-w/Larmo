@@ -284,12 +284,16 @@ std::string PlayerClient::Info(std::string_view format) {
     ++tok_beg;
     auto tok_end = std::find_if(tok_beg, format.cend(),
                                 [](char c) {
-                                  return std::isblank(c);
+                                  return not std::iswalpha(c);
                                 });
 
     std::string token(tok_beg, tok_end - tok_beg);
-
-    result_stream << info_get(token, &playback_info);
+    std::string replacement{info_get(token, &playback_info)};
+    if (replacement.empty()) {
+      result_stream.write(tok_beg - 1, (tok_end - tok_beg) + 1);
+    } else {
+      result_stream << replacement;
+    }
 
     begin = tok_end;
   }
