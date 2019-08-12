@@ -92,15 +92,23 @@ These variables take precedence over `emms-player-lrm-config'."
 ;; NOTE: Returning an error on failure is probably temporary.
 ;;       The user probably shouldn't be bothered by the backend.
 
+(defun emms-player-lrm--ensure-daemon ()
+  (with-temp-buffer
+    (call-process emms-player-lrm-executable nil t nil "ping")
+    (goto-char (point-min))
+    (when (looking-at-p "Daemon not running.")
+      (let (args)
+	(dolist (pair (seq-filter #'cadr
+				  `(("--host" ,emms-player-lrm-host)
+				    ("--port" ,emms-player-lrm-port)
+				    ("--pass" ,emms-player-lrm-passphrase)
+				    ("--config" ,emms-player-lrm-config)))
+		      args)
+	  (setq args (append pair args)))
+	(eval `(emms-player-lrm-command-1 "daemon" ,@args))))))
+
 ;; -------------------- Synchronous --------------------
-(defun emms-player-lrm-command (&rest args)
-  (dolist (pair (seq-filter #'cadr
-			    `(("--host" ,emms-player-lrm-host)
-			      ("--port" ,emms-player-lrm-port)
-			      ("--pass" ,emms-player-lrm-passphrase)
-			      ("--config" ,emms-player-lrm-config)))
-		args)
-    (setq args (append pair args)))
+(defun emms-player-lrm-command-1 (&rest args)
   (with-temp-buffer
     (let* ((default-directory
 	     (file-name-directory emms-player-lrm-executable))
@@ -111,6 +119,10 @@ These variables take precedence over `emms-player-lrm-config'."
 	(goto-char (point-min))
 	(error (buffer-substring (point) (point-at-eol))))
       result)))
+
+(defun emms-player-lrm-command (&rest args)
+  (emms-player-lrm--ensure-daemon)
+  (apply #'emms-player-lrm-command-1 args))
 
 ;; -------------------- Asynchronous --------------------
 (defun emms-player-lrm-command--sentinel (process event)
@@ -133,20 +145,18 @@ These variables take precedence over `emms-player-lrm-config'."
     	     (time 0 (+ time sleep)))
     	((or (not (buffer-live-p buffer)) (>= time timeout)))
       (sleep-for 0 sleep)))
-  (dolist (pair (seq-filter #'cadr
-			    `(("--host" ,emms-player-lrm-host)
-			      ("--port" ,emms-player-lrm-port)
-			      ("--pass" ,emms-player-lrm-passphrase)
-			      ("--config" ,emms-player-lrm-config)))
-		args)
-    (setq args (append pair args)))
-  (let ((default-directory (file-name-directory emms-player-lrm-executable))
-	(buffer (get-buffer-create "*emms-player-lrm*")))
-    (make-process
-     :name "Lelo Remote Music"
-     :buffer buffer
-     :command (cons emms-player-lrm-executable args)
-     :sentinel #'emms-player-lrm-command--sentinel)))
+  (make-thread
+   (lambda ()
+     (emms-player-lrm--ensure-daemon)
+     (let ((default-directory
+     	     (file-name-directory emms-player-lrm-executable))
+     	   (buffer (get-buffer-create "*emms-player-lrm*")))
+       (make-process
+     	:name "Lelo Remote Music"
+     	:buffer buffer
+     	:command (cons emms-player-lrm-executable args)
+     	:sentinel #'emms-player-lrm-command--sentinel))))
+  nil)
 ;; ------------------------------------------------------
 
 (defun emms-player-lrm-start (track)
@@ -190,7 +200,7 @@ These variables take precedence over `emms-player-lrm-config'."
       emms-player-lrm-config
       "/home/lampilelo/Programming/remote-music-control/builddir/lrm.conf"
       emms-player-lrm-host
-      "archlelo"
+      "localhost"
       emms-player-lrm-cert
       "/home/lampilelo/Programming/remote-music-control/builddir/server.crt")
 (add-to-list 'emms-player-list 'emms-player-lrm)
