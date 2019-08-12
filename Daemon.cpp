@@ -324,6 +324,8 @@ void Daemon::connection_handler(
         } else if (args.command() == "info") {
           response.set_response(remote_->Info(args.command_arg()));
           result = 0;
+        } else if (args.command() == "seek") {
+          result = remote_->Seek(args.command_arg());
         }
         response.set_exit_status(result);
       } catch (const std::exception& e) {

@@ -51,6 +51,10 @@ class PlayerServiceImpl : public PlayerService::Service {
                 const VolumeMessage* volume,
                 MpvResponse* response);
 
+  Status Seek(ServerContext* context,
+              const SeekMessage* seek,
+              MpvResponse* response);
+
   Status Ping(ServerContext* context,
               const Empty*,
               Empty*);

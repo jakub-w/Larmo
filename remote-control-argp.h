@@ -18,6 +18,7 @@ static char doc[] =
     "  info FORMAT\t\t" "Print an info about the currently playing file\n"
     "  ping\t\t\t" "Ping the server\n"
     "  play FILE\t\t" "Play the FILE\n"
+    "  seek SECONDS\t\t" "Seek forward or backward in the playing file (unreliable)\n"
     "  stop\t\t\t" "Stop the playback\n"
     "  toggle-pause\t\t" "Pause or unpause the playback\n"
     "  volume VOL\t\t" "Absolute (e.g. 50) or relative (e.g. +10)\n"
@@ -42,6 +43,7 @@ struct arguments {
 // bool value is true if the command requires an argument
 static const std::unordered_map<std::string, bool> commands = {
   {"play", true},
+  {"seek", true},
   {"stop", false},
   {"toggle-pause", false},
   {"volume", true},
@@ -113,7 +115,8 @@ static error_t global_parse_opt(int key, char* arg, argp_state* state) {
       // Otherwise argp would interpret this argument as an option which
       // doesn't exist.
       for (auto i = 0; i < state->argc; ++i) {
-        if ((std::strcmp(state->argv[i], "volume") == 0) and
+        if ((std::strcmp(state->argv[i], "volume") == 0 or
+             std::strcmp(state->argv[i], "seek") == 0) and
             (i + 1 < state->argc) and
             (std::strlen(state->argv[i + 1]) > 1) and
             (state->argv[i + 1][0] == '-')) {
@@ -144,7 +147,8 @@ static error_t global_parse_opt(int key, char* arg, argp_state* state) {
           } else {
             argp_error(state, "File doesn't exist: %s", arg);
           }
-        } else if (args->command == "volume") {
+        } else if (args->command == "volume" or
+                   args->command == "seek") {
           int length = std::strlen(arg);
           if (length > 1 and arg[0] == 'm') {
             arg[0] = '-';

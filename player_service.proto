@@ -26,6 +26,10 @@ message VolumeMessage {
   string volume = 1;
 }
 
+message SeekMessage {
+  sint32 seconds = 1;
+}
+
 message MpvResponse {
   sint32 response = 1;
 }
@@ -64,6 +68,7 @@ service PlayerService {
   rpc Stop(Empty) returns (MpvResponse) {}
   rpc TogglePause(Empty) returns (MpvResponse) {}
   rpc Volume(VolumeMessage) returns (MpvResponse) {}
+  rpc Seek(SeekMessage) returns (MpvResponse) {}
   rpc Ping(Empty) returns (Empty) {}
   rpc TimeInfoStream(stream TimeInterval) returns (stream TimeInfo) {}
 }

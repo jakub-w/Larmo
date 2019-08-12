@@ -63,6 +63,7 @@ class PlayerClient {
   int Stop();
   int TogglePause();
   int Volume(std::string_view volume);
+  int Seek(std::string_view seconds);
   lrm::PlaybackSynchronizer::PlaybackInfo GetPlaybackInfo();
   bool Ping();
   std::string Info(std::string_view format);

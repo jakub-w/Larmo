@@ -113,6 +113,17 @@ PlayerServiceImpl::Volume(ServerContext* context,
 }
 
 Status
+PlayerServiceImpl::Seek(ServerContext* context,
+                        const SeekMessage* seek,
+                        MpvResponse* response) {
+  CHECK_PASSPHRASE(context);
+
+  response->set_response(player.Seek(seek->seconds()));
+
+  return Status::OK;
+}
+
+Status
 PlayerServiceImpl::Ping(ServerContext* context,
                         const Empty*,
                         Empty*) {

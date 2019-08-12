@@ -233,6 +233,25 @@ int PlayerClient::Volume(std::string_view volume) {
   }
 }
 
+int PlayerClient::Seek(std::string_view seconds) {
+  log_->debug("PlayerClient::Seek()");
+
+  ClientContext context;
+  MpvResponse response;
+
+  SeekMessage seek_msg;
+  int usecs = std::stoi(seconds.data());
+  std::clamp(usecs, INT32_MIN, INT32_MAX);
+  seek_msg.set_seconds(usecs);
+
+  grpc::Status status = stub_->Seek(&context, seek_msg, &response);
+  if (status.ok()) {
+    return status.ok();
+  } else {
+    throw status;
+  }
+}
+
 lrm::PlaybackSynchronizer::PlaybackInfo PlayerClient::GetPlaybackInfo() {
   return synchronizer_.GetPlaybackInfo();
 }

@@ -42,6 +42,8 @@ Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy),
   mpv_initialize(ctx_.get());
   mpv_set_property_string(ctx_.get(), "log-file", "mpv.log");
   mpv_set_property_string(ctx_.get(), "video", "no");
+  // NOTE: This allows for cached seeking, but it's pretty unreliable
+  mpv_set_property_string(ctx_.get(), "force-seekable", "yes");
   mpv_request_log_messages(ctx_.get(), "debug");
 
   start_event_loop();
@@ -115,6 +117,10 @@ int Player::Volume(std::string_view volume) {
   } catch (const std::invalid_argument& e) {
     return MPV_ERROR_INVALID_PARAMETER;
   }
+}
+
+int Player::Seek(int32_t seconds) {
+  return send_command_({"seek", std::to_string(seconds)});
 }
 
 int Player::PlayFrom(std::string_view host, std::string_view port) {
