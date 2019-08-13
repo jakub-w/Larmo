@@ -193,6 +193,13 @@ These variables take precedence over `emms-player-lrm-config'."
   (error "Not implemented")
   (emms-player-lrm-command "seek" (max 0 pos)))
 
+(defun emms-volume-lrm-change (amount)
+  "Change volume by AMOUNT. Can be positive or negative."
+  (interactive "MVolume change amount: ")
+  (unless (or (eq (elt amount 0) ?-)
+	      (eq (elt amount 0) ?+))
+    (setq amount (concat "+" amount)))
+  (emms-player-lrm-command "volume" amount))
 
 ;; TODO: Remove these debugging variables
 (setq emms-player-lrm-executable
