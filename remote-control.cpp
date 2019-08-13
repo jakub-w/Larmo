@@ -250,12 +250,13 @@ int main(int argc, char** argv) {
 
   cmd.SerializeToFileDescriptor(socket.native_handle());
   socket.shutdown(socket.shutdown_send);
-  std::cout << "Sent the command\n";
 
   DaemonResponse response;
   response.ParseFromFileDescriptor(socket.native_handle());
 
-  std::cout << response.exit_status() << ": " << response.response() << '\n';
+  if (not response.response().empty()) {
+    std::cout << response.response() << '\n';
+  }
 
   return response.exit_status();
 }
