@@ -59,6 +59,7 @@ PlaybackSynchronizer::GetPlaybackInfo() const {
     result.album = base_playback_info.info.album;
     result.artist = base_playback_info.info.artist;
     result.total_time = base_playback_info.info.total_time;
+    result.playback_state = base_playback_info.info.playback_state;
 
     if (base_playback_info.info.playback_state == PlaybackState::PLAYING) {
       auto time_difference =
