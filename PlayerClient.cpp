@@ -277,6 +277,17 @@ std::string PlayerClient::info_get(
     return playback_info->artist;
   } else if (token == "album") {
     return playback_info->album;
+  } else if (token == "state") {
+    switch (playback_info->playback_state) {
+      case lrm::PlaybackState::PLAYING:
+        return "PLAYING";
+      case lrm::PlaybackState::PAUSED:
+        return "PAUSED";
+      case lrm::PlaybackState::STOPPED:
+        return "STOPPED";
+      default:
+        return "UNDEFINED";
+    }
   } else if (token == "title") {
     return playback_info->title;
   } else if (token == "tt") {
