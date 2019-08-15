@@ -143,9 +143,22 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
   spdlog::info("Playing from: {}:{}",
                endpoint_.address().to_string(), endpoint_.port());
 
-  // FIXME: Why is it here? Some timing issue? Investigate.
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  tcp_sock_.connect(endpoint_);
+  asio::error_code ec;
+  const int timer = 1000; // wait for max 1 second
+  for (int i = 0; i < timer/250; ++i) {
+    tcp_sock_.connect(endpoint_, ec);
+    if (ec) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    } else {
+      break;
+    }
+  }
+  if (ec) {
+    spdlog::error("Couldn't connect to a client's streaming port: {}",
+                  ec.message());
+    return -1;
+  }
+
   spdlog::debug("Connected");
 
   spdlog::debug("Sockfd: {}", tcp_sock_.native_handle());
