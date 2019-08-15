@@ -176,8 +176,8 @@ int main(int argc, char** argv) {
   grpc::ServerBuilder builder;
   PlayerServiceImpl player_service;
 
-  // TODO: get it from the config file or some default directory
   Config::Set("cert_file", "server.crt");
+  // FIXME: get it from the config file or some default directory
   Config::Set("key_file", "server.key");
 
   std::string ssl_cert = lrm::file_to_str(Config::Get("cert_file"));

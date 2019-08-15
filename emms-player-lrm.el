@@ -96,9 +96,6 @@ necessary for changing to the next track."
 ;; 		 'seek-to
 ;; 		 'emms-player-lrm-seek-to)
 
-;; NOTE: Returning an error on failure is probably temporary.
-;;       The user probably shouldn't be bothered by the backend.
-
 (defun emms-player-lrm--ensure-daemon ()
   (with-temp-buffer
     (call-process emms-player-lrm-executable nil t nil "ping")
@@ -113,6 +110,9 @@ necessary for changing to the next track."
 		      args)
 	  (setq args (append pair args)))
 	(eval `(emms-player-lrm-command-1 "daemon" ,@args))))))
+
+;; NOTE: Returning an error on failure is probably temporary.
+;;       The user probably shouldn't be bothered by the backend.
 
 ;; -------------------- Synchronous --------------------
 (defun emms-player-lrm-command-1 (&rest args)
