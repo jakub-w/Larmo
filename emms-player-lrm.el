@@ -68,6 +68,13 @@ These variables take precedence over `emms-player-lrm-config'."
   :type '(file :must-match t)
   :group 'emms-player-lrm)
 
+(defcustom emms-player-lrm-check-interval 1
+  "The interval between checks if the song has finished playing. It is
+necessary for changing to the next track."
+  :type '(number)
+  :group 'emms-player-lrm)
+
+(defvar emms-player-lrm-status-timer nil)
 (emms-player-set emms-player-lrm
 		 'regex
                  (apply #'emms-player-simple-regexp
@@ -75,11 +82,11 @@ These variables take precedence over `emms-player-lrm-config'."
 
 (emms-player-set emms-player-lrm
 		 'pause
-		 'emms-player-lrm-toggle-pause)
+		 'emms-player-lrm-pause)
 
 (emms-player-set emms-player-lrm
 		 'resume
-		 'emms-player-lrm-toggle-pause)
+		 'emms-player-lrm-unpause)
 
 ;; (emms-player-set emms-player-lrm
 ;; 		 'seek
@@ -159,15 +166,51 @@ These variables take precedence over `emms-player-lrm-config'."
   nil)
 ;; ------------------------------------------------------
 
+(defun emms-player-lrm--get-state ()
+  "Return 'playing, 'paused, 'stopped or nil."
+  (with-temp-buffer
+    (call-process emms-player-lrm-executable nil t nil
+		  "info" "%state")
+    (goto-char (point-min))
+    (pcase (buffer-substring-no-properties (point) (point-at-eol))
+      ("PLAYING" 'playing)
+      ("PAUSED" 'paused)
+      ("STOPPED" 'stopped)
+      (_ nil))))
+
+(defun emms-player-lrm--detect-song-change ()
+  ;; If lrm returns 'stopped status and emms-player-stopped-p is nil
+  ;; that means that the user didn't stop the player and the playback stopped
+  ;; automatically (e.g. song finished playing).
+  ;; NOTE: (emms-player-stopped) calls emms-player-next-function if
+  ;;       emms-player-stopped-p is nil.
+  (cond
+   ((and (eq 'stopped (emms-player-lrm--get-state))
+	 emms-player-playing-p)
+    (emms-player-stopped))))
+
+(defun emms-player-lrm--start-status-timer ()
+  (unless emms-player-lrm-status-timer
+    (setq emms-player-lrm-status-timer
+	  (run-at-time t emms-player-lrm-check-interval
+		       #'emms-player-lrm--detect-song-change))))
+
+(defun emms-player-lrm--stop-status-timer ()
+  (when emms-player-lrm-status-timer
+    (emms-cancel-timer emms-player-lrm-status-timer)
+    (setq emms-player-lrm-status-timer nil)))
+
 (defun emms-player-lrm-start (track)
   "Starts a process playing TRACK."
-  (emms-player-lrm-command-async "play" (emms-track-name track))
-  ;; TODO: Check if play was successful, only then set a player as started
-  (emms-player-started 'emms-player-lrm))
+  (when (= 0 (emms-player-lrm-command "play" (emms-track-name track)))
+    (emms-player-started 'emms-player-lrm)
+    (emms-player-lrm--start-status-timer)))
 
 (defun emms-player-lrm-stop ()
   "Stop the currently playing track."
   (when (= 0 (emms-player-lrm-command "stop"))
+    (emms-player-lrm--stop-status-timer)
+    (setq emms-player-stopped-p t)
     (emms-player-stopped)))
 
 (defun emms-player-lrm-playable-p (track)
@@ -178,8 +221,20 @@ These variables take precedence over `emms-player-lrm-config'."
        (= 0 (emms-player-lrm-command "ping"))))
 
 (defun emms-player-lrm-toggle-pause ()
-  "Pause the currently playing track."
+  "Pause/unpause the currently playing track."
   (emms-player-lrm-command "toggle-pause"))
+
+(defun emms-player-lrm-pause ()
+  "Pause the currently playing track."
+  (when (eq 'playing (emms-player-lrm--get-state))
+    (emms-player-lrm--stop-status-timer)
+    (emms-player-lrm-toggle-pause)))
+
+(defun emms-player-lrm-unpause ()
+  "Unpause the currently playing track."
+  (when (eq 'paused (emms-player-lrm--get-state))
+    (emms-player-lrm-toggle-pause)
+    (emms-player-lrm--start-status-timer)))
 
 (defun emms-player-lrm-seek (amount)
   "Seek by AMOUNT seconts. Can be a positive or a negative number."
