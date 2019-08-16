@@ -110,6 +110,11 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
   }
   assert(Config::GetState() == Config::LOADED);
 
+  int fds[2];
+  if (pipe(fds)) {
+    throw std::system_error(errno, std::system_category());
+  }
+
   pid_t pid = fork();
   switch (pid) {
     case -1:
@@ -118,6 +123,9 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
       {
         int exit_code = EXIT_SUCCESS;
         {
+          close(fds[0]);
+          FILE* pipe_write;
+          pipe_write = fdopen(fds[1], "w");
           try {
             // Initialize a daemon process
             umask(0);
@@ -154,6 +162,12 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
 
             {
               lrm::Daemon daemon(std::move(dinfo));
+              daemon.Initialize();
+
+              // Pass the exit code to the client
+              std::fprintf(pipe_write, "%i\n", EXIT_SUCCESS);
+              std::fflush(pipe_write);
+
               daemon.Run();
             }
             // The daemon fell out of scope without any crashes.
@@ -161,11 +175,35 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
           } catch (const std::exception& e) {
             spdlog::error(e.what());
             exit_code = EXIT_FAILURE;
+            // Write the exit code and error message to the client
+            std::fprintf(pipe_write, "%i\n%s\n", exit_code, e.what());
           }
+          fclose(pipe_write);
         }
         std::_Exit(exit_code);
       }
     default:
+      close(fds[1]);
+      FILE* pipe_read = fdopen(fds[0], "r");
+
+      // If the daemon initialization went well, it will send 0 through a
+      // pipe.
+      // If not, it will send non-0 and then the error message on a new line.
+      char buf[10];
+      std::fgets(buf, sizeof(buf), pipe_read);
+      int exit_code = std::stoi(buf);
+      if (exit_code != EXIT_SUCCESS) {
+        std::string error_message;
+        while (std::fgets(buf, sizeof(buf), pipe_read) != NULL) {
+          error_message += buf;
+        }
+        error_message.pop_back(); // remove trailing newline
+        fclose(pipe_read);
+        throw std::runtime_error(error_message);
+      } else {
+        fclose(pipe_read);
+      }
+
       return pid;
   }
 }

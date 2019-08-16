@@ -70,9 +70,8 @@ Daemon::~Daemon() noexcept {
 }
 
 void Daemon::Run() {
-  initialize_config();
-  initialize_grpc_client();
-  // The two above may throw
+  Initialize();
+  // The above may throw
 
   remote_->StreamInfoStart();
 
@@ -91,6 +90,23 @@ void Daemon::Run() {
   start_accept();
 
   context_.run();
+}
+
+void Daemon::Initialize() {
+  switch (state_) {
+    case UNINITIALIZED:
+      initialize_config();
+      initialize_grpc_client();
+      break;
+    case CONFIG_INITIALIZED:
+      initialize_grpc_client();
+      break;
+    case GRPC_CLIENT_INITIALIZED:
+      break;
+    default:
+      throw std::logic_error("Unknown daemon state. This should never"
+                             " happen");
+  }
 }
 
 void Daemon::initialize_config() {
@@ -262,6 +278,17 @@ void Daemon::initialize_grpc_client() {
                     }
                   }
                 }).detach();
+
+    // Wait for channel to connect to the server (5 seconds)
+    for (int i = 0;
+         channel->GetState(false) != GRPC_CHANNEL_READY and i < 5;
+         ++i) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    if (channel->GetState(false) != GRPC_CHANNEL_READY) {
+      throw std::system_error(std::make_error_code(std::errc::timed_out),
+                              "Connecting to a server");
+    }
 
     remote_ = std::make_unique<PlayerClient>(
         Config::Get("streaming_port"),

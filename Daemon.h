@@ -57,6 +57,7 @@ class Daemon {
   virtual ~Daemon() noexcept;
 
   void Run() noexcept(false);
+  void Initialize();
 
   static const std::filesystem::path socket_path;
 
