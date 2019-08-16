@@ -52,6 +52,7 @@ Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy),
 Player::~Player() {
   stop_event_loop();
   tcp_sock_.close();
+  event_loop_thread_.join();
 }
 
 int Player::Play() {
