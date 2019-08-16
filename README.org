@@ -53,9 +53,26 @@ The server needs to have a private key that signed the certificate. It will expe
 - grpc
 - asio
 ** For building
-- gcc or clang (the version must support c++17)
+- gcc or clang (must support c++17 and <filesystem>, so gcc 8.x)
 - meson
+
 * Building
+** On Debian 10:
+# TODO: Update build instructions for Ubuntu 18.04 after resolving
+# [[file:TODO.org::*If%20<filesystem>%20is%20not%20available,%20use%20<experimental/filesystem>][link: If <filesystem> is not available, use <experimental/filesystem>]]
+#+BEGIN_SRC sh
+  apt update && \
+  apt install -y git g++ pkg-config meson libprotobuf-dev \
+      protobuf-compiler libgrpc++-dev protobuf-compiler-grpc libasio-dev \
+      libmpv-dev
+#+END_SRC
+
+#+BEGIN_SRC sh
+  git clone --recurse-submodules \
+      https://github.com/jakub-w/lelo-remote-music.git && \
+  cd lelo-remote-music
+#+END_SRC
+
 #+BEGIN_SRC sh
   meson builddir && cd builddir && ninja
 #+END_SRC
