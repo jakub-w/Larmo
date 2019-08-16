@@ -98,7 +98,7 @@ void PlayerClient::stop_updating_info() {
   synchronizer_.Stop();
 }
 
-PlayerClient::PlayerClient(std::shared_ptr<grpc_impl::Channel> channel)
+PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
     : stub_(PlayerService::NewStub(channel)),
       streaming_acceptor_(context_),
       streaming_socket_(context_),

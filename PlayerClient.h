@@ -50,13 +50,13 @@ class PlayerClient {
       std::string_view token,
       const lrm::PlaybackSynchronizer::PlaybackInfo* playback_info);
 
-  PlayerClient(std::shared_ptr<grpc_impl::Channel> channel);
+  PlayerClient(std::shared_ptr<grpc::Channel> channel);
 
  public:
   explicit PlayerClient(unsigned short streaming_port,
-                        std::shared_ptr<grpc_impl::Channel> channel) noexcept;
+                        std::shared_ptr<grpc::Channel> channel) noexcept;
   explicit PlayerClient(const std::string& streaming_port,
-                        std::shared_ptr<grpc_impl::Channel> channel) noexcept;
+                        std::shared_ptr<grpc::Channel> channel) noexcept;
   virtual ~PlayerClient() noexcept;
 
   int Play(std::string_view filename);

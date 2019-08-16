@@ -26,7 +26,7 @@
 
 #include "daemon_arguments.pb.h"
 #include "grpcpp/create_channel.h"
-#include "grpcpp/channel_impl.h"
+#include "grpcpp/channel.h"
 
 #include "Config.h"
 #include "GrpcCallAuthenticator.h"
