@@ -49,6 +49,7 @@ message TimeInfo {
   double current_time = 2;
   double remaining_time = 3;
   double remaining_playtime = 4;
+  int32 volume = 5;
 
   enum PlaybackState {
     NOT_CHANGED = 0;
@@ -58,7 +59,7 @@ message TimeInfo {
     FINISHED = 4;
     FINISHED_ERROR = 5;
   }
-  PlaybackState playback_state = 5;
+  PlaybackState playback_state = 6;
 }
 
 message Empty {}

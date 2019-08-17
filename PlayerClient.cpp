@@ -290,6 +290,8 @@ std::string PlayerClient::info_get(
     }
   } else if (token == "title") {
     return playback_info->title;
+  } else if (token == "volume") {
+    return std::to_string(playback_info->volume);
   } else if (token == "tt") {
     return std::to_string(playback_info->total_time.count());
   } else if (token == "et") {

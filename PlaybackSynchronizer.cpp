@@ -60,6 +60,7 @@ PlaybackSynchronizer::GetPlaybackInfo() const {
     result.artist = base_playback_info.info.artist;
     result.total_time = base_playback_info.info.total_time;
     result.playback_state = base_playback_info.info.playback_state;
+    result.volume = base_playback_info.info.volume;
 
     if (base_playback_info.info.playback_state == PlaybackState::PLAYING) {
       auto time_difference =
@@ -125,6 +126,8 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
       base_playback_info.last_update = std::chrono::steady_clock::now();
 
       base_playback_info.info.playback_state = current_state;
+
+      base_playback_info.info.volume = time_info.volume();
 
       base_playback_info.info.total_time =
           std::chrono::duration<double>(time_info.total_time());

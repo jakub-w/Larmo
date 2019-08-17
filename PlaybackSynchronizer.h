@@ -40,6 +40,8 @@ class PlaybackSynchronizer {
     std::string album;
     std::string artist;
 
+    int volume;
+
     std::chrono::duration<double> total_time;
     std::chrono::duration<double> elapsed_time;
     std::chrono::duration<double> remaining_time;

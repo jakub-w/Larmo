@@ -75,6 +75,10 @@ class Player {
 
   // volume - can be a number from [0; 100] or +/-number, e.g. +10 or 75
   int Volume(std::string_view volume);
+  inline int Volume() {
+    return get_property_int64_("volume");
+  }
+
   int Seek(int32_t seconds);
   int PlayFrom(std::string_view host, std::string_view port);
 

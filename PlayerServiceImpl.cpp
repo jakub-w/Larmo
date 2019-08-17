@@ -108,6 +108,8 @@ PlayerServiceImpl::Volume(ServerContext* context,
   CHECK_PASSPHRASE(context);
 
   response->set_response(player.Volume(volume->volume()));
+  // We want to update clients whenever volume changes
+  playback_state_cv_.notify_all();
 
   return Status::OK;
 }
@@ -177,6 +179,8 @@ Status PlayerServiceImpl::TimeInfoStream(
       new_state = player.GetPlaybackState(),
       old_state = lrm::PlaybackState::UNDEFINED;
   bool state_changed = false;
+  bool force_update = false;
+  int old_volume = 0, new_volume = 0;
 
   // Runs at intervals, the playback state change makes it run early
   while (not close_stream) {
@@ -239,7 +243,12 @@ Status PlayerServiceImpl::TimeInfoStream(
         time_info.clear_remaining_playtime();
       }
 
-      if ((lrm::PlaybackState::PLAYING == new_state) or state_changed) {
+      new_volume = player.Volume();
+      time_info.set_volume(new_volume);
+
+      force_update = state_changed | (new_volume != old_volume);
+
+      if ((lrm::PlaybackState::PLAYING == new_state) or force_update) {
         if (not stream->Write(time_info)) {
           close_stream = true;
           break;
@@ -257,6 +266,7 @@ Status PlayerServiceImpl::TimeInfoStream(
         // constructor
         new_state = playback_state_;
       }
+      old_volume = new_volume;
     } catch (const std::exception& e) {
       spdlog::error("Info stream loop: {}", e.what());
     }
