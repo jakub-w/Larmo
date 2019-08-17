@@ -257,10 +257,18 @@ necessary for changing to the next track."
 (defun emms-volume-lrm-change (amount)
   "Change volume by AMOUNT. Can be positive or negative."
   (interactive "MVolume change amount: ")
+  (when (numberp amount)
+    (setq amount (number-to-string amount)))
   (unless (or (eq (elt amount 0) ?-)
 	      (eq (elt amount 0) ?+))
     (setq amount (concat "+" amount)))
-  (emms-player-lrm-command "volume" amount))
+  (emms-player-lrm-command "volume" amount)
+  (with-temp-buffer
+    (when (= 0 (call-process emms-player-lrm-executable nil t nil
+			     "info" "%volume"))
+      (message "Volume: %s%%"
+	       (buffer-substring-no-properties (point-min)
+					       (1- (point-at-eol)))))))
 
 ;; TODO: Remove these debugging variables
 (setq emms-player-lrm-executable
