@@ -57,15 +57,16 @@ Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
 
 Daemon::~Daemon() noexcept {
   try {
+    grpc_channel_state_run_ = false;
     std::filesystem::remove(socket_path);
+
+    log_->flush();
+    grpc_channel_state_thread_.join();
   } catch (const std::filesystem::filesystem_error& e) {
     if (e.code() != std::errc::no_such_file_or_directory) {
       log_->error("While removing a file '{}': {}",
                   e.path1().string(), e.what());
     }
-  }
-  try {
-    log_->flush();
   } catch (...) {}
 }
 
@@ -232,52 +233,10 @@ void Daemon::initialize_grpc_client() {
 
   {
     auto channel = grpc::CreateChannel(grpc_address, creds);
-    // FIXME: don't detach it, make a variable and join in the destructor!
-    // TODO: Make it a function instead of lambda
-    // Trace the channel status
-    std::thread([=](){
-                  grpc_connectivity_state state = channel->GetState(true);
-                  for (;;) {
-                    // An error is generated every time the timeout is
-                    // reached, so the gRPC logs can be spammy
-                    if (channel->WaitForStateChange(
-                        state,
-                        std::chrono::system_clock::time_point(
-                            std::chrono::system_clock::now() +
-                            std::chrono::seconds(5)))) {
-                      state = channel->GetState(false);
 
-                      std::string state_msg;
-                      spdlog::level::level_enum log_level;
-                      switch (state) {
-                        case GRPC_CHANNEL_IDLE:
-                          log_level = spdlog::level::debug;
-                          state_msg = "is idle";
-                          break;
-                        case GRPC_CHANNEL_CONNECTING:
-                          log_level = spdlog::level::info;
-                          state_msg = "is connecting";
-                          break;
-                        case GRPC_CHANNEL_READY:
-                          log_level = spdlog::level::info;
-                          state_msg = "is ready for work";
-                          break;
-                        case GRPC_CHANNEL_TRANSIENT_FAILURE:
-                          log_level = spdlog::level::warn;
-                          state_msg = "has seen a failure but expects"
-                                      " to recover";
-                          break;
-                        case GRPC_CHANNEL_SHUTDOWN:
-                          log_level = spdlog::level::err;
-                          state_msg = "has seen a failure that it"
-                                      " cannot recover from";
-                          break;
-                      }
-
-                      log_->log(log_level, "gRPC channel {}", state_msg);
-                    }
-                  }
-                }).detach();
+    // Trace the channel state
+    grpc_channel_state_thread_ =
+        std::thread(&Daemon::trace_grpc_channel_state, this, channel);
 
     // Wait for channel to connect to the server (5 seconds)
     for (int i = 0;
@@ -376,5 +335,48 @@ void Daemon::connection_handler(
 
   log_->info("Response sent: ({}) {}",
              response.exit_status(), response.response());
+}
+
+void Daemon::trace_grpc_channel_state(
+    std::shared_ptr<grpc::Channel> channel) {
+  grpc_connectivity_state state = channel->GetState(true);
+  while (grpc_channel_state_run_) {
+    // An error is generated every time the timeout is
+    // reached, so the gRPC logs can be spammy
+    if (channel->WaitForStateChange(
+            state,
+            std::chrono::system_clock::time_point(
+                std::chrono::system_clock::now() +
+                std::chrono::seconds(5)))) {
+      state = channel->GetState(false);
+
+      std::string state_msg;
+      spdlog::level::level_enum log_level;
+      switch (state) {
+        case GRPC_CHANNEL_IDLE:
+          log_level = spdlog::level::debug;
+          state_msg = "is idle";
+          break;
+        case GRPC_CHANNEL_CONNECTING:
+          log_level = spdlog::level::info;
+          state_msg = "is connecting";
+          break;
+        case GRPC_CHANNEL_READY:
+          log_level = spdlog::level::info;
+          state_msg = "is ready for work";
+          break;
+        case GRPC_CHANNEL_TRANSIENT_FAILURE:
+          log_level = spdlog::level::warn;
+          state_msg = "has seen a failure but expects to recover";
+          break;
+        case GRPC_CHANNEL_SHUTDOWN:
+          log_level = spdlog::level::err;
+          state_msg = "has seen a failure that it cannot recover from";
+          break;
+      }
+
+      log_->log(log_level, "gRPC channel {}", state_msg);
+    }
+  }
 }
 }

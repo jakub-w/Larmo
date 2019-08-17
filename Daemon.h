@@ -67,6 +67,8 @@ class Daemon {
   void start_accept();
   void connection_handler(std::unique_ptr<stream_protocol::socket>&& socket);
 
+  void trace_grpc_channel_state(std::shared_ptr<grpc::Channel> channel);
+
   std::unique_ptr<daemon_info> dinfo_;
 
   State state_ = UNINITIALIZED;
@@ -77,6 +79,9 @@ class Daemon {
   std::unique_ptr<stream_protocol::socket> connection_;
 
   std::unique_ptr<PlayerClient> remote_;
+
+  std::thread grpc_channel_state_thread_;
+  std::atomic<bool> grpc_channel_state_run_ = true;
 
   std::shared_ptr<spdlog::logger> log_;
 };
