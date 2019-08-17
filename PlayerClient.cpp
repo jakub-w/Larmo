@@ -53,7 +53,7 @@ int PlayerClient::start_streaming(const std::string& filename,
   streaming_socket_.close();
 
   streaming_endpoint_.port(port);
-  streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_);
+  streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_, true);
 
   port = streaming_acceptor_.local_endpoint().port();
   log_->debug("Opening port {}", port);
@@ -62,26 +62,30 @@ int PlayerClient::start_streaming(const std::string& filename,
   streaming_file_ = read_file(filename);
 
   log_->debug("Waiting for the server...");
-  // FIXME: It could outlive PlayerClient, join in the destructor!
-  //        To break asio::write() just close streamin_socket_.
-  //        Adjust the catch block to reflect the change.
-  std::thread([this](){
-                try {
-                  streaming_socket_ = streaming_acceptor_.accept();
 
-                  log_->info("Sending the file on port {}...",
-                             streaming_socket_.local_endpoint().port());
-                  size_t sent = asio::write(streaming_socket_,
-                                            asio::buffer(streaming_file_));
-                  log_->debug("File uploaded. Bytes sent: {}", sent);
-                  streaming_socket_.close();
-                } catch (const asio::system_error& e) {
-                  if (e.code().value() != EBADF) {
-                    log_->error("ASIO error while uploading the file: {}",
-                                e.what());
-                  }
-                }
-              }).detach();
+  streaming_acceptor_.async_accept(
+      streaming_socket_,
+      [this](const asio::error_code& ec){
+        try {
+          if (!ec) {
+            log_->info("Sending the file on port {}...",
+                       streaming_socket_.local_endpoint().port());
+            size_t sent = asio::write(
+                streaming_socket_,
+                asio::buffer(streaming_file_));
+            log_->debug("File uploaded. Bytes sent: {}", sent);
+            streaming_socket_.close();
+          } else {
+            throw asio::system_error(ec);
+          }
+        } catch (const asio::system_error& e) {
+          if (e.code().value() != EBADF) {
+            log_->error("ASIO error while uploading the file: {}",
+                       e.what());
+          }
+        }
+        log_->debug("Streaming thread exited");
+      });
 
   return port;
 }
@@ -124,6 +128,11 @@ PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
           spdlog::debug("Received playback state change from server: {}",
                         lrm::PlaybackState::StateName(state));
         });
+    context_thread_ = std::thread(
+        [this](){
+          auto context_guard = asio::make_work_guard(context_);
+          context_.run();
+        });
   } catch (const std::system_error& e) {
     spdlog::error("Couldn't register the state change callback: {}",
                   e.what());
@@ -152,6 +161,20 @@ PlayerClient::PlayerClient(const std::string& streaming_port,
 
 PlayerClient::~PlayerClient() noexcept {
   try {
+    log_->debug("Stopping the ASIO context...");
+    try {
+      streaming_socket_.shutdown(tcp::socket::shutdown_both);
+      streaming_socket_.close();
+      streaming_acceptor_.close();
+    } catch (const asio::system_error& e) {
+      log_->error("When closing the sockets: {}", e.what());
+    }
+    log_->debug("Sockets closed");
+
+    context_.stop();
+    context_thread_.join();
+    log_->debug("ASIO context stopped");
+
     log_->flush();
   } catch (...) {}
 }

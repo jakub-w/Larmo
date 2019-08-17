@@ -80,6 +80,7 @@ class PlayerClient {
   StreamingPort port_;
 
   asio::io_context context_;
+  std::thread context_thread_; // just running context_.run()
   std::vector<char> streaming_file_;
   tcp::acceptor streaming_acceptor_;
   tcp::endpoint streaming_endpoint_;
