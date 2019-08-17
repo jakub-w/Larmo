@@ -18,7 +18,14 @@
 ;; along with Lelo Remote Music Player. If not, see
 ;; <https://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;; To change the volume from inside emms, do the following:
+;;
+;;   (setq emms-volume-change-function #'emms-volume-lrm-change)
+
 (require 'emms-player-simple)
+(require 'cl-lib)
 
 (defgroup emms-player-lrm nil
   "EMMS player for Lelo Remote Music Player."
@@ -162,8 +169,7 @@ necessary for changing to the next track."
      	:name "Lelo Remote Music"
      	:buffer buffer
      	:command (cons emms-player-lrm-executable args)
-     	:sentinel #'emms-player-lrm-command--sentinel))))
-  nil)
+     	:sentinel #'emms-player-lrm-command--sentinel)))))
 ;; ------------------------------------------------------
 
 (defun emms-player-lrm--get-state ()
@@ -268,9 +274,4 @@ necessary for changing to the next track."
 (add-to-list 'emms-player-list 'emms-player-lrm)
 
 (provide 'emms-player-lrm)
-
-;; (emms-player-lrm-start (emms-track 'file "/data/lampilelo/Music/AC-DC - The Razors Edge (1990)/01-Thunderstruck.mp3"))
-;; (emms-player-lrm-stop)
-;; (emms-player-lrm-command "stop")
-
 ;;; emms-player-lrm.el ends here
