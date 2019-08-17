@@ -22,6 +22,7 @@
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <mutex>
 #include <string_view>
 #include <thread>
@@ -64,6 +65,27 @@ std::string file_to_str(std::string_view filename);
 inline bool file_exists(std::string_view filename) {
   struct stat buffer;
   return stat(filename.data(), &buffer) == 0;
+}
+
+/// Wait for the \b pred to return \b true or until the \b timeout was
+/// reached.
+/// /return \b true if the \b pred finally returned \b true, or \b false if
+/// \b timeout was reached.
+template<class Predicate, class Rep, class Period>
+bool wait_predicate(Predicate&& pred,
+                    const std::chrono::duration<Rep, Period>& timeout){
+  std::chrono::time_point wake_time =
+      std::chrono::high_resolution_clock::now() + timeout;
+
+  while(not std::invoke(pred)) {
+    auto wait_time = wake_time - std::chrono::high_resolution_clock::now();
+    if (wait_time.count() < 0) return false;
+    if (wait_time > std::chrono::milliseconds(100)) {
+      wait_time = std::chrono::milliseconds(100);
+    }
+    std::this_thread::sleep_for(wait_time);
+  }
+  return true;
 }
 
 // TODO: Rethink if this should be here

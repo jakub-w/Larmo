@@ -268,12 +268,9 @@ void Daemon::start_accept() {
       endpoint_,
       [this](const asio::error_code& error){
         if (not error) {
-          // FIXME: this could outlive the daemon, it should join
-          //        in the destructor!
-          std::thread(&Daemon::connection_handler,
-                      this,
-                      std::move(connection_)).detach();
+          auto conn = std::move(connection_);
           start_accept();
+          connection_handler(std::move(conn));
         } else {
           log_->error("In accept handler: {}", error.message());
         }
@@ -283,6 +280,15 @@ void Daemon::start_accept() {
 void Daemon::connection_handler(
     std::unique_ptr<stream_protocol::socket>&& socket) {
   DaemonArguments args;
+
+  // Wait for some time for the args, if the socket doesn't send them,
+  // just drop the connection
+  if (not lrm::wait_predicate([&socket]{return socket->available();},
+                              std::chrono::seconds(1))) {
+    socket->close();
+    return;
+  }
+
   args.ParseFromFileDescriptor(socket->native_handle());
 
   log_->info("Request received: {} {}", args.command(), args.command_arg());
