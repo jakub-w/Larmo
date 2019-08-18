@@ -106,7 +106,7 @@ static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
 static argp daemon_argp = { daemon_options, daemon_parse_opt, 0, 0, 0, 0, 0};
 
 static error_t global_parse_opt(int key, char* arg, argp_state* state) {
-  arguments* args = (arguments*)state->input;
+  arguments* args = static_cast<arguments*>(state->input);
 
   switch (key) {
     case ARGP_KEY_INIT:

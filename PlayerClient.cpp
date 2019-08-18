@@ -333,7 +333,7 @@ std::string PlayerClient::Info(std::string_view format) {
   std::stringstream result_stream;
 
   auto begin = format.cbegin();
-  auto tok_beg = format.cbegin();
+  const char* tok_beg;
   while ((tok_beg = std::find(begin, format.cend(), '%')) != format.cend()) {
     result_stream.write(begin, tok_beg - begin);
 

@@ -217,11 +217,9 @@ void Player::stop_event_loop() {
 }
 
 void Player::mpv_event_loop() {
-  mpv_event* event;
-
   spdlog::debug("Starting mpv event loop...");
   while (event_loop_running_) {
-    event =  mpv_wait_event(ctx_.get(), 1);
+    mpv_event* event =  mpv_wait_event(ctx_.get(), 1);
 
     if (event->error != MPV_ERROR_SUCCESS) {
       spdlog::error("mpv event '{}': {}",

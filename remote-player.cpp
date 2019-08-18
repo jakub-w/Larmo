@@ -56,7 +56,7 @@ struct arguments {
 };
 
 static error_t parse_opt(int key, char* arg, argp_state* state) {
-  arguments* args = (arguments*)state->input;
+  arguments* args = static_cast<arguments*>(state->input);
 
   switch(key) {
     case 'p':
