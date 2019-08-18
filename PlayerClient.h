@@ -51,7 +51,7 @@ class PlayerClient {
       std::string_view token,
       const PlaybackSynchronizer::PlaybackInfo* playback_info);
 
-  PlayerClient(std::shared_ptr<grpc::Channel> channel);
+  explicit PlayerClient(std::shared_ptr<grpc::Channel> channel);
 
  public:
   explicit PlayerClient(unsigned short streaming_port,

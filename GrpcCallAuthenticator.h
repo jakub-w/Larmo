@@ -24,7 +24,7 @@
 namespace lrm {
 class GrpcCallAuthenticator : public grpc::MetadataCredentialsPlugin {
  public:
-  GrpcCallAuthenticator(std::string_view passphrase);
+  explicit GrpcCallAuthenticator(std::string_view passphrase);
 
   grpc::Status GetMetadata(
       grpc::string_ref service_url, grpc::string_ref method_name,

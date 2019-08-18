@@ -34,7 +34,7 @@ class TempFile {
   // It can take just the name or an absolute path. In the first case it will
   // create a file in the system's temp dir, in the latter it will create a
   // file in the given absolute path.
-  TempFile(std::string_view name);
+  explicit TempFile(std::string_view name);
   ~TempFile();
 
   inline std::fstream& Stream() {

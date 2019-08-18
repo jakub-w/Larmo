@@ -53,7 +53,7 @@ class Daemon {
   };
 
   Daemon() = delete;
-  Daemon(std::unique_ptr<daemon_info> dinfo);
+  explicit Daemon(std::unique_ptr<daemon_info> dinfo);
   virtual ~Daemon() noexcept;
 
   void Run() noexcept(false);

@@ -49,7 +49,8 @@ class PlaybackSynchronizer {
     PlaybackState::State playback_state = PlaybackState::UNDEFINED;
   };
 
-  PlaybackSynchronizer(PlayerService::Stub* stub) noexcept : stub_(stub) {}
+  explicit PlaybackSynchronizer(PlayerService::Stub* stub) noexcept
+      : stub_(stub), base_playback_info() {}
 
   virtual ~PlaybackSynchronizer();
 

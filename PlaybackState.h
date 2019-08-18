@@ -41,7 +41,7 @@ class PlaybackState {
   };
   typedef std::function<void(const State&)> StateChangeCallback;
 
-  PlaybackState(State state);
+  explicit PlaybackState(State state);
   PlaybackState();
 
   /// \return Value returned can be only PLAYING, PAUSED, STOPPED or
