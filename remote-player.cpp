@@ -35,6 +35,8 @@
 #include "PlayerServiceImpl.h"
 #include "Util.h"
 
+using namespace lrm;
+
 const char* argp_program_version = "lrm-server 0.1";
 const char* argp_program_bug_address = "<doesnt@exist.addr>";
 static char doc[] =

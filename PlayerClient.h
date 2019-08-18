@@ -31,6 +31,7 @@
 using namespace grpc;
 using namespace asio::ip;
 
+namespace lrm {
 class PlayerClient {
   std::vector<char> read_file(std::string_view filename);
 
@@ -48,7 +49,7 @@ class PlayerClient {
 
   std::string info_get(
       std::string_view token,
-      const lrm::PlaybackSynchronizer::PlaybackInfo* playback_info);
+      const PlaybackSynchronizer::PlaybackInfo* playback_info);
 
   PlayerClient(std::shared_ptr<grpc::Channel> channel);
 
@@ -64,7 +65,7 @@ class PlayerClient {
   int TogglePause();
   int Volume(std::string_view volume);
   int Seek(std::string_view seconds);
-  lrm::PlaybackSynchronizer::PlaybackInfo GetPlaybackInfo();
+  PlaybackSynchronizer::PlaybackInfo GetPlaybackInfo();
   bool Ping();
   std::string Info(std::string_view format);
 
@@ -72,7 +73,7 @@ class PlayerClient {
     start_updating_info();
   }
 
-  using SongFinishedCallback = std::function<void(lrm::PlaybackState::State)>;
+  using SongFinishedCallback = std::function<void(PlaybackState::State)>;
   void SetSongFinishedCallback(SongFinishedCallback&& callback);
 
  private:
@@ -86,12 +87,13 @@ class PlayerClient {
   tcp::endpoint streaming_endpoint_;
   tcp::socket streaming_socket_;
 
-  lrm::PlaybackSynchronizer synchronizer_;
+  PlaybackSynchronizer synchronizer_;
 
   std::shared_ptr<spdlog::logger> log_;
 
   SongFinishedCallback song_finished_callback_;
   std::mutex song_finished_mtx_;
 };
+}
 
 #endif // LRM_PLAYERCLIENT_H

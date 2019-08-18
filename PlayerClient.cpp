@@ -29,6 +29,7 @@
 
 #include "TempFile.h"
 
+namespace lrm {
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
   std::ifstream ifs(filename.data(), std::ios::binary | std::ios::in);
   if (not ifs.is_open()) {
@@ -110,9 +111,9 @@ PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
       log_(spdlog::get("PlayerClient")) {
   try {
     synchronizer_.SetCallbackOnStatusChange(
-        [this](lrm::PlaybackState::State state){
-          if (lrm::PlaybackState::FINISHED == state or
-              lrm::PlaybackState::FINISHED_ERROR == state) {
+        [this](PlaybackState::State state){
+          if (PlaybackState::FINISHED == state or
+              PlaybackState::FINISHED_ERROR == state) {
             // Copy the callback to prevent data races and to not lock the
             // mutex while executing unknown code.
             SongFinishedCallback callback;
@@ -126,7 +127,7 @@ PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
           }
 
           spdlog::debug("Received playback state change from server: {}",
-                        lrm::PlaybackState::StateName(state));
+                        PlaybackState::StateName(state));
         });
     context_thread_ = std::thread(
         [this](){
@@ -275,7 +276,7 @@ int PlayerClient::Seek(std::string_view seconds) {
   }
 }
 
-lrm::PlaybackSynchronizer::PlaybackInfo PlayerClient::GetPlaybackInfo() {
+PlaybackSynchronizer::PlaybackInfo PlayerClient::GetPlaybackInfo() {
   return synchronizer_.GetPlaybackInfo();
 }
 
@@ -295,18 +296,18 @@ bool PlayerClient::Ping() {
 
 std::string PlayerClient::info_get(
     std::string_view token,
-    const lrm::PlaybackSynchronizer::PlaybackInfo* playback_info) {
+    const PlaybackSynchronizer::PlaybackInfo* playback_info) {
   if (token == "artist") {
     return playback_info->artist;
   } else if (token == "album") {
     return playback_info->album;
   } else if (token == "state") {
     switch (playback_info->playback_state) {
-      case lrm::PlaybackState::PLAYING:
+      case PlaybackState::PLAYING:
         return "PLAYING";
-      case lrm::PlaybackState::PAUSED:
+      case PlaybackState::PAUSED:
         return "PAUSED";
-      case lrm::PlaybackState::STOPPED:
+      case PlaybackState::STOPPED:
         return "STOPPED";
       default:
         return "UNDEFINED";
@@ -327,7 +328,7 @@ std::string PlayerClient::info_get(
 }
 
 std::string PlayerClient::Info(std::string_view format) {
-  lrm::PlaybackSynchronizer::PlaybackInfo playback_info = GetPlaybackInfo();
+  PlaybackSynchronizer::PlaybackInfo playback_info = GetPlaybackInfo();
 
   std::stringstream result_stream;
 
@@ -359,4 +360,5 @@ std::string PlayerClient::Info(std::string_view format) {
 void PlayerClient::SetSongFinishedCallback(SongFinishedCallback&& callback) {
   std::lock_guard<std::mutex> lck(song_finished_mtx_);
   song_finished_callback_ = callback;
+}
 }

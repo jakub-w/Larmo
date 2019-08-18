@@ -34,6 +34,7 @@
 
 using namespace grpc;
 
+namespace lrm {
 bool
 PlayerServiceImpl::check_passphrase_(const ServerContext* context) const {
   auto pass = context->client_metadata().find("x-custom-passphrase");
@@ -276,4 +277,5 @@ Status PlayerServiceImpl::TimeInfoStream(
     reader.join();
 
     return Status::OK;
+}
 }

@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 
+namespace lrm {
 class Config {
 public:
   enum State {
@@ -76,5 +77,6 @@ public:
   static std::unordered_set<std::string> required_;
   static State state_;
 };
+}
 
 #endif // LRM_CONFIG_H

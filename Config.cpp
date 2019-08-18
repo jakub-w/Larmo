@@ -22,6 +22,7 @@
 #include <iostream>
 #include <regex>
 
+namespace lrm {
 const std::string Config::default_conf_file = "lrm.conf";
 std::unordered_map<std::string, std::string> Config::config_ = {};
 std::unordered_set<std::string> Config::required_ = {};
@@ -121,4 +122,5 @@ std::vector<const std::string*> Config::CheckMissing() {
   }
 
   return result;
+}
 }

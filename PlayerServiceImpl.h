@@ -26,8 +26,9 @@
 
 using namespace grpc;
 
+namespace lrm {
 class PlayerServiceImpl : public PlayerService::Service {
-  lrm::Player player;
+  Player player;
 
   bool check_passphrase_(const ServerContext* context) const;
 
@@ -65,10 +66,11 @@ class PlayerServiceImpl : public PlayerService::Service {
 
  private:
   // Variables for TimeInfoBidiStream
-  lrm::PlaybackState::State playback_state_ = lrm::PlaybackState::UNDEFINED;
+  PlaybackState::State playback_state_ = PlaybackState::UNDEFINED;
   std::mutex playback_state_mtx_;
   std::condition_variable playback_state_cv_;
   // End of variables for TimeInfoBidiStream
 };
+}
 
 #endif // LRM_PLAYERSERVICEIMPL_H
