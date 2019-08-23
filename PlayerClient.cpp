@@ -164,7 +164,9 @@ PlayerClient::~PlayerClient() noexcept {
   try {
     log_->debug("Stopping the ASIO context...");
     try {
-      streaming_socket_.shutdown(tcp::socket::shutdown_both);
+      if (streaming_socket_.is_open()) {
+        streaming_socket_.shutdown(tcp::socket::shutdown_both);
+      }
       streaming_socket_.close();
       streaming_acceptor_.close();
     } catch (const asio::system_error& e) {
