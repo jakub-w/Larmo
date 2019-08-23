@@ -36,6 +36,7 @@ endif
 # Dependencies
 mpv_dep = dependency('mpv')
 boost_dep = dependency('boost', modules: ['asio'])
+openssl_dep = dependency('openssl')
 
 
 # Protobuff
@@ -69,7 +70,8 @@ gen_protobuf_daemon = generator(
 	      '@INPUT@'])
 
 protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
-		  gen_protobuf.process('player_service.proto')]
+		  gen_protobuf.process('player_service.proto'),
+		  gen_protobuf.process('SPEKE.proto')]
 
 protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
 

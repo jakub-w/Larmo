@@ -1,0 +1,104 @@
+// Copyright (C) 2019 by Jakub Wojciech
+
+// This file is part of Lelo Remote Music Player.
+
+// Lelo Remote Music Player is free software: you can redistribute it
+// and/or modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation, either version 3 of
+// the License, or (at your option) any later version.
+
+// Lelo Remote Music Player is distributed in the hope that it will be
+// useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+// of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Lelo Remote Music Player. If not, see
+// <https://www.gnu.org/licenses/>.
+
+#ifndef LRM_SPEKE_H_
+#define LRM_SPEKE_H_
+
+#include <unordered_map>
+
+#include <openssl/evp.h>
+
+#include "BigNum.h"
+
+#define LRM_SPEKE_HASHFUNC EVP_sha3_512()
+
+namespace lrm::crypto {
+class SPEKE {
+  static std::unordered_map<std::string, int> id_counts;
+
+ public:
+  typedef std::vector<unsigned char> Bytes;
+
+  SPEKE(const SPEKE&) = delete;
+  /// \param id Unique identifier.
+  /// \param password A password shared with the remote party.
+  /// \param safe_prime Big prime number meeting the requirement of
+  ///        <tt> p = 2q + 1 </tt> where \c q is also a prime. Shared with the
+  ///        remote party.
+  SPEKE(std::string_view id, std::string_view password, BigNum safe_prime);
+  ~SPEKE();
+
+  Bytes GetPublicKey() const;
+
+  /// Provide the SPEKE session with a public key of the remote party.
+  /// \param remote_pubkey Public key of the remote party.
+  void ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
+                                    const std::string& remote_id);
+
+  const Bytes& GetEncryptionKey(size_t num_bytes);
+
+  const Bytes& GetKeyConfirmationData();
+
+  /// Confirm that the remote has the same key.
+  /// \param remote_kcd Key confirmation data of the remote party.
+  bool ConfirmKey(const Bytes& remote_kcd);
+
+  inline const std::string& Id() const {
+    return id_numbered_;
+  }
+
+ private:
+  void ensure_keying_material();
+  Bytes gen_kcd(std::string_view first_id, std::string_view second_id,
+                const BigNum& first_pubkey, const BigNum& second_pubkey);
+
+  EVP_MD_CTX* mdctx_;
+
+  std::string id_;
+  std::string id_numbered_;
+
+  std::string remote_id_numbered_;
+
+  BigNum p_;   // safe prime
+  BigNum q_;   // (p_ - 1) / 2
+  BigNum gen_; // H(password)^2 mod p_
+
+  // random value in [1; q_ - 1]
+  BigNum privkey_;
+
+  // (gen_ ^ privkey_) mod p_
+  BigNum pubkey_;
+
+  // public key of the remote party
+  BigNum remote_pubkey_;
+
+  // H(min(id_numbered_, remote_id_numbered_),
+  //   max(id_numbered_, remote_id_numbered_),
+  //   min(pubkey_, remote_pubkey_),
+  //   max(pubkey_, remote_pubkey_),
+  //   (remote_pubkey_ ^ privkey_) mod p_)
+  Bytes keying_material_;
+
+  // uniform key derived from keying_material_ with HKDF
+  Bytes encryption_key_;
+
+  Bytes key_confirmation_data_;
+};
+}
+
+#endif  // LRM_SPEKE_H_
