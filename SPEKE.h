@@ -26,14 +26,15 @@
 #include "BigNum.h"
 
 #define LRM_SPEKE_HASHFUNC EVP_sha3_512()
+#define LRM_SPEKE_CIPHER_TYPE EVP_aes_192_gcm()
 
 namespace lrm::crypto {
+typedef std::vector<unsigned char> Bytes;
+
 class SPEKE {
   static std::unordered_map<std::string, int> id_counts;
 
  public:
-  typedef std::vector<unsigned char> Bytes;
-
   SPEKE(const SPEKE&) = delete;
   /// \param id Unique identifier.
   /// \param password A password shared with the remote party.
@@ -50,7 +51,7 @@ class SPEKE {
   void ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
                                     const std::string& remote_id);
 
-  const Bytes& GetEncryptionKey(size_t num_bytes);
+  const Bytes& GetEncryptionKey();
 
   const Bytes& GetKeyConfirmationData();
 
@@ -58,12 +59,13 @@ class SPEKE {
   /// \param remote_kcd Key confirmation data of the remote party.
   bool ConfirmKey(const Bytes& remote_kcd);
 
-  inline const std::string& Id() const {
-    return id_numbered_;
-  }
+  /// Sign a \e message with HMAC using an encryption key derived from DH
+  /// exchange.
+  Bytes HmacSign(const Bytes& message);
 
  private:
   void ensure_keying_material();
+  void ensure_encryption_key();
   Bytes gen_kcd(std::string_view first_id, std::string_view second_id,
                 const BigNum& first_pubkey, const BigNum& second_pubkey);
 

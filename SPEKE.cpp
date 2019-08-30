@@ -65,7 +65,7 @@ SPEKE::~SPEKE() {
   EVP_MD_CTX_free(mdctx_);
 }
 
-SPEKE::Bytes SPEKE::GetPublicKey() const {
+Bytes SPEKE::GetPublicKey() const {
   if(0 == pubkey_) {
     throw std::logic_error(
           "SPEKE uninitialized: Can't get the public key");
@@ -97,47 +97,17 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
   remote_id_numbered_ = remote_id + "-" + id_num;
 }
 
-const SPEKE::Bytes& SPEKE::GetEncryptionKey(size_t num_bytes) {
+const Bytes& SPEKE::GetEncryptionKey() {
   if (not encryption_key_.empty()) {
     return encryption_key_;
   }
 
-  ensure_keying_material();
-
-  EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
-
-  EVP_PKEY_derive_init(pctx);
-  EVP_PKEY_CTX_set_hkdf_md(pctx, LRM_SPEKE_HASHFUNC);
-
-  // generate salt from public keys
-  auto keys = std::minmax(pubkey_, remote_pubkey_);
-  Bytes key = keys.first.to_bytes();
-  Bytes salt;
-  salt.insert(salt.end(), key.begin(), key.end());
-  key = keys.second.to_bytes();
-  salt.insert(salt.end(), key.begin(), key.end());
-
-  EVP_PKEY_CTX_set1_hkdf_salt(pctx, salt.data(), salt.size());
-
-  EVP_PKEY_CTX_set1_hkdf_key(pctx,
-                             keying_material_.data(),
-                             keying_material_.size());
-
-  const char info[] = "Larmo_SPEKE_HKDF";
-  EVP_PKEY_CTX_add1_hkdf_info(pctx, info, std::strlen(info));
-
-  unsigned char out[num_bytes];
-  EVP_PKEY_derive(pctx, out, &num_bytes);
-
-  EVP_PKEY_CTX_free(pctx);
-
-  encryption_key_.reserve(num_bytes);
-  std::copy_n(out, num_bytes, std::back_inserter(encryption_key_));
+  ensure_encryption_key();
 
   return encryption_key_;
 }
 
-const SPEKE::Bytes& SPEKE::GetKeyConfirmationData() {
+const Bytes& SPEKE::GetKeyConfirmationData() {
   if (key_confirmation_data_.empty()) {
     ensure_keying_material();
 
@@ -149,9 +119,30 @@ const SPEKE::Bytes& SPEKE::GetKeyConfirmationData() {
   return key_confirmation_data_;
 }
 
-bool SPEKE::ConfirmKey(const SPEKE::Bytes& remote_kcd) {
+bool SPEKE::ConfirmKey(const Bytes& remote_kcd) {
   return remote_kcd == gen_kcd(remote_id_numbered_, id_numbered_,
                                remote_pubkey_, pubkey_);
+}
+
+Bytes SPEKE::HmacSign(const Bytes& message) {
+
+  HMAC_CTX* ctx = HMAC_CTX_new();
+
+  HMAC_Init_ex(ctx, encryption_key_.data(), encryption_key_.size(),
+               LRM_SPEKE_HASHFUNC, nullptr);
+  HMAC_Update(ctx, message.data(), message.size());
+
+  unsigned char md[EVP_MAX_MD_SIZE];
+  unsigned int len = 0;
+  HMAC_Final(ctx, md, &len);
+
+  HMAC_CTX_free(ctx);
+
+  Bytes result;
+  result.reserve(len);
+  std::copy_n(md, len, std::back_inserter(result));
+
+  return result;
 }
 
 void SPEKE::ensure_keying_material() {
@@ -195,16 +186,56 @@ void SPEKE::ensure_keying_material() {
   std::copy_n(md_value, md_len, std::back_inserter(keying_material_));
 }
 
-SPEKE::Bytes SPEKE::gen_kcd(std::string_view first_id,
+void SPEKE::ensure_encryption_key() {
+  if (not encryption_key_.empty()) {
+    return;
+  }
+
+  ensure_keying_material();
+
+  EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
+
+  EVP_PKEY_derive_init(pctx);
+  EVP_PKEY_CTX_set_hkdf_md(pctx, LRM_SPEKE_HASHFUNC);
+
+  // generate salt from public keys
+  auto keys = std::minmax(pubkey_, remote_pubkey_);
+  Bytes key = keys.first.to_bytes();
+  Bytes salt;
+  salt.insert(salt.end(), key.begin(), key.end());
+  key = keys.second.to_bytes();
+  salt.insert(salt.end(), key.begin(), key.end());
+
+  EVP_PKEY_CTX_set1_hkdf_salt(pctx, salt.data(), salt.size());
+
+  EVP_PKEY_CTX_set1_hkdf_key(pctx,
+                             keying_material_.data(),
+                             keying_material_.size());
+
+  const char info[] = "Larmo_SPEKE_HKDF";
+  EVP_PKEY_CTX_add1_hkdf_info(pctx, info, std::strlen(info));
+
+  // TODO: Check if EVP_CIPHER_key_length returns number of bytes or bits
+  size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
+  unsigned char out[key_len];
+  EVP_PKEY_derive(pctx, out, &key_len);
+
+  EVP_PKEY_CTX_free(pctx);
+
+  encryption_key_.reserve(key_len);
+  std::copy_n(out, key_len, std::back_inserter(encryption_key_));
+}
+
+Bytes SPEKE::gen_kcd(std::string_view first_id,
                                           std::string_view second_id,
                                           const BigNum& first_pubkey,
                                           const BigNum& second_pubkey) {
-  ensure_keying_material();
+  ensure_encryption_key();
 
   HMAC_CTX* hmac_ctx = HMAC_CTX_new();
 
   // HMAC(K, "KC_1_U"|A|B|M|N)
-  HMAC_Init_ex(hmac_ctx, keying_material_.data(), keying_material_.size(),
+  HMAC_Init_ex(hmac_ctx, encryption_key_.data(), encryption_key_.size(),
                LRM_SPEKE_HASHFUNC, nullptr);
 
   const unsigned char method[] = "KC_1_U";
