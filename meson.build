@@ -70,10 +70,11 @@ gen_protobuf_daemon = generator(
 	      '@INPUT@'])
 
 protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
-		  gen_protobuf.process('player_service.proto'),
-		  gen_protobuf.process('SPEKE.proto')]
+		  gen_protobuf.process('player_service.proto')]
 
 protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
+
+protobuf_speke_files = gen_protobuf.process('SPEKE.proto')
 
 
 # spdlog
@@ -109,3 +110,16 @@ executable('remote-player',
 		     protobuf_files],
 	   link_args: '-lstdc++fs',
 	   dependencies: [mpv_dep, grpc_dep, protobuf_dep, spdlog_dep])
+
+
+# Tests
+gtest = meson.get_compiler('cpp').find_library('gtest', required: false)
+if gtest.found()
+  test_all = executable('test_all',
+			sources: ['test/main.cpp', 'test/test-BigNum.cpp',
+				  'BigNum.cpp', 'SPEKE.cpp',
+				  protobuf_speke_files],
+			dependencies: [gtest, openssl_dep, protobuf_dep])
+
+  test('all', test_all)
+endif
