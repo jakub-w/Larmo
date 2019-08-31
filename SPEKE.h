@@ -31,6 +31,32 @@
 namespace lrm::crypto {
 typedef std::vector<unsigned char> Bytes;
 
+/// \brief Create Simple Password Exponential Key Exchange sessions.
+///
+/// To create a valid session, construct the SPEKE object with a secret
+/// \e password and non-secret \e safe_prime that are shared between both
+/// parties (peers).
+///
+/// The public key, provided by \ref GetPublicKey(), needs to be sent out to
+/// the second party along with the \e id used to create the object.
+///
+/// The remote party should send similar \e remote_id and \e remote_pubkey
+/// pair, which is intended to be used as arguments for \ref
+/// ProvideRemotePublicKeyIdPair().
+///
+/// After that, the session is valid, although it's wise (but optional) to
+/// confirm that both the local session and the remote party's session have
+/// the same encryption key. It can be done by calling
+/// \ref GetKeyConfirmationData(), sending the result to the remote party
+/// and calling \ref ConfirmKey() with the similar data received from the
+/// peer.
+/// This step is used to confirm that the remote party has the same password,
+/// so it acts as an authentication mechanism.
+///
+/// To combat impersonation attacks a session adds a counter to an id and
+/// a remote id provided by the user, so when the session is dropped it can't
+/// be restored. The counter is incremented when \ref
+/// ProvideRemotePublicKeyIdPair() is called.
 class SPEKE {
   static std::unordered_map<std::string, int> id_counts;
 
@@ -52,8 +78,25 @@ class SPEKE {
   void ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
                                     const std::string& remote_id);
 
+  /// Return the encryption key created by using HKDF on Diffie-Hellman key
+  /// provided by the SPEKE algorithm.
+  ///
+  /// This is meant to be secret and is the same for the local session and
+  /// the remote one.
+  ///
+  /// The key's length is hardcoded and it's value corresponds to the
+  /// key length used with \ref LRM_SPEKE_CIPHER_TYPE.
   const Bytes& GetEncryptionKey();
 
+  /// Return the key confirmation data that can be used by the remote party
+  /// to confirm that the encryption keys and ids are the same.
+  ///
+  /// It's designed to be used as an argument to \ref ConfirmKey() by the
+  /// peer.
+  ///
+  /// Unlike in the default SPEKE standard, the encryption key (created using
+  /// HKDF) is used to generate the key confirmation data, not the regular
+  /// SPEKE key.
   const Bytes& GetKeyConfirmationData();
 
   /// Confirm that the remote has the same key.
@@ -103,7 +146,7 @@ class SPEKE {
   //   (remote_pubkey_ ^ privkey_) mod p_)
   Bytes keying_material_;
 
-  // uniform key derived from keying_material_ with HKDF
+  // a uniform key derived from keying_material_ with HKDF
   Bytes encryption_key_;
 
   Bytes key_confirmation_data_;
