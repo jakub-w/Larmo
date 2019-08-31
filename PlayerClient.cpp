@@ -141,13 +141,13 @@ PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
 }
 
 PlayerClient::PlayerClient(unsigned short streaming_port,
-                           std::shared_ptr<Channel> channel) noexcept
+                           std::shared_ptr<grpc::Channel> channel) noexcept
     : PlayerClient(channel) {
   set_port(streaming_port);
 }
 
 PlayerClient::PlayerClient(const std::string& streaming_port,
-                           std::shared_ptr<Channel> channel) noexcept
+                           std::shared_ptr<grpc::Channel> channel) noexcept
     : PlayerClient(channel) {
   int port;
 

@@ -48,6 +48,7 @@ class SPEKE {
 
   /// Provide the SPEKE session with a public key of the remote party.
   /// \param remote_pubkey Public key of the remote party.
+  /// \param remote_id Id of the remote party.
   void ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
                                     const std::string& remote_id);
 
@@ -62,6 +63,12 @@ class SPEKE {
   /// Sign a \e message with HMAC using an encryption key derived from DH
   /// exchange.
   Bytes HmacSign(const Bytes& message);
+
+  /// Confirm a signature created by the remote party with \ref HmacSign()
+  /// \return \c true if the signature matches.
+  /// \return \c false otherwise.
+  bool ConfirmHmacSignature(const Bytes& hmac_signature,
+                            const Bytes& message);
 
  private:
   void ensure_keying_material();

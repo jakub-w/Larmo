@@ -28,7 +28,7 @@ namespace lrm {
 class PlaybackState {
  public:
   /// FINISHED and FINISHED_ERROR are equivalent to STOPPED and are used only
-  /// in the \e callback function set by \refitem SetStateChangeCallback().
+  /// in the \e callback function set by \ref SetStateChangeCallback().
   enum State {
     UNDEFINED,
     PLAYING,
@@ -45,15 +45,15 @@ class PlaybackState {
   PlaybackState();
 
   /// \return Value returned can be only PLAYING, PAUSED, STOPPED or
-  /// UNDEFINED. More information in \refitem PlaybackState::State and
-  /// \refitem SetState().
+  /// UNDEFINED. More information in \ref PlaybackState::State and
+  /// \ref SetState().
   inline State GetState() const {
     return state_;
   }
 
   /// If \e new_state is FINISHED or FINISHED_ERROR, the state changes to
   /// STOPPED instead.
-  /// The \e callback set with \refitem SetStateChangeCallback() will run with
+  /// The \e callback set with \ref SetStateChangeCallback() will run with
   /// \e new_state as an argument, the change to STOPPED will be ignored.
   void SetState(State new_state);
 
