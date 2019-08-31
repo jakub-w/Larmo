@@ -242,6 +242,26 @@ TEST(SpekeTest, HmacSign_WrongPassword) {
   EXPECT_FALSE(peer1_msg_hmac == peer2_msg_hmac);
 }
 
+TEST(SpekeTest, ConfirmHmacSignature) {
+  SPEKE peer1("peer1", "password", 2692367);
+  SPEKE peer2("peer2", "password", 2692367);
+
+  auto peer1_key = peer1.GetPublicKey();
+  auto peer2_key = peer2.GetPublicKey();
+
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+
+  unsigned char msg[] = "message";
+  Bytes msg_bytes;
+  msg_bytes.reserve(sizeof(msg) - 1);
+  std::copy_n(msg, sizeof(msg) - 1, std::back_inserter(msg_bytes));
+
+  auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
+
+  EXPECT_TRUE(peer2.ConfirmHmacSignature(peer1_msg_hmac, msg_bytes));
+}
+
 TEST(SpekeTest, GetEncryptionKey_WithoutProvidingPkey) {
   SPEKE speke("id", "password", 2692367);
 

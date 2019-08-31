@@ -142,6 +142,11 @@ Bytes SPEKE::HmacSign(const Bytes& message) {
   return result;
 }
 
+bool SPEKE::ConfirmHmacSignature(const Bytes& hmac_signature,
+                                 const Bytes& message) {
+  return hmac_signature == HmacSign(message);
+}
+
 void SPEKE::ensure_keying_material() {
   if (0 == privkey_) {
     throw std::logic_error("SPEKE uninitialized: Can't get the private key");
