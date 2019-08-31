@@ -116,7 +116,9 @@ executable('remote-player',
 gtest = meson.get_compiler('cpp').find_library('gtest', required: false)
 if gtest.found()
   test_all = executable('test_all',
-			sources: ['test/main.cpp', 'test/test-BigNum.cpp',
+			sources: ['test/main.cpp',
+				  'test/test-BigNum.cpp',
+				  'test/test-SPEKE.cpp',
 				  'BigNum.cpp', 'SPEKE.cpp',
 				  protobuf_speke_files],
 			dependencies: [gtest, openssl_dep, protobuf_dep])
