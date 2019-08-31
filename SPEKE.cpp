@@ -98,19 +98,15 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
 }
 
 const Bytes& SPEKE::GetEncryptionKey() {
-  if (not encryption_key_.empty()) {
-    return encryption_key_;
+  if (encryption_key_.empty()) {
+    ensure_encryption_key();
   }
-
-  ensure_encryption_key();
 
   return encryption_key_;
 }
 
 const Bytes& SPEKE::GetKeyConfirmationData() {
   if (key_confirmation_data_.empty()) {
-    ensure_keying_material();
-
     key_confirmation_data_ =
         gen_kcd(id_numbered_, remote_id_numbered_,
                 pubkey_, remote_pubkey_);
@@ -125,6 +121,7 @@ bool SPEKE::ConfirmKey(const Bytes& remote_kcd) {
 }
 
 Bytes SPEKE::HmacSign(const Bytes& message) {
+  ensure_encryption_key();
 
   HMAC_CTX* ctx = HMAC_CTX_new();
 
@@ -213,9 +210,9 @@ void SPEKE::ensure_encryption_key() {
                              keying_material_.size());
 
   const char info[] = "Larmo_SPEKE_HKDF";
-  EVP_PKEY_CTX_add1_hkdf_info(pctx, info, std::strlen(info));
+  // 'sizeof - 1' to drop the last null byte
+  EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info) - 1);
 
-  // TODO: Check if EVP_CIPHER_key_length returns number of bytes or bits
   size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
   unsigned char out[key_len];
   EVP_PKEY_derive(pctx, out, &key_len);
@@ -227,19 +224,20 @@ void SPEKE::ensure_encryption_key() {
 }
 
 Bytes SPEKE::gen_kcd(std::string_view first_id,
-                                          std::string_view second_id,
-                                          const BigNum& first_pubkey,
-                                          const BigNum& second_pubkey) {
+                     std::string_view second_id,
+                     const BigNum& first_pubkey,
+                     const BigNum& second_pubkey) {
   ensure_encryption_key();
 
   HMAC_CTX* hmac_ctx = HMAC_CTX_new();
 
-  // HMAC(K, "KC_1_U"|A|B|M|N)
+  // HMAC(K, "KC_1_U"|A|B|M|N) -- M and N are pubkeys for A and B respectively
   HMAC_Init_ex(hmac_ctx, encryption_key_.data(), encryption_key_.size(),
                LRM_SPEKE_HASHFUNC, nullptr);
 
   const unsigned char method[] = "KC_1_U";
-  HMAC_Update(hmac_ctx, method, sizeof(method));
+  // 'sizeof - 1' to drop the last null byte
+  HMAC_Update(hmac_ctx, method, sizeof(method) - 1);
 
   HMAC_Update(hmac_ctx, (unsigned char*)first_id.data(), first_id.size());
   HMAC_Update(hmac_ctx, (unsigned char*)second_id.data(), second_id.size());
