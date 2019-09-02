@@ -115,7 +115,7 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
   while (stream->Read(&time_info)) {
     if (time_info.playback_state() != TimeInfo::NOT_CHANGED) {
       state_changed = true;
-      current_state = lrm::time_info_playback_state_translation_map
+      current_state = Util::time_info_playback_state_translation_map
                       .at(time_info.playback_state());
     } else {
       state_changed = false;

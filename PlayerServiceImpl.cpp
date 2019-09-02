@@ -65,9 +65,9 @@ PlayerServiceImpl::PlayFrom(ServerContext* context,
   CHECK_PASSPHRASE(context);
 
   spdlog::debug("Peer: {}", context->peer());
-  std::vector<std::string> peer = lrm::tokenize(context->peer(), ":");
+  std::vector<std::string> peer = Util::tokenize(context->peer(), ":");
 
-  if (peer.size() != 3 or not lrm::is_ipv4(peer[1])) {
+  if (peer.size() != 3 or not Util::is_ipv4(peer[1])) {
     spdlog::error("Couldn't retrieve IPv4 client address from '{}'",
                   context->peer());
     return Status(StatusCode::ABORTED,

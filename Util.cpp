@@ -25,7 +25,7 @@
 
 #include <arpa/inet.h>
 
-namespace lrm {
+namespace lrm::Util {
 std::vector<std::string> tokenize(std::string_view str,
                                   std::string_view delimiters) {
   std::vector<std::string> result;

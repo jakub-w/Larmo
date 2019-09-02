@@ -158,21 +158,21 @@ void Daemon::initialize_config() {
   }
 
   auto grpc_port = Config::Get("grpc_port");
-  check_port(grpc_port);
+  Util::check_port(grpc_port);
 
   auto streaming_port = Config::Get("streaming_port");
   if (streaming_port.empty()) {
     streaming_port = "0";
     Config::Set("streaming_port", "0");
   }
-  check_port(streaming_port);
+  Util::check_port(streaming_port);
 
   auto cert_port = Config::Get("cert_port");
   if (cert_port.empty()) {
     cert_port = "0";
     Config::Set("cert_port", "0");
   }
-  check_port(cert_port);
+  Util::check_port(cert_port);
 
   state_ = CONFIG_INITIALIZED;
   log_->info("Configuration initialized.");
@@ -201,7 +201,7 @@ void Daemon::initialize_grpc_client() {
         std::make_unique<GrpcCallAuthenticator>(Config::Get("passphrase")));
     grpc::SslCredentialsOptions options;
 
-    std::string ssl_cert = lrm::file_to_str(Config::Get("cert_file"));
+    std::string ssl_cert = Util::file_to_str(Config::Get("cert_file"));
     // log_->debug("Certificate:\n{}", ssl_cert);
     if (ssl_cert.empty()) {
       std::string error_message{"Certificate file '" +
@@ -268,8 +268,8 @@ void Daemon::connection_handler(
 
   // Wait for some time for the args, if the socket doesn't send them,
   // just drop the connection
-  if (not lrm::wait_predicate([&socket]{return socket->available();},
-                              std::chrono::seconds(1))) {
+  if (not Util::wait_predicate([&socket]{return socket->available();},
+                               std::chrono::seconds(1))) {
     socket->close();
     return;
   }

@@ -86,7 +86,7 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
       }
       break;
     case 'c':
-      if (lrm::file_exists(arg)) {
+      if (lrm::Util::file_exists(arg)) {
         args->config_file = arg;
       } else {
         argp_error(state, "File doesn't exist: %s", arg);
@@ -202,8 +202,8 @@ int main(int argc, char** argv) {
   // FIXME: get it from the config file or some default directory
   Config::Set("key_file", "server.key");
 
-  std::string ssl_cert = lrm::file_to_str(Config::Get("cert_file"));
-  std::string ssl_key = lrm::file_to_str(Config::Get("key_file"));
+  std::string ssl_cert = lrm::Util::file_to_str(Config::Get("cert_file"));
+  std::string ssl_key = lrm::Util::file_to_str(Config::Get("key_file"));
   if (ssl_cert.empty()) {
     spdlog::error("Error: Certificate file '{}' is empty",
                   Config::Get("cert_file"));

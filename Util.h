@@ -34,7 +34,7 @@
 #include "player_service.pb.h"
 #include "PlaybackState.h"
 
-namespace lrm {
+namespace lrm::Util {
 class InterruptableSleeper {
  public:
   template<class Rep, class Period>

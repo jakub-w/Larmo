@@ -88,7 +88,7 @@ static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
       }
       break;
     case 'c':
-      if (lrm::file_exists(arg)) {
+      if (lrm::Util::file_exists(arg)) {
         args->config_file = arg;
       } else {
         argp_error(state, "File doesn't exist: %s", arg);
@@ -146,7 +146,7 @@ static error_t global_parse_opt(int key, char* arg, argp_state* state) {
           return ARGP_ERR_UNKNOWN;
         }
         if (args->command == "play") {
-          if (lrm::file_exists(arg)) {
+          if (lrm::Util::file_exists(arg)) {
             args->command_arg = arg;
           } else {
             argp_error(state, "File doesn't exist: %s", arg);
