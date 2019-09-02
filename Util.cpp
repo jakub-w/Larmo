@@ -77,4 +77,19 @@ std::string file_to_str(std::string_view filename) {
 
   return std::string();
 }
+
+void check_port(std::string_view port_str) {
+  try {
+    int port = std::stoi(port_str.data());
+    if ((port <= IPPORT_USERRESERVED or port > UINT16_MAX) and
+        (port != 0)) {
+      throw std::logic_error("Port should be in the range: [" +
+                             std::to_string(IPPORT_RESERVED) + "; " +
+                             std::to_string(UINT16_MAX) + "]");
+    }
+  } catch (const std::exception& e) {
+    throw std::logic_error(std::string("Port '") + port_str.data() +
+                           "' is invalid: " + e.what());
+  }
+}
 }

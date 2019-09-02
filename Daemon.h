@@ -70,8 +70,6 @@ class Daemon {
 
   void trace_grpc_channel_state(std::shared_ptr<grpc::Channel> channel);
 
-  void check_port(std::string_view port_str);
-
   std::unique_ptr<daemon_info> dinfo_;
 
   State state_ = UNINITIALIZED;

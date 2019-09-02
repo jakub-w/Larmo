@@ -29,6 +29,7 @@
 #include <vector>
 
 #include <sys/stat.h>
+#include <netinet/in.h>
 
 #include "player_service.pb.h"
 #include "PlaybackState.h"
@@ -87,6 +88,12 @@ bool wait_predicate(Predicate&& pred,
   }
   return true;
 }
+
+/// Check if the port is valid. Throw an exception if it's not.
+///
+/// /exception std::logic_error The exception thrown when the given port isn't
+/// valid.
+void check_port(std::string_view port_str);
 
 // TODO: Rethink if this should be here
 const static std::map<TimeInfo::PlaybackState, lrm::PlaybackState::State>
