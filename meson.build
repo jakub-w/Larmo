@@ -74,7 +74,7 @@ protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 
 protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
 
-protobuf_speke_files = gen_protobuf.process('SPEKE.proto')
+protobuf_speke_files = gen_protobuf.process('crypto/SPEKE.proto')
 
 
 # spdlog
@@ -82,6 +82,9 @@ spdlog_dep = declare_dependency(
   sources: 'spdlog/src/spdlog.cpp',
   compile_args: '-DSPDLOG_COMPILED_LIB',
   include_directories : include_directories('spdlog/include'))
+
+
+crypto_sources = ['crypto/BigNum.cpp', 'crypto/SPEKE.cpp']
 
 
 # Executables
@@ -119,9 +122,16 @@ if gtest.found()
 			sources: ['test/main.cpp',
 				  'test/test-BigNum.cpp',
 				  'test/test-SPEKE.cpp',
-				  'BigNum.cpp', 'SPEKE.cpp',
+				  crypto_sources,
 				  protobuf_speke_files],
 			dependencies: [gtest, openssl_dep, protobuf_dep])
 
   test('all', test_all)
 endif
+# cppcheck = find_program('cppcheck', required: false)
+# if cppcheck.found()
+#   test('cppcheck', cppcheck, args: ['--project=compile_commands.json',
+# 				    '--error-exitcode=1',
+# 				    '--enable=all',
+# 				    '--quiet'])
+# endif

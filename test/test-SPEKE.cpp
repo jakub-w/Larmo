@@ -20,7 +20,7 @@
 
 #include <openssl/rand.h>
 
-#include "SPEKE.h"
+#include "crypto/SPEKE.h"
 
 using namespace lrm::crypto;
 
