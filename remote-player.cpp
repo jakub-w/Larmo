@@ -44,6 +44,7 @@ static char doc[] =
 
 static argp_option options[] = {
   {"port", 'p', "NUM", 0, "Port for gRPC", 0},
+  {"cert-port", 'r', "NUM", 0, "Port for the certificate exchange", 0},
   {"config", 'c', "FILE", 0, "Use an alternative config file", 0},
   {"pass", 'P', "PASSPHRASE", 0, "Passphrase for client queries", 0},
   {0, 0, 0, 0, 0, 0}
@@ -51,6 +52,7 @@ static argp_option options[] = {
 
 struct arguments {
   std::string grpc_port;
+  std::string cert_port;
   std::string config_file;
   std::string passphrase;
 };
@@ -66,6 +68,18 @@ static error_t parse_opt(int key, char* arg, argp_state* state) {
           throw std::invalid_argument("Invalid port.");
         }
         args->grpc_port = std::to_string(port);
+      } catch (const std::invalid_argument& e) {
+        argp_error(state, "Wrong port: %s", arg);
+        return EINVAL;
+      }
+      break;
+    case 'r':
+      try {
+        int port = std::stoi(arg);
+        if (port <= IPPORT_USERRESERVED or port > 65535) {
+          throw std::invalid_argument("Invalid port.");
+        }
+        args->cert_port = std::to_string(port);
       } catch (const std::invalid_argument& e) {
         argp_error(state, "Wrong port: %s", arg);
         return EINVAL;
@@ -104,6 +118,12 @@ int initialize_config(arguments* args) {
   }
   if (Config::Get("grpc_port").empty()) {
     throw std::logic_error("Port for gRPC not provided.");
+  }
+
+  if (not args->cert_port.empty()) {
+    Config::Set("cert_port", args->cert_port);
+  } else {
+    Config::Set("cert_port", "0");
   }
 
   if (not args->passphrase.empty()) {

@@ -43,6 +43,7 @@ class Daemon {
     std::string grpc_host;
     std::string grpc_port;
     std::string streaming_port;
+    std::string cert_port;
     std::string passphrase;
   };
 
@@ -68,6 +69,8 @@ class Daemon {
   void connection_handler(std::unique_ptr<stream_protocol::socket>&& socket);
 
   void trace_grpc_channel_state(std::shared_ptr<grpc::Channel> channel);
+
+  void check_port(std::string_view port_str);
 
   std::unique_ptr<daemon_info> dinfo_;
 

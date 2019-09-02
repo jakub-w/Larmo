@@ -133,6 +133,7 @@ void Daemon::initialize_config() {
   Config::Set("grpc_port", dinfo_->grpc_port);
   Config::Set("grpc_host", dinfo_->grpc_host);
   Config::Set("streaming_port", dinfo_->streaming_port);
+  Config::Set("cert_port", dinfo_->cert_port);
   Config::Set("passphrase", dinfo_->passphrase);
   Config::Set("cert_file", dinfo_->cert_file.string());
 
@@ -157,37 +158,21 @@ void Daemon::initialize_config() {
   }
 
   auto grpc_port = Config::Get("grpc_port");
-
-  try {
-    int port = std::stoi(grpc_port);
-    if (port <= IPPORT_USERRESERVED or port > USHRT_MAX) {
-      throw std::logic_error("Port should be in the range: [" +
-                             std::to_string(IPPORT_RESERVED) + "; " +
-                             std::to_string(USHRT_MAX) + ")");
-    }
-  } catch (const std::exception& e) {
-    throw std::logic_error("Port for gRPC (" + grpc_port + ") is invalid: " +
-                           e.what());
-  }
+  check_port(grpc_port);
 
   auto streaming_port = Config::Get("streaming_port");
   if (streaming_port.empty()) {
     streaming_port = "0";
     Config::Set("streaming_port", "0");
   }
+  check_port(streaming_port);
 
-  try {
-    int port = std::stoi(streaming_port);
-    if ((port <= IPPORT_USERRESERVED or port > USHRT_MAX) and
-        (port != 0)) {
-      throw std::logic_error("Port should be in the range: [" +
-                             std::to_string(IPPORT_RESERVED) + "; " +
-                             std::to_string(USHRT_MAX) + ")");
-    }
-  } catch  (const std::exception& e) {
-    throw std::logic_error("Port for streaming (" + streaming_port +
-                           ") is invalid: " + e.what());
+  auto cert_port = Config::Get("cert_port");
+  if (cert_port.empty()) {
+    cert_port = "0";
+    Config::Set("cert_port", "0");
   }
+  check_port(cert_port);
 
   state_ = CONFIG_INITIALIZED;
   log_->info("Configuration initialized.");
@@ -385,4 +370,20 @@ void Daemon::trace_grpc_channel_state(
     }
   }
 }
+
+void Daemon::check_port(std::string_view port_str) {
+  try {
+    int port = std::stoi(port_str.data());
+    if ((port <= IPPORT_USERRESERVED or port > UINT16_MAX) and
+        (port != 0)) {
+      throw std::logic_error("Port should be in the range: [" +
+                             std::to_string(IPPORT_RESERVED) + "; " +
+                             std::to_string(UINT16_MAX) + "]");
+    }
+  } catch (const std::exception& e) {
+    throw std::logic_error(std::string("Port '") + port_str.data() +
+                           "' is invalid: " + e.what());
+  }
+}
+
 }

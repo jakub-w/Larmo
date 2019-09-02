@@ -36,6 +36,7 @@ struct arguments {
   std::string grpc_host;
   std::string grpc_port;
   std::string streaming_port;
+  std::string cert_port;
   std::string passphrase;
   std::string cert_file;
 };
@@ -59,6 +60,7 @@ static argp_option daemon_options[] = {
   {"host", 'h', "ADDRESS", 0, "Address of the gRPC server", 0},
   {"port", 'p', "NUM", 0, "Port for gRPC", 0},
   {"streaming-port", 's', "NUM", 0, "Port for streaming music", 0},
+  {"cert-port", 'r', "NUM", 0, "Port for the certificate exchange", 0},
   {"pass", 'P', "PASSPHRASE", 0, "Passphrase for queries to the server", 0},
   {0, 0, 0, 0, 0, 0}
 };
@@ -67,7 +69,7 @@ static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
   arguments* args = (arguments*)state->input;
 
   switch(key) {
-    case 'p': case 's':
+    case 'p': case 's': case 'r':
       try {
         int port = std::stoi(arg);
         if (port <= IPPORT_USERRESERVED or port > 65535) {
@@ -75,8 +77,10 @@ static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
         }
         if ('p' == key) {
           args->grpc_port = std::to_string(port);
-        } else {
+        } else if ('s' == key) {
           args->streaming_port = std::to_string(port);
+        } else if ('r' == key) {
+          args->cert_port = std::to_string(port);
         }
       } catch (const std::invalid_argument& e) {
         argp_error(state, "Wrong port: %s", arg);
