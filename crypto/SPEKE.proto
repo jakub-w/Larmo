@@ -21,8 +21,9 @@ syntax = "proto3";
 message SPEKEmsg {
   enum Type {
     PUB_KEY = 0;
-    KEY_CONFIRM = 1;
-    ENC_DATA = 2;
+    ID = 1;
+    KEY_CONFIRM = 2;
+    ENC_DATA = 3;
   };
   Type type = 1;
   bytes data = 2;
