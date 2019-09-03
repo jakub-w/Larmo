@@ -23,7 +23,7 @@
 #include <openssl/hmac.h>
 #include <openssl/kdf.h>
 
-#include "SPEKE.pb.h"
+#include "crypto/SPEKE.pb.h"
 
 namespace lrm::crypto {
 std::unordered_map<std::string, int> SPEKE::id_counts;

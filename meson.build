@@ -62,19 +62,14 @@ gen_protobuf_grpc = generator(protoc,
 					  grpc_cpp_plugin.path(),
 					  '@INPUT@'])
 
-gen_protobuf_daemon = generator(
-  protoc,
-  output: ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
-  arguments: ['--proto_path=@CURRENT_SOURCE_DIR@',
-	      '--cpp_out=@BUILD_DIR@',
-	      '@INPUT@'])
-
 protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 		  gen_protobuf.process('player_service.proto')]
 
-protobuf_daemon_files = gen_protobuf_daemon.process('daemon_arguments.proto')
+protobuf_daemon_files = gen_protobuf.process('daemon_arguments.proto')
 
-protobuf_speke_files = gen_protobuf.process('crypto/SPEKE.proto')
+protobuf_speke_files = gen_protobuf.process(
+  'crypto/SPEKE.proto',
+  preserve_path_from: meson.current_source_dir())
 
 
 # spdlog
