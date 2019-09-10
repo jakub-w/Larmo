@@ -79,7 +79,8 @@ spdlog_dep = declare_dependency(
   include_directories : include_directories('spdlog/include'))
 
 
-crypto_sources = ['crypto/BigNum.cpp', 'crypto/SPEKE.cpp']
+crypto_sources = ['crypto/BigNum.cpp', 'crypto/SPEKE.cpp',
+		  'crypto/SpekeSession.cpp']
 
 
 # Executables
@@ -117,6 +118,7 @@ if gtest.found()
 			sources: ['test/main.cpp',
 				  'test/test-BigNum.cpp',
 				  'test/test-SPEKE.cpp',
+				  'test/test-SpekeSession.cpp',
 				  crypto_sources,
 				  protobuf_speke_files],
 			dependencies: [gtest, openssl_dep, protobuf_dep])

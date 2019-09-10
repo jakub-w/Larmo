@@ -1,3 +1,21 @@
+// Copyright (C) 2019 by Jakub Wojciech
+
+// This file is part of Lelo Remote Music Player.
+
+// Lelo Remote Music Player is free software: you can redistribute it
+// and/or modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation, either version 3 of
+// the License, or (at your option) any later version.
+
+// Lelo Remote Music Player is distributed in the hope that it will be
+// useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+// of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+// General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Lelo Remote Music Player. If not, see
+// <https://www.gnu.org/licenses/>.
+
 #include "crypto/SpekeSession.h"
 
 #include "crypto/SPEKE.pb.h"
@@ -29,15 +47,16 @@ void SpekeSession::Connect(std::string_view host, uint16_t port,
   // TODO: handle unresolved host
   stream_.connect(ep);
 
-  id_ = make_id();
   speke_ = std::make_unique<SPEKE>(id_, password, safe_prime);
 
-  SPEKEmsg message;
-  message.set_type(SPEKEmsg::PUB_KEY);
+  SpekeMessage message;
+  SpekeMessage::InitData* init_data = message.mutable_init_data();
 
-  // auto pubkey_bytes = pubkey_.to_bytes();
+  id_ = make_id();
+  init_data->set_id(id_);
+
   auto pubkey = speke_->GetPublicKey();
-  message.set_data(pubkey.data(), pubkey.size());
+  init_data->set_public_key(pubkey.data(), pubkey.size());
 
   start_reading();
 
@@ -53,9 +72,6 @@ void SpekeSession::Disconnect() {
 
   speke_.release();
   id_.clear();
-
-  other_pubkey_.clear();
-  other_id_.clear();
 }
 
 std::string SpekeSession::make_id() const {
@@ -96,51 +112,68 @@ void SpekeSession::handle_read(const asio::error_code& ec) {
     return;
   }
 
-  SPEKEmsg message;
+  SpekeMessage message;
+
   message.ParseFromIstream(&stream_);
 
   start_reading();
 
-  switch (message.type()) {
-    case SPEKEmsg::PUB_KEY:
-      {
-        if (not other_pubkey_.empty()) {
-          return;
-        }
-        other_pubkey_ = Bytes((unsigned char*)message.data().data(),
-                              (unsigned char*)message.data().data() +
-                              message.data().length());
+  if (message.has_signed_data()) {
+    Bytes hmac{message.signed_data().hmac_signature().begin(),
+               message.signed_data().hmac_signature().end()};
+    Bytes data{message.signed_data().data().begin(),
+               message.signed_data().data().end()};
 
-        if (not other_id_.empty()) {
-          speke_->ProvideRemotePublicKeyIdPair(other_pubkey_, other_id_);
-        }
-      }
-      break;
-    case SPEKEmsg::ID:
-      if (not id_.empty()) {
-        return;
-      }
-      other_id_ = message.data();
+    speke_->ConfirmHmacSignature(hmac, data);
 
-      if (not other_pubkey_.empty()) {
-        speke_->ProvideRemotePublicKeyIdPair(other_pubkey_, other_id_);
-      }
-      break;
-    case SPEKEmsg::KEY_CONFIRM:
-      {
-        auto remote_kcd = Bytes{(unsigned char*)message.data().data(),
-                                (unsigned char*)message.data().data() +
-                                message.data().length()};
-        if (not speke_->ConfirmKey(remote_kcd)) {
-          Disconnect();
-        }
-      }
-      break;
-    case SPEKEmsg::ENC_DATA:
-      break;
-    default:
-      break;
+    handle_message(std::move(data));
+  } else if (message.has_init_data()) {
+    std::string id = message.init_data().id();
+    Bytes pubkey{message.init_data().public_key().begin(),
+                 message.init_data().public_key().end()};
+
+    speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
+  } else if (message.has_key_confirmation()) {
+    Bytes kcd{message.key_confirmation().data().begin(),
+              message.key_confirmation().data().end()};
+
+    speke_->ConfirmKey(kcd);
   }
 }
 
+void SpekeSession::handle_message(Bytes&& message) {
+  // Add The message to a queue if the handler is not set. Otherwise
+  // just call the handler.
+  std::function<void(Bytes&&)> handler;
+  {
+    std::lock_guard lck{message_handler_mtx_};
+
+    if (message_handler_) {
+      handler = message_handler_;
+    } else {
+      message_queue_.push(std::move(message));
+      return;
+    }
+  }
+
+  if (handler) {
+    handler(std::move(message));
+  }
+}
+
+void SpekeSession::SetMessageHandler(
+    std::function<void(Bytes&&)>&& handler) {
+  {
+    std::lock_guard lck{message_handler_mtx_};
+    message_handler_ = std::move(handler);
+  }
+
+  Bytes message;
+  // this shouldn't need a lock because there should be no way the queue is
+  // modified while the handler is set
+  while (not message_queue_.empty()) {
+    handle_message(std::move(message_queue_.front()));
+    message_queue_.pop();
+  }
+}
 }

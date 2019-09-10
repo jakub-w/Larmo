@@ -16,24 +16,24 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-syntax = "proto3";
+#include <gtest/gtest.h>
 
-message SpekeMessage {
-  message InitData {
-    bytes public_key = 1;
-    string id = 2;
-  }
-  message KeyConfirmation {
-    bytes data = 1;
-  }
-  message SignedData {
-    bytes hmac_signature = 1;
-    bytes data = 2;
-  }
+#include "crypto/SpekeSession.h"
 
-  oneof Content {
-    InitData init_data = 1;
-    KeyConfirmation key_confirmation = 2;
-    SignedData signed_data = 3;
-  }
+#include <asio.hpp>
+
+using namespace lrm::crypto;
+
+TEST(SpekeSessionTest, ConstructSpekeSession) {
+  ASSERT_NO_THROW(SpekeSession session{std::make_shared<asio::io_context>()});
 }
+
+// TEST(SpekeSessionTest, ConnectTwoSessions) {
+//   auto context = std::make_shared<asio::io_context>();
+
+//   SpekeSession session1{context};
+//   SpekeSession session2{context};
+
+//   session1.Listen(42342, "password", 2692367);
+//   session2.Connect("localhost", 42342, "password", 2692367);
+// }
