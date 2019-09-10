@@ -32,42 +32,56 @@ class SpekeSession {
   using tcp = asio::ip::tcp;
 
  public:
-  SpekeSession(std::shared_ptr<asio::io_context> io_context)
-      : context_(std::move(io_context)) {}
+  /// The \e Bytes param is a plain message in bytes, without HMAC signature.
+  using MessageHandler = std::function<void(Bytes&&)>;
+
+  /// \param socket Already connected tcp socket.
+  /// \param password Secret password for the SPEKE session, shared between
+  ///                 peers.
+  /// \param safe_prime Non-secret safe prime (p = 2q + 1, where q is also a
+  ///                   prime), shared between peers.
+  SpekeSession(tcp::socket&& socket,
+               std::string_view id,
+               std::string_view password,
+               const BigNum& safe_prime);
 
   ~SpekeSession();
 
-  void Connect(std::string_view host, uint16_t port,
-               std::string_view password, const BigNum& safe_prime);
-  void Disconnect();
+  /// \brief Establish SPEKE session and start listening for incoming
+  /// messages.
+  ///
+  /// \param handler A function for handling messages. More info in
+  /// \ref SetMessageHandler() and \ref MessageHandler documentation.
+  void Run(MessageHandler&& handler);
+  void Close();
 
   /// Set a handler to handle incoming HMAC-signed messages.
   ///
   /// The HMAC signature is already confirmed when the handler is called.
   ///
-  /// /param handler A function that will handle messages.
-  void SetMessageHandler(std::function<void(Bytes&&)>&& handler);
+  /// Example:
+  /// \code{.cpp}
+  /// speke_session.SetMessageHandler([](Bytes&& msg) {
+  ///                                   // Handle msg...
+  ///                                 }
+  /// \endcode
+  ///
+  /// \param handler A function that will handle messages.
+  void SetMessageHandler(MessageHandler&& handler);
   // void SendMessage(Bytes message);
 
  private:
-  /// \brief Make an ID out of the public key and the timestamp.
-  ///
-  /// \return Newly generated id.
-  std::string make_id() const;
-
   void start_reading();
   void handle_read(const asio::error_code& ec);
   void handle_message(Bytes&& message);
 
   tcp::iostream stream_;
-  std::shared_ptr<asio::io_context> context_;
 
   std::unique_ptr<SPEKE> speke_;
-  std::string id_;
 
   /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;
-  std::function<void(Bytes&&)> message_handler_;
+  MessageHandler message_handler_;
 
   std::queue<Bytes> message_queue_;
 };

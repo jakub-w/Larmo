@@ -24,9 +24,9 @@
 
 using namespace lrm::crypto;
 
-TEST(SpekeSessionTest, ConstructSpekeSession) {
-  ASSERT_NO_THROW(SpekeSession session{std::make_shared<asio::io_context>()});
-}
+// TEST(SpekeSessionTest, ConstructSpekeSession) {
+  // ASSERT_NO_THROW(SpekeSession session{std::make_shared<asio::io_context>()});
+// }
 
 // TEST(SpekeSessionTest, ConnectTwoSessions) {
 //   auto context = std::make_shared<asio::io_context>();

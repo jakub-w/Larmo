@@ -22,6 +22,7 @@
 
 #include <openssl/hmac.h>
 #include <openssl/kdf.h>
+#include <openssl/md5.h>
 
 #include "crypto/SPEKE.pb.h"
 
@@ -32,7 +33,6 @@ SPEKE::SPEKE(std::string_view id,
              std::string_view password,
              BigNum safe_prime)
     : mdctx_{EVP_MD_CTX_new()},
-      id_{id},
       p_{safe_prime},
       q_{(p_ - 1) / 2} {
   if (not safe_prime.IsOdd()) {
@@ -59,6 +59,7 @@ SPEKE::SPEKE(std::string_view id,
   // g^x mod p
   pubkey_ = gen_.ModExp(privkey_, p_);
 
+  id_ = make_id(id.data());
 }
 
 SPEKE::~SPEKE() {
@@ -145,6 +146,33 @@ Bytes SPEKE::HmacSign(const Bytes& message) {
 bool SPEKE::ConfirmHmacSignature(const Bytes& hmac_signature,
                                  const Bytes& message) {
   return hmac_signature == HmacSign(message);
+}
+
+std::string SPEKE::make_id(const std::string& prefix) {
+  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+
+  EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+
+  Bytes pkey = GetPublicKey();
+  assert(not pkey.empty());
+  EVP_DigestUpdate(ctx, pkey.data(), pkey.size());
+
+  auto timestamp = std::chrono::high_resolution_clock::now()
+                   .time_since_epoch().count();
+  EVP_DigestUpdate(ctx, &timestamp, sizeof(timestamp));
+
+  unsigned char md_val[MD5_DIGEST_LENGTH];
+  unsigned int md_len;
+  EVP_DigestFinal_ex(ctx, md_val, &md_len);
+
+  EVP_MD_CTX_free(ctx);
+
+  char buffer[MD5_DIGEST_LENGTH * 2];
+  for (unsigned int i = 0; i < md_len; ++i) {
+    std::sprintf(&buffer[2*i], "%02X", md_val[i]);
+  }
+
+  return std::string(prefix + '-' + buffer);
 }
 
 void SPEKE::ensure_keying_material() {

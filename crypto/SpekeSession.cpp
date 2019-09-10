@@ -22,38 +22,33 @@
 #include "openssl/md5.h"
 
 namespace lrm::crypto {
-SpekeSession::~SpekeSession() {
-  Disconnect();
-}
-
-/// \param host Hostname or IPv4 of the remote party.
-/// \param port Port on which to connect.
-void SpekeSession::Connect(std::string_view host, uint16_t port,
+SpekeSession::SpekeSession(tcp::socket&& socket,
+                           std::string_view id,
                            std::string_view password,
-                           const BigNum& safe_prime) {
-  Disconnect();
-  // Connect to the remote party on host:port
-  auto results = tcp::resolver(*context_).resolve(
-      host.data(), std::to_string(port));
-
-  tcp::endpoint ep;
-  for (auto& result : results) {
-    if (result.endpoint().protocol() == tcp::v4()) {
-      ep = result.endpoint();
-      break;
-    }
+                           const BigNum& safe_prime)
+    : stream_{std::move(socket)} {
+  if (not stream_.socket().is_open()) {
+    throw std::logic_error(
+        __PRETTY_FUNCTION__ +
+        std::string(": 'socket' must be already connected"));
   }
 
-  // TODO: handle unresolved host
-  stream_.connect(ep);
+  speke_ = std::make_unique<SPEKE>(std::forward<std::string_view>(id),
+                                   std::forward<std::string_view>(password),
+                                   std::forward<const BigNum&>(safe_prime));
+}
 
-  speke_ = std::make_unique<SPEKE>(id_, password, safe_prime);
+SpekeSession::~SpekeSession() {
+  Close();
+}
+
+void SpekeSession::Run(MessageHandler&& handler) {
+  SetMessageHandler(std::move(handler));
 
   SpekeMessage message;
   SpekeMessage::InitData* init_data = message.mutable_init_data();
 
-  id_ = make_id();
-  init_data->set_id(id_);
+  init_data->set_id(speke_->GetId());
 
   auto pubkey = speke_->GetPublicKey();
   init_data->set_public_key(pubkey.data(), pubkey.size());
@@ -64,40 +59,13 @@ void SpekeSession::Connect(std::string_view host, uint16_t port,
 }
 
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
-void SpekeSession::Disconnect() {
+void SpekeSession::Close() {
   if (stream_.socket().is_open()) {
     stream_.socket().shutdown(tcp::socket::shutdown_both);
   }
   stream_.close();
 
   speke_.release();
-  id_.clear();
-}
-
-std::string SpekeSession::make_id() const {
-  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-
-  EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
-
-  Bytes pkey = speke_->GetPublicKey();
-  EVP_DigestUpdate(ctx, pkey.data(), pkey.size());
-
-  auto timestamp = std::chrono::high_resolution_clock::now()
-                   .time_since_epoch().count();
-  EVP_DigestUpdate(ctx, &timestamp, sizeof(timestamp));
-
-  unsigned char md_val[MD5_DIGEST_LENGTH];
-  unsigned int md_len;
-  EVP_DigestFinal_ex(ctx, md_val, &md_len);
-
-  EVP_MD_CTX_free(ctx);
-
-  char buffer[MD5_DIGEST_LENGTH * 2];
-  for (unsigned int i = 0; i < md_len; ++i) {
-    std::sprintf(&buffer[2*i], "%02X", md_val[i]);
-  }
-
-  return std::string(buffer);
 }
 
 void SpekeSession::start_reading() {
@@ -144,7 +112,7 @@ void SpekeSession::handle_read(const asio::error_code& ec) {
 void SpekeSession::handle_message(Bytes&& message) {
   // Add The message to a queue if the handler is not set. Otherwise
   // just call the handler.
-  std::function<void(Bytes&&)> handler;
+  MessageHandler handler;
   {
     std::lock_guard lck{message_handler_mtx_};
 
@@ -161,8 +129,7 @@ void SpekeSession::handle_message(Bytes&& message) {
   }
 }
 
-void SpekeSession::SetMessageHandler(
-    std::function<void(Bytes&&)>&& handler) {
+void SpekeSession::SetMessageHandler(MessageHandler&& handler) {
   {
     std::lock_guard lck{message_handler_mtx_};
     message_handler_ = std::move(handler);

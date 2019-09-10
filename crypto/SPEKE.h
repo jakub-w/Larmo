@@ -38,7 +38,10 @@ typedef std::vector<unsigned char> Bytes;
 /// parties (peers).
 ///
 /// The public key, provided by \ref GetPublicKey(), needs to be sent out to
-/// the second party along with the \e id used to create the object.
+/// the second party along with the \e id obtained by calling \ref GetId().
+/// Note that \ref GetId() returns a different id than was given in the
+/// constructor. More information is appended to the given id to ensure
+/// uniqueness.
 ///
 /// The remote party should send similar \e remote_id and \e remote_pubkey
 /// pair, which is intended to be used as arguments for \ref
@@ -71,6 +74,10 @@ class SPEKE {
   ~SPEKE();
 
   Bytes GetPublicKey() const;
+
+  inline const std::string& GetId() const {
+    return id_;
+  }
 
   /// Provide the SPEKE session with a public key of the remote party.
   /// \param remote_pubkey Public key of the remote party.
@@ -114,6 +121,12 @@ class SPEKE {
                             const Bytes& message);
 
  private:
+  /// \brief Make an ID out of the public key and the timestamp.
+  ///
+  /// \param prefix The resulting ID will be prepended with this value.
+  ///
+  /// \return Newly generated id.
+  std::string make_id(const std::string& prefix = "");
   void ensure_keying_material();
   void ensure_encryption_key();
   Bytes gen_kcd(std::string_view first_id, std::string_view second_id,

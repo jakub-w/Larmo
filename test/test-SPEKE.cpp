@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <openssl/rand.h>
+#include <openssl/md5.h>
 
 #include "crypto/SPEKE.h"
 
@@ -94,7 +95,33 @@ TEST_F(SpekeTestStatic, GetPublicKey) {
   EXPECT_TRUE(pubkey == control);
 }
 
-TEST_F(SpekeTestStatic, GetEncryptionKey) {
+TEST_F(SpekeTestStatic, GetId_IdLength) {
+  std::string id;
+  EXPECT_NO_THROW(id = speke_->GetId());
+
+  EXPECT_EQ(id.size(), 35);
+}
+
+// This uses static seed so the only factor that should guarantee uniqueness
+// of the id is time of creation.
+TEST_F(SpekeTestStatic, GetId_UniqueId) {
+  std::set<std::string> ids;
+  const int num_ids = 100;
+
+  for (auto i = 0; i < num_ids; ++i) {
+    SPEKE speke("id", "password", 2692367);
+    ids.insert(speke.GetId());
+  }
+
+  EXPECT_EQ(ids.size(), num_ids);
+}
+
+// This test case was disabled because the encryption key relies on the ids.
+// Since the id depends on the time of its creation it is unique every time
+// even when the RNG always returns the same value.
+// Therefore the control value isn't enough to detect if the encryption key
+// was generated properly.
+TEST_F(SpekeTestStatic, DISABLED_GetEncryptionKey) {
   speke_->GetPublicKey();
   // 0x15DDA1 is
   speke_->ProvideRemotePublicKeyIdPair(remote_pubkey_, remote_id_);
@@ -111,7 +138,13 @@ TEST_F(SpekeTestStatic, GetEncryptionKey) {
   EXPECT_TRUE(encryption_key == control);
 }
 
-TEST_F(SpekeTestStatic, GetKeyConfirmationData) {
+// This test case was disabled because the key confirmation data relies on
+// the ids.
+// Since the id depends on the time of its creation it is unique every time
+// even when the RNG always returns the same value.
+// Therefore the control value isn't enough to detect if the key confirmation
+// data was generated properly.
+TEST_F(SpekeTestStatic, DISABLED_GetKeyConfirmationData) {
   speke_->GetPublicKey();
   speke_->ProvideRemotePublicKeyIdPair(remote_pubkey_, remote_id_);
 
@@ -143,8 +176,23 @@ TEST(SpekeTest, ProvideRemotePubkeyAndId_SameId) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  EXPECT_ANY_THROW(peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer"));
-  EXPECT_ANY_THROW(peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer"));
+  EXPECT_ANY_THROW(peer2.ProvideRemotePublicKeyIdPair(peer1_key,
+                                                      peer2.GetId()));
+  EXPECT_ANY_THROW(peer1.ProvideRemotePublicKeyIdPair(peer2_key,
+                                                      peer1.GetId()));
+}
+
+TEST(SpekeTest, EncryptionKey_SameForBoth) {
+  SPEKE peer1("peer1", "password", 2692367);
+  SPEKE peer2("peer2", "password", 2692367);
+
+  auto peer1_key = peer1.GetPublicKey();
+  auto peer2_key = peer2.GetPublicKey();
+
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
+
+  EXPECT_EQ(peer1.GetEncryptionKey(), peer2.GetEncryptionKey());
 }
 
 TEST(SpekeTest, ConfirmKey) {
@@ -154,8 +202,8 @@ TEST(SpekeTest, ConfirmKey) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   auto peer1_kcd = peer1.GetKeyConfirmationData();
   auto peer2_kcd = peer2.GetKeyConfirmationData();
@@ -173,8 +221,8 @@ TEST(SpekeTest, ConfirmKey_WrongPassword) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   auto peer1_kcd = peer1.GetKeyConfirmationData();
   auto peer2_kcd = peer2.GetKeyConfirmationData();
@@ -190,8 +238,8 @@ TEST(SpekeTest, ConfirmKey_WrongPrime_BothSafe) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   auto peer1_kcd = peer1.GetKeyConfirmationData();
   auto peer2_kcd = peer2.GetKeyConfirmationData();
@@ -207,8 +255,8 @@ TEST(SpekeTest, HmacSign) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   unsigned char msg[] = "message";
   Bytes msg_bytes;
@@ -228,8 +276,8 @@ TEST(SpekeTest, HmacSign_WrongPassword) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   unsigned char msg[] = "message";
   Bytes msg_bytes;
@@ -249,8 +297,8 @@ TEST(SpekeTest, ConfirmHmacSignature) {
   auto peer1_key = peer1.GetPublicKey();
   auto peer2_key = peer2.GetPublicKey();
 
-  peer2.ProvideRemotePublicKeyIdPair(peer1_key, "peer1");
-  peer1.ProvideRemotePublicKeyIdPair(peer2_key, "peer2");
+  peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
+  peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
   unsigned char msg[] = "message";
   Bytes msg_bytes;
@@ -287,8 +335,27 @@ TEST(SpekeTest, HmacSign_WithoutProvidingPkey) {
 }
 
 TEST(SpekeTest, ImpersonationAttack) {
-  SPEKE speke("id", "password", 2692367);
+  const int safe_prime = 2692367;
+  SPEKE session1("id", "password", safe_prime);
+  SPEKE session2("id", "password", safe_prime);
 
-  EXPECT_ANY_THROW(
-      speke.ProvideRemotePublicKeyIdPair(speke.GetPublicKey(), "id"));
+  auto z = RandomInRange(BigNum(2), BigNum(safe_prime - 2));
+
+  BigNum g_x(session1.GetPublicKey());
+  BigNum g_xz = g_x.ModExp(z, safe_prime);
+
+  session2.ProvideRemotePublicKeyIdPair(g_xz.to_bytes(), "attacker");
+
+  BigNum g_y(session2.GetPublicKey());
+  BigNum g_yz = g_y.ModExp(z, safe_prime);
+
+  session1.ProvideRemotePublicKeyIdPair(g_yz.to_bytes(), "attacker");
+  // g^xyz should be now a base for the encryption key generation for both
+  // sessions.
+
+  EXPECT_FALSE(session1.ConfirmKey(session2.GetKeyConfirmationData()));
+  EXPECT_FALSE(session1.ConfirmKey(session1.GetKeyConfirmationData()));
+  EXPECT_FALSE(session2.ConfirmKey(session2.GetKeyConfirmationData()));
+  EXPECT_FALSE(session2.ConfirmKey(session1.GetKeyConfirmationData()));
+  EXPECT_NE(session1.GetEncryptionKey(), session2.GetEncryptionKey());
 }
