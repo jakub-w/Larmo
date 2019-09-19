@@ -18,6 +18,8 @@
 
 #include "SPEKE.h"
 
+#include <algorithm>
+#include <chrono>
 #include <stdexcept>
 
 #include <openssl/hmac.h>

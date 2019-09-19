@@ -20,6 +20,7 @@
 #define LRM_PLAYER_H
 
 #include <iostream>
+#include <thread>
 
 #include "mpv/client.h"
 
