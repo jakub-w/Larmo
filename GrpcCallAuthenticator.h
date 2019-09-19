@@ -19,7 +19,11 @@
 #ifndef LRM_GRPCCALLAUTHENTICATOR_H_
 #define LRM_GRPCCALLAUTHENTICATOR_H_
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/security/credentials.h"
+#else
+#include "grpc++/security/credentials.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
 
 namespace lrm {
 class GrpcCallAuthenticator : public grpc::MetadataCredentialsPlugin {

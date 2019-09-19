@@ -18,8 +18,14 @@
 
 #include "PlayerServiceImpl.h"
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/security/credentials.h"
 #include "grpcpp/server.h"
+#else
+#include "grpc++/security/credentials.h"
+#include "grpc++/server.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
+
 
 #include "spdlog/spdlog.h"
 

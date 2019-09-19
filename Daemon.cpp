@@ -24,8 +24,15 @@
 #include "spdlog/spdlog.h"
 
 #include "daemon_arguments.pb.h"
+
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/create_channel.h"
 #include "grpcpp/channel.h"
+#else
+#include "grpc++/create_channel.h"
+#include "grpc++/channel.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
+
 
 #include "filesystem.h"
 #include "Config.h"

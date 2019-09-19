@@ -22,7 +22,11 @@
 #include <fstream>
 #include <sstream>
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
+#else
+#include "grpc++/channel.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
 
 #include "spdlog/spdlog.h"
 

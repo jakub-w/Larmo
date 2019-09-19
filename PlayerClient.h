@@ -21,7 +21,12 @@
 
 #include <asio.hpp>
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
+#else
+#include "grpc++/channel.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
+
 #include "player_service.grpc.pb.h"
 
 #include "spdlog/spdlog.h"

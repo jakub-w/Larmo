@@ -23,8 +23,13 @@
 
 #include "mpv/client.h"
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+#else
+#include "grpc++/server.h"
+#include "grpc++/server_builder.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"

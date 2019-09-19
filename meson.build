@@ -43,6 +43,12 @@ if not cpp_compiler.has_header('filesystem')
   endif
 endif
 
+if not cpp_compiler.has_header('grpcpp/grpcpp.h')
+  if cpp_compiler.has_header('grpc++/grpc++.h', required: true)
+    add_global_arguments('-DINCLUDE_GRPCPLUSPLUS', language : 'cpp')
+  endif
+endif
+
 
 # Dependencies
 mpv_dep = dependency('mpv')

@@ -25,7 +25,12 @@
 #include <future>
 #include <mutex>
 
+#ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/create_channel.h"
+#else
+#include "grpc++/create_channel.h"
+#endif  // INCLUDE_GRPCPLUSPLUS
+
 #include "grpc/support/log.h"
 
 #include "asio.hpp"
