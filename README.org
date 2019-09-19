@@ -50,10 +50,10 @@ The server needs to have a private key that signed the certificate. It will expe
 
 * Dependencies
 - mpv
-- grpc
-- asio
+- grpc (>= 1.3.2)
+- asio (>= 1.12.1)
 ** For building
-- gcc or clang (must support c++17 and <filesystem>, so gcc 8.x)
+- gcc or clang (must support c++17)
 - meson
 
 * Building

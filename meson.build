@@ -58,7 +58,7 @@ openssl_dep = dependency('openssl')
 
 # Protobuff
 protobuf_dep = dependency('protobuf')
-grpc_dep = dependency('grpc++')
+grpc_dep = dependency('grpc++', version: '>=1.3.2')
 
 protoc = find_program('protoc')
 grpc_cpp_plugin = find_program('grpc_cpp_plugin')
