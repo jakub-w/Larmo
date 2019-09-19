@@ -33,6 +33,17 @@ elif get_option('buildtype') == 'release'
 endif
 
 
+# Check if the compiler uses 'filesystem' or 'experimental/filesystem'.
+# Define an appropriate macro if necessary.
+cpp_compiler = meson.get_compiler('cpp')
+if not cpp_compiler.has_header('filesystem')
+  if cpp_compiler.has_header('experimental/filesystem', required: true)
+    add_global_arguments('-DINCLUDE_STD_EXPERIMENTAL_FILESYSTEM',
+			 language : 'cpp')
+  endif
+endif
+
+
 # Dependencies
 mpv_dep = dependency('mpv')
 boost_dep = dependency('boost', modules: ['asio'])

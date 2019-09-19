@@ -16,7 +16,6 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include <filesystem>
 #include <random>
 
 #include <argp.h>
@@ -31,6 +30,7 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 
+#include "filesystem.h"
 #include "Config.h"
 #include "PlayerServiceImpl.h"
 #include "Util.h"
@@ -136,9 +136,9 @@ int initialize_config(arguments* args) {
   return 0;
 }
 
-void init_logging(const std::filesystem::path& log_file) {
+void init_logging(const fs::path& log_file) {
   try {
-  std::filesystem::create_directories(log_file.parent_path());
+  fs::create_directories(log_file.parent_path());
 
   std::vector<spdlog::sink_ptr> sinks;
   sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
@@ -177,11 +177,10 @@ int main(int argc, char** argv) {
   initialize_config(&args);
 
   // TODO: change it to "log_file"
-  std::filesystem::path log_file{Config::Get("player_log_file")};
+  fs::path log_file{Config::Get("player_log_file")};
   // TODO: Change the default logging location to something better
   if (log_file.empty()) {
-    log_file = std::filesystem::temp_directory_path()
-               .append("lrm/player.log");
+    log_file = fs::temp_directory_path().append("lrm/player.log");
   }
   std::cout << "log file: " << log_file.string() << '\n';
 

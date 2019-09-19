@@ -19,11 +19,12 @@
 #ifndef LRM_CONFIG_H
 #define LRM_CONFIG_H
 
-#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <string>
+
+#include "filesystem.h"
 
 namespace lrm {
 class Config {
@@ -37,7 +38,7 @@ public:
   Config() = delete;
 
   static void
-  Load(const std::filesystem::path& file_path = default_conf_file);
+  Load(const fs::path& file_path = default_conf_file);
 
   static const std::string& Get(std::string_view variable);
   static inline State GetState() {

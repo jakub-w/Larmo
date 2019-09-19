@@ -17,7 +17,6 @@
 // <https://www.gnu.org/licenses/>.
 
 #include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <tuple>
 #include <string_view>
@@ -34,6 +33,7 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
+#include "filesystem.h"
 #include "Config.h"
 #include "Daemon.h"
 #include "PlayerClient.h"
@@ -63,8 +63,8 @@ void gpr_log_function(struct gpr_log_func_args* args) {
   gpr_default_log(args);
 }
 
-void init_logging(const std::filesystem::path& log_file) {
-  std::filesystem::create_directories(log_file.parent_path());
+void init_logging(const fs::path& log_file) {
+  fs::create_directories(log_file.parent_path());
 
   auto file_sink =
       std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file.string(),
@@ -132,11 +132,10 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
             // Initialize a daemon process
             umask(0);
 
-            std::filesystem::path log_file{Config::Get("log_file")};
+            fs::path log_file{Config::Get("log_file")};
             // TODO: Change the default logging location to something better
             if (log_file.empty()) {
-              log_file = std::filesystem::temp_directory_path()
-                         .append("lrm/daemon.log");
+              log_file = fs::temp_directory_path().append("lrm/daemon.log");
             }
             std::cout << "log_file = " << log_file.string() << '\n';
 

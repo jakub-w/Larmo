@@ -29,7 +29,7 @@ std::unordered_set<std::string> Config::required_ = {};
 Config::State Config::state_ = NOT_LOADED;
 
 // Define methods
-void Config::Load(const std::filesystem::path& file_path) {
+void Config::Load(const fs::path& file_path) {
   if (LOADED == state_) {
     return;
   }

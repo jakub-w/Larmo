@@ -20,7 +20,7 @@
 #define LRM_DAEMON_H_
 
 #include <fstream>
-#include <filesystem>
+#include "filesystem.h"
 
 #include <asio.hpp>
 
@@ -37,9 +37,9 @@ class Daemon {
  public:
   // TODO: make this struct be the argument for the constructor
   struct daemon_info {
-    std::filesystem::path config_file;
-    std::filesystem::path cert_file;
-    std::filesystem::path log_file;
+    fs::path config_file;
+    fs::path cert_file;
+    fs::path log_file;
     std::string grpc_host;
     std::string grpc_port;
     std::string streaming_port;
@@ -60,7 +60,7 @@ class Daemon {
   void Run() noexcept(false);
   void Initialize();
 
-  static const std::filesystem::path socket_path;
+  static const fs::path socket_path;
 
  private:
   void initialize_config();

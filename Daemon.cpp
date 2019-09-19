@@ -19,7 +19,6 @@
 #include "Daemon.h"
 
 #include <iostream>
-#include <filesystem>
 #include <fstream>
 
 #include "spdlog/spdlog.h"
@@ -28,6 +27,7 @@
 #include "grpcpp/create_channel.h"
 #include "grpcpp/channel.h"
 
+#include "filesystem.h"
 #include "Config.h"
 #include "GrpcCallAuthenticator.h"
 #include "PlayerClient.h"
@@ -36,8 +36,8 @@
 using namespace asio::local;
 
 namespace lrm {
-const std::filesystem::path Daemon::socket_path =
-    std::filesystem::temp_directory_path().append("lrm/socket");
+const fs::path Daemon::socket_path =
+    fs::temp_directory_path().append("lrm/socket");
 
 Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
     : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_),
@@ -45,9 +45,9 @@ Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
   assert(socket_path.is_absolute());
 
   try {
-    std::filesystem::create_directories(socket_path.parent_path());
+    fs::create_directories(socket_path.parent_path());
     acceptor_ = stream_protocol::acceptor(context_, endpoint_, true);
-  } catch (const std::filesystem::filesystem_error& e) {
+  } catch (const fs::filesystem_error& e) {
     log_->error("Couldn't create path ({}): {}",
                 e.path1().string(), e.what());
   } catch (const asio::system_error& e) {
@@ -58,11 +58,11 @@ Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
 Daemon::~Daemon() noexcept {
   try {
     grpc_channel_state_run_ = false;
-    std::filesystem::remove(socket_path);
+    fs::remove(socket_path);
 
     log_->flush();
     grpc_channel_state_thread_.join();
-  } catch (const std::filesystem::filesystem_error& e) {
+  } catch (const fs::filesystem_error& e) {
     if (e.code() != std::errc::no_such_file_or_directory) {
       log_->error("While removing a file '{}': {}",
                   e.path1().string(), e.what());
@@ -116,7 +116,7 @@ void Daemon::initialize_config() {
     return;
   }
 
-  std::filesystem::path conf;
+  fs::path conf;
 
   // This will throw if the config file cannot be loaded.
   if (dinfo_->config_file.empty()) {
