@@ -58,7 +58,7 @@ class daemon_init_error : public std::logic_error {
 using namespace lrm;
 
 void gpr_default_log(gpr_log_func_args* args);
-void gpr_log_function(struct gpr_log_func_args* args) {
+void gpr_log_function(gpr_log_func_args* args) {
   if (args->severity == GPR_LOG_SEVERITY_ERROR) {
     spdlog::get("gRPC")->error(args->message);
   }
