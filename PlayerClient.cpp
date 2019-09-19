@@ -27,8 +27,6 @@
 
 #include "spdlog/spdlog.h"
 
-#include "TempFile.h"
-
 namespace lrm {
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
   std::ifstream ifs(filename.data(), std::ios::binary | std::ios::in);
