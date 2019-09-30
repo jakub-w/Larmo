@@ -23,10 +23,22 @@
 #include <asio.hpp>
 
 using namespace lrm::crypto;
+using tcp = asio::ip::tcp;
 
 // TEST(SpekeSessionTest, ConstructSpekeSession) {
   // ASSERT_NO_THROW(SpekeSession session{std::make_shared<asio::io_context>()});
 // }
+
+asio::io_context context;
+
+TEST(SpekeSessionTest, ConstructSpekeSession_ThrowSocketNotConnected) {
+  tcp::socket socket(context);
+
+  EXPECT_THROW(
+      auto session = SpekeSession(std::move(socket), "id", "password", 7),
+      std::logic_error)
+      << "Should throw when the given socket is not connected to anything";
+}
 
 // TEST(SpekeSessionTest, ConnectTwoSessions) {
 //   auto context = std::make_shared<asio::io_context>();
