@@ -101,6 +101,9 @@ void SpekeSession::handle_read(const asio::error_code& ec) {
                  message.init_data().public_key().end()};
 
     speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
+
+    // Send the key confirmation message
+    send_key_confirmation();
   } else if (message.has_key_confirmation()) {
     Bytes kcd{message.key_confirmation().data().begin(),
               message.key_confirmation().data().end()};
@@ -127,6 +130,19 @@ void SpekeSession::handle_message(Bytes&& message) {
   if (handler) {
     handler(std::move(message));
   }
+}
+
+void SpekeSession::send_key_confirmation() {
+  auto kcd = speke_->GetKeyConfirmationData();
+
+  SpekeMessage kcd_message;
+  SpekeMessage::KeyConfirmation* kcd_p =
+      kcd_message.mutable_key_confirmation();
+
+  kcd_p->set_data(kcd.data(), kcd.size());
+
+  // TODO: Check if tcp::iostream is thread-safe
+  kcd_message.SerializeToOstream(&stream_);
 }
 
 void SpekeSession::SetMessageHandler(MessageHandler&& handler) {

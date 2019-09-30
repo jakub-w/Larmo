@@ -74,6 +74,7 @@ class SpekeSession {
   void start_reading();
   void handle_read(const asio::error_code& ec);
   void handle_message(Bytes&& message);
+  void send_key_confirmation();
 
   tcp::iostream stream_;
 
