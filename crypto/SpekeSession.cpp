@@ -22,10 +22,12 @@
 #include "openssl/md5.h"
 
 namespace lrm::crypto {
-SpekeSession::SpekeSession(tcp::socket&& socket,
-                           std::string_view id,
-                           std::string_view password,
-                           const BigNum& safe_prime)
+template <typename Protocol>
+SpekeSession<Protocol>::SpekeSession(
+    asio::basic_stream_socket<Protocol>&& socket,
+    std::string_view id,
+    std::string_view password,
+    const BigNum& safe_prime)
     : stream_{std::move(socket)} {
   if (not stream_.socket().is_open()) {
     throw std::logic_error(
@@ -38,11 +40,13 @@ SpekeSession::SpekeSession(tcp::socket&& socket,
                                    std::forward<const BigNum&>(safe_prime));
 }
 
-SpekeSession::~SpekeSession() {
+template <typename Protocol>
+SpekeSession<Protocol>::~SpekeSession() {
   Close();
 }
 
-void SpekeSession::Run(MessageHandler&& handler) {
+template <typename Protocol>
+void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
   SetMessageHandler(std::move(handler));
 
   SpekeMessage message;
@@ -59,7 +63,8 @@ void SpekeSession::Run(MessageHandler&& handler) {
 }
 
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
-void SpekeSession::Close() {
+template <typename Protocol>
+void SpekeSession<Protocol>::Close() {
   if (stream_.socket().is_open()) {
     stream_.socket().shutdown(tcp::socket::shutdown_both);
   }
@@ -68,13 +73,15 @@ void SpekeSession::Close() {
   speke_.release();
 }
 
-void SpekeSession::start_reading() {
+template <typename Protocol>
+void SpekeSession<Protocol>::start_reading() {
   stream_.socket().async_wait(tcp::socket::wait_read,
                               std::bind(&SpekeSession::handle_read, this,
                                         std::placeholders::_1));
 }
 
-void SpekeSession::handle_read(const asio::error_code& ec) {
+template <typename Protocol>
+void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
   if (ec) {
     // TODO: log it
     return;
@@ -112,7 +119,8 @@ void SpekeSession::handle_read(const asio::error_code& ec) {
   }
 }
 
-void SpekeSession::handle_message(Bytes&& message) {
+template <typename Protocol>
+void SpekeSession<Protocol>::handle_message(Bytes&& message) {
   // Add The message to a queue if the handler is not set. Otherwise
   // just call the handler.
   MessageHandler handler;
@@ -132,7 +140,8 @@ void SpekeSession::handle_message(Bytes&& message) {
   }
 }
 
-void SpekeSession::send_key_confirmation() {
+template <typename Protocol>
+void SpekeSession<Protocol>::send_key_confirmation() {
   auto kcd = speke_->GetKeyConfirmationData();
 
   SpekeMessage kcd_message;
@@ -145,7 +154,8 @@ void SpekeSession::send_key_confirmation() {
   kcd_message.SerializeToOstream(&stream_);
 }
 
-void SpekeSession::SetMessageHandler(MessageHandler&& handler) {
+template <typename Protocol>
+void SpekeSession<Protocol>::SetMessageHandler(MessageHandler&& handler) {
   {
     std::lock_guard lck{message_handler_mtx_};
     message_handler_ = std::move(handler);
@@ -159,4 +169,7 @@ void SpekeSession::SetMessageHandler(MessageHandler&& handler) {
     message_queue_.pop();
   }
 }
+
+template class SpekeSession<asio::ip::tcp>;
+template class SpekeSession<asio::local::stream_protocol>;
 }

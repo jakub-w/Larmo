@@ -28,6 +28,7 @@
 
 namespace lrm::crypto {
 
+template <typename Protocol>
 class SpekeSession {
   using tcp = asio::ip::tcp;
 
@@ -40,7 +41,7 @@ class SpekeSession {
   ///                 peers.
   /// \param safe_prime Non-secret safe prime (p = 2q + 1, where q is also a
   ///                   prime), shared between peers.
-  SpekeSession(tcp::socket&& socket,
+  SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
                std::string_view id,
                std::string_view password,
                const BigNum& safe_prime);
@@ -76,7 +77,7 @@ class SpekeSession {
   void handle_message(Bytes&& message);
   void send_key_confirmation();
 
-  tcp::iostream stream_;
+  asio::basic_socket_iostream<Protocol> stream_;
 
   std::unique_ptr<SPEKE> speke_;
 
