@@ -37,14 +37,10 @@ class SpekeSession {
   using MessageHandler = std::function<void(Bytes&&)>;
 
   /// \param socket Already connected tcp socket.
-  /// \param password Secret password for the SPEKE session, shared between
-  ///                 peers.
-  /// \param safe_prime Non-secret safe prime (p = 2q + 1, where q is also a
-  ///                   prime), shared between peers.
+  /// \param speke A pointer to an already constructed \ref SpekeInterface
+  /// object. I.e. \ref SPEKE object.
   SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
-               std::string_view id,
-               std::string_view password,
-               const BigNum& safe_prime);
+               std::unique_ptr<SpekeInterface>&& speke);
 
   ~SpekeSession();
 
@@ -79,7 +75,7 @@ class SpekeSession {
 
   asio::basic_socket_iostream<Protocol> stream_;
 
-  std::unique_ptr<SPEKE> speke_;
+  std::unique_ptr<SpekeInterface> speke_;
 
   /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;

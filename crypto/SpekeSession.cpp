@@ -25,19 +25,19 @@ namespace lrm::crypto {
 template <typename Protocol>
 SpekeSession<Protocol>::SpekeSession(
     asio::basic_stream_socket<Protocol>&& socket,
-    std::string_view id,
-    std::string_view password,
-    const BigNum& safe_prime)
-    : stream_{std::move(socket)} {
+    std::unique_ptr<SpekeInterface>&& speke)
+    : stream_(std::move(socket)),
+      speke_(std::move(speke)) {
   if (not stream_.socket().is_open()) {
     throw std::logic_error(
         __PRETTY_FUNCTION__ +
         std::string(": 'socket' must be already connected"));
   }
-
-  speke_ = std::make_unique<SPEKE>(std::forward<std::string_view>(id),
-                                   std::forward<std::string_view>(password),
-                                   std::forward<const BigNum&>(safe_prime));
+  if (not speke_) {
+    throw std::logic_error(
+        __PRETTY_FUNCTION__ +
+        std::string(": 'speke' must be already instantiated"));
+  }
 }
 
 template <typename Protocol>

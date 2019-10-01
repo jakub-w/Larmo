@@ -18,12 +18,14 @@
 
 #include <gtest/gtest.h>
 
+#include "crypto/SPEKE.h"
 #include "crypto/SpekeSession.h"
 
 #include <asio.hpp>
 
 using namespace lrm::crypto;
 using tcp = asio::ip::tcp;
+using stream_protocol = asio::local::stream_protocol;
 
 // TEST(SpekeSessionTest, ConstructSpekeSession) {
   // ASSERT_NO_THROW(SpekeSession session{std::make_shared<asio::io_context>()});
@@ -31,14 +33,59 @@ using tcp = asio::ip::tcp;
 
 asio::io_context context;
 
-TEST(SpekeSessionTest, ConstructSpekeSession_ThrowSocketNotConnected) {
-  tcp::socket socket(context);
+TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
+  stream_protocol::socket socket(context);
+  auto speke = std::make_unique<SPEKE>("id", "password", 7);
 
-  EXPECT_THROW(
-      auto session = SpekeSession(std::move(socket), "id", "password", 7),
-      std::logic_error)
+  EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
+               std::logic_error)
       << "Should throw when the given socket is not connected to anything";
+
+  socket.close();
 }
+
+TEST(SpekeSessionTest, Construct_ThrowSocketConnectedSpekeNullptr) {
+  stream_protocol::socket socket1(context);
+  stream_protocol::socket socket2(context);
+  asio::local::connect_pair(socket1, socket2);
+
+  auto speke = std::unique_ptr<SPEKE>(nullptr);
+
+  EXPECT_THROW(SpekeSession(std::move(socket1), std::move(speke)),
+               std::logic_error)
+      << "Should throw when speke is nullptr";
+
+  socket1.close();
+  socket2.close();
+}
+
+TEST(SpekeSessionTest, Construct_NoThrowSocketConnectedSpekeGood) {
+  stream_protocol::socket socket1(context);
+  stream_protocol::socket socket2(context);
+  asio::local::connect_pair(socket1, socket2);
+
+  auto speke = std::make_unique<SPEKE>("id", "password", 7);
+
+  EXPECT_NO_THROW(SpekeSession(std::move(socket1), std::move(speke)))
+      << "Should not throw when the given socket is connected to another and "
+      "speke is not nullptr";
+
+  socket1.close();
+  socket2.close();
+}
+
+// TEST(SpekeSessionTest, Construct_ThrowSpekeNotInstantiated) {
+//   local::socket socket1(context);
+//   local::socket socket2(context);
+//   asio::local::connect_pair(socket1, socket1);
+
+//   tcp::socket socket(context);
+//   auto speke = std::make_unique<SPEKE>("id", "password", 7);
+
+//   EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
+//                std::logic_error)
+//       << "Should throw when the given socket is not connected to anything";
+// }
 
 // TEST(SpekeSessionTest, ConnectTwoSessions) {
 //   auto context = std::make_shared<asio::io_context>();
