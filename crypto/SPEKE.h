@@ -19,6 +19,8 @@
 #ifndef LRM_SPEKE_H_
 #define LRM_SPEKE_H_
 
+#include "crypto/SpekeInterface.h"
+
 #include <unordered_map>
 
 #include <openssl/evp.h>
@@ -29,7 +31,6 @@
 #define LRM_SPEKE_CIPHER_TYPE EVP_aes_192_gcm()
 
 namespace lrm::crypto {
-typedef std::vector<unsigned char> Bytes;
 
 /// \brief Create Simple Password Exponential Key Exchange sessions.
 ///
@@ -60,7 +61,7 @@ typedef std::vector<unsigned char> Bytes;
 /// a remote id provided by the user, so when the session is dropped it can't
 /// be restored. The counter is incremented when \ref
 /// ProvideRemotePublicKeyIdPair() is called.
-class SPEKE {
+class SPEKE : public SpekeInterface {
   static std::unordered_map<std::string, int> id_counts;
 
  public:
@@ -71,19 +72,20 @@ class SPEKE {
   ///        <tt> p = 2q + 1 </tt> where \c q is also a prime. Shared with the
   ///        remote party.
   SPEKE(std::string_view id, std::string_view password, BigNum safe_prime);
-  ~SPEKE();
+  virtual ~SPEKE();
 
-  Bytes GetPublicKey() const;
+  virtual Bytes GetPublicKey() const override;
 
-  inline const std::string& GetId() const {
+  virtual inline const std::string& GetId() const override {
     return id_;
   }
 
   /// Provide the SPEKE session with a public key of the remote party.
   /// \param remote_pubkey Public key of the remote party.
   /// \param remote_id Id of the remote party.
-  void ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
-                                    const std::string& remote_id);
+  virtual void ProvideRemotePublicKeyIdPair(
+      const Bytes& remote_pubkey,
+      const std::string& remote_id) override;
 
   /// Return the encryption key created by using HKDF on Diffie-Hellman key
   /// provided by the SPEKE algorithm.
@@ -93,7 +95,7 @@ class SPEKE {
   ///
   /// The key's length is hardcoded and it's value corresponds to the
   /// key length used with \ref LRM_SPEKE_CIPHER_TYPE.
-  const Bytes& GetEncryptionKey();
+  virtual const Bytes& GetEncryptionKey() override;
 
   /// Return the key confirmation data that can be used by the remote party
   /// to confirm that the encryption keys and ids are the same.
@@ -104,21 +106,22 @@ class SPEKE {
   /// Unlike in the default SPEKE standard, the encryption key (created using
   /// HKDF) is used to generate the key confirmation data, not the regular
   /// SPEKE key.
-  const Bytes& GetKeyConfirmationData();
+  virtual const Bytes& GetKeyConfirmationData() override;
 
   /// Confirm that the remote has the same key.
   /// \param remote_kcd Key confirmation data of the remote party.
-  bool ConfirmKey(const Bytes& remote_kcd);
+  virtual bool ConfirmKey(const Bytes& remote_kcd) override;
 
   /// Sign a \e message with HMAC using an encryption key derived from DH
   /// exchange.
-  Bytes HmacSign(const Bytes& message);
+  virtual Bytes HmacSign(const Bytes& message) override;
 
   /// Confirm a signature created by the remote party with \ref HmacSign()
   /// \return \c true if the signature matches.
   /// \return \c false otherwise.
-  bool ConfirmHmacSignature(const Bytes& hmac_signature,
-                            const Bytes& message);
+  virtual bool ConfirmHmacSignature(
+      const Bytes& hmac_signature,
+      const Bytes& message) override;
 
  private:
   /// \brief Make an ID out of the public key and the timestamp.

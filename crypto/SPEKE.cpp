@@ -155,7 +155,7 @@ std::string SPEKE::make_id(const std::string& prefix) {
 
   EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
 
-  Bytes pkey = GetPublicKey();
+  Bytes pkey = this->GetPublicKey();
   assert(not pkey.empty());
   EVP_DigestUpdate(ctx, pkey.data(), pkey.size());
 
