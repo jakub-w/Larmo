@@ -33,6 +33,61 @@ using stream_protocol = asio::local::stream_protocol;
 
 asio::io_context context;
 
+class FakeSpeke : public SpekeInterface {
+ private:
+  Bytes pkey_{'p', 'k', 'e', 'y'};
+  std::string id_{"id"};
+  Bytes enc_key_{'e', 'n', 'c', 'k', 'e', 'y'};
+  Bytes kcd_{'k', 'c', 'd'};
+
+  Bytes bad_bytes_{'b', 'a', 'd'};
+  std::string bad_str_{"bad"};
+
+ public:
+  virtual ~FakeSpeke() {};
+
+  virtual Bytes GetPublicKey() const override {
+    return pkey_;
+  }
+
+  virtual const std::string& GetId() const override {
+    return id_;
+  }
+
+  virtual void ProvideRemotePublicKeyIdPair(
+      const Bytes& remote_pubkey,
+      const std::string& remote_id) override {
+    if (remote_pubkey == bad_bytes_) {
+      throw std::logic_error("Bad pubkey");
+    }
+    if (remote_id == bad_str_) {
+      throw std::logic_error("Bad id");
+    }
+  }
+
+  virtual const Bytes& GetEncryptionKey() override {
+    return enc_key_;
+  }
+
+  virtual const Bytes& GetKeyConfirmationData() override {
+    return kcd_;
+  }
+
+  virtual bool ConfirmKey(const Bytes& remote_kcd) override {
+    return remote_kcd != bad_bytes_;
+  }
+
+  virtual Bytes HmacSign(const Bytes& message) override {
+    return message;
+  }
+
+  virtual bool ConfirmHmacSignature(
+      const Bytes& hmac_signature,
+      const Bytes& message) override {
+    return hmac_signature != bad_bytes_;
+  }
+};
+
 TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
   stream_protocol::socket socket(context);
   auto speke = std::make_unique<SPEKE>("id", "password", 7);
