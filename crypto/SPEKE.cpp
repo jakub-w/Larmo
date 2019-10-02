@@ -85,13 +85,13 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
         "SPEKE: The remote's information already provided");
   }
   if (remote_id == id_) {
-    throw std::logic_error(
+    throw std::runtime_error(
         "SPEKE: The remote's identifier is the same as the local identifier");
   }
 
   BigNum temp = BigNum(remote_pubkey);
   if (temp > p_ - 2 or temp < 2) {
-    throw std::logic_error("SPEKE: The remote's public key is invalid");
+    throw std::runtime_error("SPEKE: The remote's public key is invalid");
   }
   remote_pubkey_ = std::move(temp);
 

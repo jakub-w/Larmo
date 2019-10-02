@@ -60,10 +60,10 @@ class FakeSpeke : public SpekeInterface {
       const Bytes& remote_pubkey,
       const std::string& remote_id) override {
     if (remote_pubkey == bad_bytes_) {
-      throw std::logic_error("Bad pubkey");
+      throw std::runtime_error("Bad pubkey");
     }
     if (remote_id == bad_str_) {
-      throw std::logic_error("Bad id");
+      throw std::runtime_error("Bad id");
     }
   }
 
