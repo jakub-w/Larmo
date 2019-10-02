@@ -90,6 +90,16 @@ class FakeSpeke : public SpekeInterface {
   }
 };
 
+bool is_connection_alive(stream_protocol::socket& socket) {
+  if (not socket.is_open()) return false;
+
+  asio::error_code ec;
+  socket.write_some(asio::buffer(""), ec);
+  if (ec) return false;
+
+  return true;
+}
+
 std::pair<stream_protocol::socket, stream_protocol::socket>
 get_local_socketpair(asio::io_context& ctx) {
   int fds[2];
@@ -134,9 +144,49 @@ TEST(SpekeSessionTest, Run_InitDataIsSent) {
 
   session.Run([](Bytes&& message){ return; });
 
-  SpekeMessage init_data =
+  SpekeMessage peer_data =
       SpekeSession<stream_protocol>::ReceiveMessage(sockets.second);
 
-  EXPECT_EQ("id", init_data.init_data().id());
-  EXPECT_EQ("pkey", init_data.init_data().public_key());
+  EXPECT_EQ("id", peer_data.init_data().id());
+  EXPECT_EQ("pkey", peer_data.init_data().public_key());
+}
+
+TEST(SpekeSessionTest, ConnectionDroppedOnIncorrectPublicKey) {
+  auto sockets = get_local_socketpair(context);
+  auto speke = std::make_unique<FakeSpeke>();
+  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
+
+  session.Run([](Bytes&& message){ return; });
+
+  SpekeMessage message;
+  SpekeMessage::InitData* init_data = message.mutable_init_data();
+  init_data->set_id("bad");
+  init_data->set_public_key("pkey");
+
+  SpekeSession<stream_protocol>::SendMessage(message, sockets.second);
+
+  context.run_for(std::chrono::milliseconds(200));
+
+  EXPECT_FALSE(is_connection_alive(sockets.second))
+      << "Socket should be closed after the server closed the connection";
+}
+
+TEST(SpekeSessionTest, ConnectionNotDroppedOnCorrectPublicKey) {
+  auto sockets = get_local_socketpair(context);
+  auto speke = std::make_unique<FakeSpeke>();
+  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
+
+  session.Run([](Bytes&& message){ return; });
+
+  SpekeMessage message;
+  SpekeMessage::InitData* init_data = message.mutable_init_data();
+  init_data->set_id("id");
+  init_data->set_public_key("pkey");
+
+  SpekeSession<stream_protocol>::SendMessage(message, sockets.second);
+
+  context.run_for(std::chrono::milliseconds(200));
+
+  EXPECT_TRUE(is_connection_alive(sockets.second))
+      << "Socket should be closed after the server closed the connection";
 }

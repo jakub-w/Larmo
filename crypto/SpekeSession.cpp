@@ -75,8 +75,8 @@ void SpekeSession<Protocol>::Close() {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::start_reading() {
-  socket_.async_wait(tcp::socket::wait_read,
-                     std::bind(&SpekeSession::handle_read, this,
+  socket_.async_wait(asio::socket_base::wait_read,
+                     std::bind(&SpekeSession<Protocol>::handle_read, this,
                                std::placeholders::_1));
 }
 
@@ -105,9 +105,21 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     Bytes pubkey{message.init_data().public_key().begin(),
                  message.init_data().public_key().end()};
 
-    speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
+    try {
+      speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
+    } catch (const std::logic_error& e) {
+      // This error will occur if the pubkey and id were already provided.
+      // TODO: Log it
+      // TODO: Disconnect from the peer?
+      return;
+    } catch (const std::runtime_error& e) {
+      // This will occur if the peer's id or public key is invalid.
+      // TODO: Log it
+      // TODO: Increase fail count.
+      Close();
+      return;
+    }
 
-    // Send the key confirmation message
     send_key_confirmation();
   } else if (message.has_key_confirmation()) {
     Bytes kcd{message.key_confirmation().data().begin(),
