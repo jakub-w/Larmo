@@ -88,6 +88,16 @@ class FakeSpeke : public SpekeInterface {
   }
 };
 
+std::pair<stream_protocol::socket, stream_protocol::socket>
+get_local_socketpair(asio::io_context& ctx) {
+  int fds[2];
+  socketpair(AF_LOCAL, SOCK_STREAM, 0, fds);
+
+  return std::pair(
+      stream_protocol::socket(ctx, stream_protocol(), fds[0]),
+      stream_protocol::socket(ctx, stream_protocol(), fds[1]));
+}
+
 TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
   stream_protocol::socket socket(context);
   auto speke = std::make_unique<SPEKE>("id", "password", 7);
@@ -95,38 +105,24 @@ TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
   EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
                std::logic_error)
       << "Should throw when the given socket is not connected to anything";
-
-  socket.close();
 }
 
 TEST(SpekeSessionTest, Construct_ThrowSocketConnectedSpekeNullptr) {
-  stream_protocol::socket socket1(context);
-  stream_protocol::socket socket2(context);
-  asio::local::connect_pair(socket1, socket2);
+  auto sockets = get_local_socketpair(context);
+  auto speke = std::unique_ptr<FakeSpeke>(nullptr);
 
-  auto speke = std::unique_ptr<SPEKE>(nullptr);
-
-  EXPECT_THROW(SpekeSession(std::move(socket1), std::move(speke)),
+  EXPECT_THROW(SpekeSession(std::move(sockets.first), std::move(speke)),
                std::logic_error)
       << "Should throw when speke is nullptr";
-
-  socket1.close();
-  socket2.close();
 }
 
 TEST(SpekeSessionTest, Construct_NoThrowSocketConnectedSpekeGood) {
-  stream_protocol::socket socket1(context);
-  stream_protocol::socket socket2(context);
-  asio::local::connect_pair(socket1, socket2);
+  auto sockets = get_local_socketpair(context);
+  auto speke = std::make_unique<FakeSpeke>();
 
-  auto speke = std::make_unique<SPEKE>("id", "password", 7);
-
-  EXPECT_NO_THROW(SpekeSession(std::move(socket1), std::move(speke)))
+  EXPECT_NO_THROW(SpekeSession(std::move(sockets.first), std::move(speke)))
       << "Should not throw when the given socket is connected to another and "
       "speke is not nullptr";
-
-  socket1.close();
-  socket2.close();
 }
 
 // TEST(SpekeSessionTest, Construct_ThrowSpekeNotInstantiated) {
