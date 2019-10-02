@@ -24,6 +24,8 @@
 
 #include <asio.hpp>
 
+#include "crypto/SPEKE.pb.h"
+
 #include "crypto/SPEKE.h"
 
 namespace lrm::crypto {
@@ -33,6 +35,13 @@ class SpekeSession {
   using tcp = asio::ip::tcp;
 
  public:
+  static SpekeMessage ReceiveMessage(
+      asio::basic_stream_socket<Protocol>& socket);
+
+  static void SendMessage(
+      const SpekeMessage& message,
+      asio::basic_stream_socket<Protocol>& socket);
+
   /// The \e Bytes param is a plain message in bytes, without HMAC signature.
   using MessageHandler = std::function<void(Bytes&&)>;
 
@@ -73,7 +82,7 @@ class SpekeSession {
   void handle_message(Bytes&& message);
   void send_key_confirmation();
 
-  asio::basic_socket_iostream<Protocol> stream_;
+  asio::basic_stream_socket<Protocol> socket_;
 
   std::unique_ptr<SpekeInterface> speke_;
 

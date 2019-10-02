@@ -26,7 +26,7 @@ template <typename Protocol>
 SpekeSession<Protocol>::SpekeSession(
     asio::basic_stream_socket<Protocol>&& socket,
     std::unique_ptr<SpekeInterface>&& speke)
-    : stream_(std::move(socket)),
+    : socket_(std::move(socket)),
       speke_(std::move(speke)) {
   if (not socket_.is_open()) {
     throw std::invalid_argument(
@@ -59,25 +59,25 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
 
   start_reading();
 
-  message.SerializeToOstream(&stream_);
+  SendMessage(message, socket_);
 }
 
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
 template <typename Protocol>
 void SpekeSession<Protocol>::Close() {
-  if (stream_.socket().is_open()) {
-    stream_.socket().shutdown(tcp::socket::shutdown_both);
+  if (socket_.is_open()) {
+    socket_.shutdown(tcp::socket::shutdown_both);
   }
-  stream_.close();
+  socket_.close();
 
   speke_.release();
 }
 
 template <typename Protocol>
 void SpekeSession<Protocol>::start_reading() {
-  stream_.socket().async_wait(tcp::socket::wait_read,
-                              std::bind(&SpekeSession::handle_read, this,
-                                        std::placeholders::_1));
+  socket_.async_wait(tcp::socket::wait_read,
+                     std::bind(&SpekeSession::handle_read, this,
+                               std::placeholders::_1));
 }
 
 template <typename Protocol>
@@ -87,9 +87,7 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     return;
   }
 
-  SpekeMessage message;
-
-  message.ParseFromIstream(&stream_);
+  SpekeMessage message = ReceiveMessage(socket_);
 
   start_reading();
 
@@ -150,8 +148,7 @@ void SpekeSession<Protocol>::send_key_confirmation() {
 
   kcd_p->set_data(kcd.data(), kcd.size());
 
-  // TODO: Check if tcp::iostream is thread-safe
-  kcd_message.SerializeToOstream(&stream_);
+  SendMessage(kcd_message, socket_);
 }
 
 template <typename Protocol>
@@ -168,6 +165,46 @@ void SpekeSession<Protocol>::SetMessageHandler(MessageHandler&& handler) {
     handle_message(std::move(message_queue_.front()));
     message_queue_.pop();
   }
+}
+
+template <typename Protocol>
+SpekeMessage SpekeSession<Protocol>::ReceiveMessage(
+    asio::basic_stream_socket<Protocol>& socket) {
+  if (not socket.is_open()) {
+    throw std::invalid_argument(
+        __PRETTY_FUNCTION__ +
+        std::string(": 'socket' must be connected"));
+  }
+
+  SpekeMessage message;
+  size_t size = 0;
+
+  asio::read(socket, asio::buffer(&size, sizeof(size))); // May throw
+
+  std::vector<std::byte> message_arr(size);
+  asio::read(socket, asio::buffer(message_arr.data(), size)); // May throw
+
+  message.ParseFromArray(message_arr.data(), size);
+
+  return message;
+}
+
+template <typename Protocol>
+void SpekeSession<Protocol>::SendMessage(
+    const SpekeMessage& message,
+    asio::basic_stream_socket<Protocol>& socket) {
+  if (not socket.is_open()) {
+    throw std::invalid_argument(
+        __PRETTY_FUNCTION__ +
+        std::string(": 'socket' must be connected"));
+  }
+
+  size_t size = message.ByteSizeLong();
+  asio::error_code ec;
+
+  asio::write(socket, asio::buffer(&size, sizeof(size))); // May throw
+
+  message.SerializeToFileDescriptor(socket.native_handle());
 }
 
 template class SpekeSession<asio::ip::tcp>;

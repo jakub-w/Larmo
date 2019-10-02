@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include "crypto/SPEKE.pb.h"
+
 #include "crypto/SPEKE.h"
 #include "crypto/SpekeSession.h"
 
@@ -125,25 +127,16 @@ TEST(SpekeSessionTest, Construct_NoThrowSocketConnectedSpekeGood) {
       "speke is not nullptr";
 }
 
-// TEST(SpekeSessionTest, Construct_ThrowSpekeNotInstantiated) {
-//   local::socket socket1(context);
-//   local::socket socket2(context);
-//   asio::local::connect_pair(socket1, socket1);
+TEST(SpekeSessionTest, Run_InitDataIsSent) {
+  auto sockets = get_local_socketpair(context);
+  auto speke = std::make_unique<FakeSpeke>();
+  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
 
-//   tcp::socket socket(context);
-//   auto speke = std::make_unique<SPEKE>("id", "password", 7);
+  session.Run([](Bytes&& message){ return; });
 
-//   EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
-//                std::logic_error)
-//       << "Should throw when the given socket is not connected to anything";
-// }
+  SpekeMessage init_data =
+      SpekeSession<stream_protocol>::ReceiveMessage(sockets.second);
 
-// TEST(SpekeSessionTest, ConnectTwoSessions) {
-//   auto context = std::make_shared<asio::io_context>();
-
-//   SpekeSession session1{context};
-//   SpekeSession session2{context};
-
-//   session1.Listen(42342, "password", 2692367);
-//   session2.Connect("localhost", 42342, "password", 2692367);
-// }
+  EXPECT_EQ("id", init_data.init_data().id());
+  EXPECT_EQ("pkey", init_data.init_data().public_key());
+}
