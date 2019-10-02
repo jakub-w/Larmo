@@ -103,7 +103,7 @@ TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
   auto speke = std::make_unique<SPEKE>("id", "password", 7);
 
   EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
-               std::logic_error)
+               std::invalid_argument)
       << "Should throw when the given socket is not connected to anything";
 }
 
@@ -112,7 +112,7 @@ TEST(SpekeSessionTest, Construct_ThrowSocketConnectedSpekeNullptr) {
   auto speke = std::unique_ptr<FakeSpeke>(nullptr);
 
   EXPECT_THROW(SpekeSession(std::move(sockets.first), std::move(speke)),
-               std::logic_error)
+               std::invalid_argument)
       << "Should throw when speke is nullptr";
 }
 

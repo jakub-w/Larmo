@@ -28,13 +28,13 @@ SpekeSession<Protocol>::SpekeSession(
     std::unique_ptr<SpekeInterface>&& speke)
     : stream_(std::move(socket)),
       speke_(std::move(speke)) {
-  if (not stream_.socket().is_open()) {
-    throw std::logic_error(
+  if (not socket_.is_open()) {
+    throw std::invalid_argument(
         __PRETTY_FUNCTION__ +
         std::string(": 'socket' must be already connected"));
   }
   if (not speke_) {
-    throw std::logic_error(
+    throw std::invalid_argument(
         __PRETTY_FUNCTION__ +
         std::string(": 'speke' must be already instantiated"));
   }
