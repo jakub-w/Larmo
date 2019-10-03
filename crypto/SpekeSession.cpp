@@ -59,7 +59,7 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
 
   start_reading();
 
-  SendMessage(message, socket_);
+  send_message(message);
 }
 
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
@@ -70,7 +70,7 @@ void SpekeSession<Protocol>::Close() {
   }
   socket_.close();
 
-  speke_.release();
+  speke_.reset();
 }
 
 template <typename Protocol>
@@ -87,23 +87,27 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     return;
   }
 
-  SpekeMessage message = ReceiveMessage(socket_);
+  std::optional<SpekeMessage> message = receive_message();
+
+  if (not message) {
+    return;
+  }
 
   start_reading();
 
-  if (message.has_signed_data()) {
-    Bytes hmac{message.signed_data().hmac_signature().begin(),
-               message.signed_data().hmac_signature().end()};
-    Bytes data{message.signed_data().data().begin(),
-               message.signed_data().data().end()};
+  if (message->has_signed_data()) {
+    Bytes hmac{message->signed_data().hmac_signature().begin(),
+               message->signed_data().hmac_signature().end()};
+    Bytes data{message->signed_data().data().begin(),
+               message->signed_data().data().end()};
 
     speke_->ConfirmHmacSignature(hmac, data);
 
     handle_message(std::move(data));
-  } else if (message.has_init_data()) {
-    std::string id = message.init_data().id();
-    Bytes pubkey{message.init_data().public_key().begin(),
-                 message.init_data().public_key().end()};
+  } else if (message->has_init_data()) {
+    std::string id = message->init_data().id();
+    Bytes pubkey{message->init_data().public_key().begin(),
+                 message->init_data().public_key().end()};
 
     try {
       speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
@@ -121,9 +125,9 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     }
 
     send_key_confirmation();
-  } else if (message.has_key_confirmation()) {
-    Bytes kcd{message.key_confirmation().data().begin(),
-              message.key_confirmation().data().end()};
+  } else if (message->has_key_confirmation()) {
+    Bytes kcd{message->key_confirmation().data().begin(),
+              message->key_confirmation().data().end()};
 
     speke_->ConfirmKey(kcd);
   }
@@ -160,7 +164,7 @@ void SpekeSession<Protocol>::send_key_confirmation() {
 
   kcd_p->set_data(kcd.data(), kcd.size());
 
-  SendMessage(kcd_message, socket_);
+  send_message(kcd_message);
 }
 
 template <typename Protocol>
@@ -177,6 +181,46 @@ void SpekeSession<Protocol>::SetMessageHandler(MessageHandler&& handler) {
     handle_message(std::move(message_queue_.front()));
     message_queue_.pop();
   }
+}
+
+template <typename Protocol>
+void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
+  try {
+    SendMessage(std::forward<SpekeMessage>(message), socket_);
+  } catch (const asio::system_error& e) {
+    switch (e.code().value()) {
+      case asio::error::eof:
+      case asio::error::bad_descriptor:
+      case asio::error::broken_pipe:
+        // TODO: Log it
+        Close();
+        return;
+      default:
+        throw;
+    }
+  }
+}
+
+template <typename Protocol>
+std::optional<SpekeMessage> SpekeSession<Protocol>::receive_message() {
+  std::optional<SpekeMessage> message;
+
+  try {
+    message = ReceiveMessage(socket_);
+  } catch (const asio::system_error& e) {
+    switch (e.code().value()) {
+      case asio::error::eof:
+      case asio::error::bad_descriptor:
+      case asio::error::broken_pipe:
+        // TODO: Log it
+        Close();
+        break;
+      default:
+        throw;
+    }
+  }
+
+  return message;
 }
 
 template <typename Protocol>

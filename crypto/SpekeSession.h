@@ -29,7 +29,8 @@
 #include "crypto/SPEKE.h"
 
 namespace lrm::crypto {
-
+/// The SpekeSession class uses asynchronous asio calls, so the context
+/// tied to the socket that is given in the constructor needs to be running.
 template <typename Protocol>
 class SpekeSession {
   using tcp = asio::ip::tcp;
@@ -45,7 +46,7 @@ class SpekeSession {
   /// The \e Bytes param is a plain message in bytes, without HMAC signature.
   using MessageHandler = std::function<void(Bytes&&)>;
 
-  /// \param socket Already connected tcp socket.
+  /// \param socket An already connected tcp socket.
   /// \param speke A pointer to an already constructed \ref SpekeInterface
   /// object. I.e. \ref SPEKE object.
   SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
@@ -81,6 +82,9 @@ class SpekeSession {
   void handle_read(const asio::error_code& ec);
   void handle_message(Bytes&& message);
   void send_key_confirmation();
+
+  void send_message(SpekeMessage& message);
+  std::optional<SpekeMessage> receive_message();
 
   asio::basic_stream_socket<Protocol> socket_;
 
