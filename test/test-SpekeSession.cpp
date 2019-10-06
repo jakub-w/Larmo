@@ -40,6 +40,8 @@ class FakeSpeke : public SpekeInterface {
   Bytes bad_bytes_{'b', 'a', 'd'};
   std::string bad_str_{"bad"};
 
+  bool init_data_already_sent_ = false;
+
  public:
   virtual ~FakeSpeke() {};
 
@@ -60,6 +62,10 @@ class FakeSpeke : public SpekeInterface {
     if (remote_id == bad_str_) {
       throw std::runtime_error("Bad id");
     }
+    if (init_data_already_sent_) {
+      throw std::logic_error("Init data already here");
+    }
+    init_data_already_sent_ = true;
   }
 
   virtual const Bytes& GetEncryptionKey() override {
@@ -306,4 +312,29 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnBadKeyConfirmation) {
   EXPECT_EQ(SpekeSessionState::STOPPED_KEY_CONFIRMATION_FAILED,
             session->GetState())
       << "The connection should sever after sending wrong key confirmation";
+}
+
+TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectKeyConfirmation) {
+  auto session = GetSession();
+  session->Run([](auto){return;});
+  auto& socket = GetSocket();
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::KeyConfirmation* kcd = message.mutable_key_confirmation();
+  kcd->set_data("kcd");
+
+  ASSERT_EQ(SpekeSessionState::RUNNING, session->GetState())
+      << "The connection was severed before key confirmation was sent";
+
+  SpekeSession<stream_protocol>::SendMessage(message, socket);
+
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::RUNNING != session->GetState(); },
+      std::chrono::milliseconds(2));
+
+  EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState())
+      << "Key confirmation succeeded but the connection was severed";
 }

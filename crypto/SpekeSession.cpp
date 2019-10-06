@@ -128,7 +128,6 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     } catch (const std::logic_error& e) {
       // This error will occur if the pubkey and id were already provided.
       // TODO: Log it
-      // TODO: Disconnect from the peer?
       return;
     } catch (const std::runtime_error& e) {
       // This will occur if the peer's id or public key is invalid.
