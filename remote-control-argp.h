@@ -66,7 +66,7 @@ static argp_option daemon_options[] = {
 };
 
 static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
-  arguments* args = (arguments*)state->input;
+  arguments* args = static_cast<arguments*>(state->input);
 
   switch(key) {
     case 'p': case 's': case 'r':

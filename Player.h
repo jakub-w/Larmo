@@ -31,7 +31,7 @@
 namespace lrm {
 class MpvException : public std::runtime_error {
  public:
-  MpvException(mpv_error error_code, std::string_view details = "")
+  explicit MpvException(mpv_error error_code, std::string_view details = "")
       : std::runtime_error(mpv_error_string(error_code)),
         code_(error_code), details_(details) {}
   virtual ~MpvException() {}

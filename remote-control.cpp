@@ -148,7 +148,7 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
               init_logging(log_file);
             } catch (const spdlog::spdlog_ex& ex) {
               std::cerr << "Log initialization failed: " << ex.what();
-              throw ex;
+              throw;
             }
 
             std::cout << "Logging initialized\n";
@@ -271,12 +271,12 @@ int main(int argc, char** argv) {
       } catch (const lrm::daemon_init_error&) {
         std::cerr << "Daemon not running. Use 'daemon' command.\n";
         return EXIT_FAILURE;
-      } catch (const std::system_error& e) {
-        std::cerr << "System error (" << e.code() << "): "
-                  << e.what() << '\n';
+      } catch (const std::system_error& err) {
+        std::cerr << "System error (" << err.code() << "): "
+                  << err.what() << '\n';
         return EXIT_FAILURE;
-      } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << '\n';
+      } catch (const std::exception& err) {
+        std::cerr << "Error: " << err.what() << '\n';
         return EXIT_FAILURE;
       }
     } else {
