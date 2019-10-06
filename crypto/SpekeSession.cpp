@@ -27,7 +27,8 @@ SpekeSession<Protocol>::SpekeSession(
     asio::basic_stream_socket<Protocol>&& socket,
     std::unique_ptr<SpekeInterface>&& speke)
     : socket_(std::move(socket)),
-      speke_(std::move(speke)) {
+      speke_(std::move(speke)),
+      state_(SpekeSessionState::IDLE){
   if (not socket_.is_open()) {
     throw std::invalid_argument(
         __PRETTY_FUNCTION__ +
@@ -42,11 +43,17 @@ SpekeSession<Protocol>::SpekeSession(
 
 template <typename Protocol>
 SpekeSession<Protocol>::~SpekeSession() {
-  Close();
+  Close(SpekeSessionState::STOPPED);
 }
 
 template <typename Protocol>
 void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
+  if (state_ != SpekeSessionState::IDLE) {
+    throw std::logic_error(
+        __PRETTY_FUNCTION__ +
+        std::string(": You can only start a session in IDLE state"));
+  }
+
   SetMessageHandler(std::move(handler));
 
   SpekeMessage message;
@@ -60,17 +67,21 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
   start_reading();
 
   send_message(message);
+
+  state_ = SpekeSessionState::RUNNING;
 }
 
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
 template <typename Protocol>
-void SpekeSession<Protocol>::Close() {
+void SpekeSession<Protocol>::Close(SpekeSessionState state) {
   if (socket_.is_open()) {
     socket_.shutdown(tcp::socket::shutdown_both);
   }
   socket_.close();
 
   speke_.reset();
+
+  state_ = state;
 }
 
 template <typename Protocol>
@@ -120,7 +131,7 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       // This will occur if the peer's id or public key is invalid.
       // TODO: Log it
       // TODO: Increase fail count.
-      Close();
+      Close(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_INVALID);
       return;
     }
 
@@ -184,6 +195,11 @@ void SpekeSession<Protocol>::SetMessageHandler(MessageHandler&& handler) {
 }
 
 template <typename Protocol>
+SpekeSessionState SpekeSession<Protocol>::GetState() const {
+  return state_;
+}
+
+template <typename Protocol>
 void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
   try {
     SendMessage(std::forward<SpekeMessage>(message), socket_);
@@ -193,7 +209,7 @@ void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
       case asio::error::bad_descriptor:
       case asio::error::broken_pipe:
         // TODO: Log it
-        Close();
+        Close(SpekeSessionState::STOPPED_PEER_DISCONNECTED);
         return;
       default:
         throw;
@@ -213,7 +229,7 @@ std::optional<SpekeMessage> SpekeSession<Protocol>::receive_message() {
       case asio::error::bad_descriptor:
       case asio::error::broken_pipe:
         // TODO: Log it
-        Close();
+        Close(SpekeSessionState::STOPPED_PEER_DISCONNECTED);
         break;
       default:
         throw;

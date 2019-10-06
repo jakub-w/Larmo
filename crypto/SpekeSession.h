@@ -29,6 +29,16 @@
 #include "crypto/SPEKE.h"
 
 namespace lrm::crypto {
+enum class SpekeSessionState {
+    IDLE,
+    RUNNING,
+    STOPPED_PEER_PUBLIC_KEY_INVALID,
+    STOPPED_PEER_BAD_HMAC,
+    STOPPED_KEY_CONFIRMATION_FAILED,
+    STOPPED_PEER_DISCONNECTED,
+    STOPPED
+  };
+
 /// The SpekeSession class uses asynchronous asio calls, so the context
 /// tied to the socket that is given in the constructor needs to be running.
 template <typename Protocol>
@@ -60,7 +70,11 @@ class SpekeSession {
   /// \param handler A function for handling messages. More info in
   /// \ref SetMessageHandler() and \ref MessageHandler documentation.
   void Run(MessageHandler&& handler);
-  void Close();
+
+  /// \brief Close the session and severe the connection.
+  ///
+  /// \param state \ref SpekeSessionState to set while closing the connection.
+  void Close(SpekeSessionState state);
 
   /// Set a handler to handle incoming HMAC-signed messages.
   ///
@@ -75,8 +89,8 @@ class SpekeSession {
   ///
   /// \param handler A function that will handle messages.
   void SetMessageHandler(MessageHandler&& handler);
-  // void SendMessage(Bytes message);
 
+  SpekeSessionState GetState() const;
  private:
   void start_reading();
   void handle_read(const asio::error_code& ec);
@@ -89,6 +103,8 @@ class SpekeSession {
   asio::basic_stream_socket<Protocol> socket_;
 
   std::unique_ptr<SpekeInterface> speke_;
+
+  SpekeSessionState state_;
 
   /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;
