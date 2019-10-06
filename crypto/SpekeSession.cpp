@@ -100,11 +100,11 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
 
   std::optional<SpekeMessage> message = receive_message();
 
+  start_reading();
+
   if (not message) {
     return;
   }
-
-  start_reading();
 
   if (message->has_signed_data()) {
     Bytes hmac{message->signed_data().hmac_signature().begin(),
@@ -112,9 +112,12 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     Bytes data{message->signed_data().data().begin(),
                message->signed_data().data().end()};
 
-    speke_->ConfirmHmacSignature(hmac, data);
-
-    handle_message(std::move(data));
+    if (speke_->ConfirmHmacSignature(hmac, data)) {
+      handle_message(std::move(data));
+    } else {
+      // Bad HMAC signature
+      Close(SpekeSessionState::STOPPED_PEER_BAD_HMAC);
+    }
   } else if (message->has_init_data()) {
     std::string id = message->init_data().id();
     Bytes pubkey{message->init_data().public_key().begin(),
@@ -140,7 +143,11 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     Bytes kcd{message->key_confirmation().data().begin(),
               message->key_confirmation().data().end()};
 
-    speke_->ConfirmKey(kcd);
+    if (not speke_->ConfirmKey(kcd)) {
+      // TODO: Log it
+      Close(SpekeSessionState::STOPPED_KEY_CONFIRMATION_FAILED);
+      return;
+    }
   }
 }
 
@@ -251,10 +258,14 @@ SpekeMessage SpekeSession<Protocol>::ReceiveMessage(
   SpekeMessage message;
   size_t size = 0;
 
-  asio::read(socket, asio::buffer(&size, sizeof(size))); // May throw
+  // May throw
+  asio::read(socket, asio::buffer(&size, sizeof(size)),
+             asio::transfer_exactly(sizeof(size)));
 
   std::vector<std::byte> message_arr(size);
-  asio::read(socket, asio::buffer(message_arr.data(), size)); // May throw
+  // May throw
+  asio::read(socket, asio::buffer(message_arr.data(), size),
+             asio::transfer_exactly(size));
 
   message.ParseFromArray(message_arr.data(), size);
 
@@ -271,12 +282,14 @@ void SpekeSession<Protocol>::SendMessage(
         std::string(": 'socket' must be connected"));
   }
 
-  size_t size = message.ByteSizeLong();
-  asio::error_code ec;
+  const size_t size = message.ByteSizeLong();
 
-  asio::write(socket, asio::buffer(&size, sizeof(size))); // May throw
+  std::vector<std::byte> buffer(sizeof(size) + size);
+  std::memcpy(buffer.data(), &size, sizeof(size));
+  message.SerializeToArray(buffer.data() + sizeof(size), size);
 
-  message.SerializeToFileDescriptor(socket.native_handle());
+  asio::write(socket, asio::buffer(buffer),
+              asio::transfer_exactly(buffer.size()));
 }
 
 template class SpekeSession<asio::ip::tcp>;

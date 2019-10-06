@@ -29,6 +29,7 @@ using namespace lrm::crypto;
 using tcp = asio::ip::tcp;
 using stream_protocol = asio::local::stream_protocol;
 
+namespace {
 class FakeSpeke : public SpekeInterface {
  private:
   Bytes pkey_{'p', 'k', 'e', 'y'};
@@ -103,6 +104,14 @@ class SpekeSessionTestF : public ::testing::Test {
     return session;
   }
 
+  void SendInitData() {
+    SpekeMessage message;
+    SpekeMessage::InitData* init_data = message.mutable_init_data();
+    init_data->set_id("id");
+    init_data->set_public_key("pkey");
+    SpekeSession<stream_protocol>::SendMessage(message, peer_socket);
+  }
+
  public:
   SpekeSessionTestF()
       : ::testing::Test(), priv_socket(context), peer_socket(context) {
@@ -114,7 +123,9 @@ class SpekeSessionTestF : public ::testing::Test {
     context_thread = std::thread(
         [this](){
           auto context_guard = asio::make_work_guard(context);
-          context.run();
+          try {
+            context.run();
+          } catch (const asio::system_error& e) {}
         });
   }
 
@@ -154,6 +165,7 @@ bool wait_predicate(Predicate&& pred,
     std::this_thread::sleep_for(wait_time);
   }
   return true;
+}
 }
 
 TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
@@ -253,17 +265,13 @@ TEST_F(SpekeSessionTestF, SendsKeyConfirmation) {
   auto session = GetSession();
   session->Run([](Bytes&& message){ return; });
 
-  SpekeMessage message;
-  SpekeMessage::InitData* init_data = message.mutable_init_data();
-  init_data->set_id("id");
-  init_data->set_public_key("pkey");
+  SendInitData();
 
   auto& socket = GetSocket();
 
-  SpekeSession<stream_protocol>::SendMessage(message, socket);
-
   // Receive init data
-  message = SpekeSession<stream_protocol>::ReceiveMessage(socket);
+  SpekeMessage message =
+      SpekeSession<stream_protocol>::ReceiveMessage(socket);
 
   // Receive the next message, which should be key confirmation data
   message = SpekeSession<stream_protocol>::ReceiveMessage(socket);
@@ -271,4 +279,31 @@ TEST_F(SpekeSessionTestF, SendsKeyConfirmation) {
   EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState());
   ASSERT_TRUE(message.has_key_confirmation());
   EXPECT_EQ("kcd", message.key_confirmation().data());
+}
+
+TEST_F(SpekeSessionTestF, ConnectionDroppedOnBadKeyConfirmation) {
+  auto session = GetSession();
+  session->Run([](auto){return;});
+  auto& socket = GetSocket();
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::KeyConfirmation* kcd = message.mutable_key_confirmation();
+  kcd->set_data("bad");
+
+  ASSERT_EQ(SpekeSessionState::RUNNING, session->GetState())
+      << "The connection was severed before key confirmation was sent";
+
+  SpekeSession<stream_protocol>::SendMessage(message, socket);
+
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::STOPPED_KEY_CONFIRMATION_FAILED ==
+            session->GetState(); },
+      std::chrono::milliseconds(10));
+
+  EXPECT_EQ(SpekeSessionState::STOPPED_KEY_CONFIRMATION_FAILED,
+            session->GetState())
+      << "The connection should sever after sending wrong key confirmation";
 }
