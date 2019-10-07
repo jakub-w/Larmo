@@ -18,8 +18,11 @@
 
 #include "BigNum.h"
 
+#include <array>
 #include <string>
 #include <stdexcept>
+
+#include <openssl/err.h>
 
 namespace lrm::crypto {
 BigNum::BigNum() noexcept : bignum_(BN_new()), ctx_(BN_CTX_new()) {}
@@ -228,10 +231,19 @@ std::vector<unsigned char> BigNum::to_bytes() const {
   return result;
 }
 
+void check_error(int return_code) {
+  if (return_code != 1) {
+    std::array<char, 384> buffer;
+    ERR_error_string_n(ERR_get_error(), buffer.data(), buffer.size());
+    throw std::runtime_error(buffer.data());
+  }
+}
+
 BigNum PrimeGenerate(int bits, bool safe,
                      const BigNum& add, const BigNum& rem) {
   BIGNUM* prime = BN_new();
-  BN_generate_prime_ex(prime, bits, safe, add.get(), rem.get(), nullptr);
+  check_error(BN_generate_prime_ex(prime, bits, safe,
+                                   add.get(), rem.get(), nullptr));
   BigNum result(prime);
   BN_free(prime);
 
@@ -240,7 +252,8 @@ BigNum PrimeGenerate(int bits, bool safe,
 
 BigNum PrimeGenerate(int bits, bool safe) {
   BIGNUM* prime = BN_new();
-  BN_generate_prime_ex(prime, bits, safe, nullptr, nullptr, nullptr);
+  check_error(BN_generate_prime_ex(prime, bits, safe,
+                                   nullptr, nullptr, nullptr));
   BigNum result(prime);
   BN_free(prime);
 
@@ -249,7 +262,7 @@ BigNum PrimeGenerate(int bits, bool safe) {
 
 BigNum RandomInRange(const BigNum& ex_upper_bound) {
   BIGNUM* num = BN_new();
-  BN_priv_rand_range(num, ex_upper_bound.get());
+  check_error(BN_priv_rand_range(num, ex_upper_bound.get()));
   BigNum result(num);
   BN_free(num);
 
