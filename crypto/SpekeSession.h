@@ -30,16 +30,35 @@
 
 namespace lrm::crypto {
 enum class SpekeSessionState {
+  /// Active before a call to \ref SpekeSession::Run().
   IDLE,
+  /// Active after the session was started with \ref SpekeSession::Run() and
+  /// there were no problems.
   RUNNING,
   STOPPED,
+  /// An error has occurred (i.e. network error). Should be logged.
   STOPPED_ERROR,
+  /// Peer didn't pass the key confirmation challenge.
   STOPPED_KEY_CONFIRMATION_FAILED,
+  /// Disconnected from peer because of too many wrong HMAC signatures or
+  /// something else that seemed fishy. The limit on how many times peer can
+  /// show bad behavior is set by \ref SpekeSession::BAD_BEHAVIOR_LIMIT.
   STOPPED_PEER_BAD_BEHAVIOR,
+  /// The session was stopped because the peer disconnected.
   STOPPED_PEER_DISCONNECTED,
+  /// Peer sent an invalid public key or an invalid id.
   STOPPED_PEER_PUBLIC_KEY_OR_ID_INVALID
 };
 
+/// \brief Network session authenticated by SPEKE.
+///
+/// First method to call is \ref Run() to establish a working session with
+/// the peer. If everyting went alright the session state, obtained by calling
+/// \ref GetState() should be \ref SpekeSessionState::RUNNING. In that case
+/// HMAC-signed messages can be send with \ref SendMessage().
+/// For the description of various failed states refer to
+/// \ref SpekeSessionState.
+///
 /// The SpekeSession class uses asynchronous asio calls, so the context
 /// tied to the socket that is given in the constructor needs to be running.
 template <typename Protocol>
@@ -59,7 +78,7 @@ class SpekeSession {
   virtual ~SpekeSession();
 
   /// \brief Establish SPEKE session and start listening for incoming
-  /// messages.
+  /// messages asynchronously.
   ///
   /// \param handler A function for handling messages. More info in
   /// \ref SetMessageHandler() and \ref MessageHandler documentation.
@@ -70,7 +89,7 @@ class SpekeSession {
   /// \param state \ref SpekeSessionState to set while closing the connection.
   virtual void Close(SpekeSessionState state);
 
-  /// Set a handler to handle incoming HMAC-signed messages.
+  /// \brief Set a handler to handle incoming HMAC-signed messages.
   ///
   /// The HMAC signature is already confirmed when the handler is called.
   ///
@@ -84,8 +103,10 @@ class SpekeSession {
   /// \param handler A function that will handle messages.
   virtual void SetMessageHandler(MessageHandler&& handler);
 
+  /// \brief Get the session state
   virtual SpekeSessionState GetState() const;
 
+  /// \brief Send a \e message to peer. The message will be signed with HMAC.
   virtual void SendMessage(const Bytes& message);
 
  protected:
