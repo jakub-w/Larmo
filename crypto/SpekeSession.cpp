@@ -153,6 +153,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     }
   }
 
+  // This is at the bottom because we want to read messages sequentially
+  // since SPEKE and this class are not entirely thread-safe.
   start_reading();
 }
 
