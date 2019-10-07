@@ -74,14 +74,17 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
 // TODO: Maybe add an argument to notify the peer why are we disconnecting
 template <typename Protocol>
 void SpekeSession<Protocol>::Close(SpekeSessionState state) {
+  if (closed_) return;
+
   if (socket_.is_open()) {
-    socket_.shutdown(tcp::socket::shutdown_both);
+    socket_.shutdown(asio::socket_base::shutdown_both);
   }
   socket_.close();
 
   speke_.reset();
 
   state_ = state;
+  closed_ = true;
 }
 
 template <typename Protocol>
@@ -95,14 +98,14 @@ template <typename Protocol>
 void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
   if (ec) {
     // TODO: log it
+    Close(SpekeSessionState::STOPPED_ERROR);
     return;
   }
 
   std::optional<SpekeMessage> message = receive_message();
 
-  start_reading();
-
   if (not message) {
+    Close(SpekeSessionState::STOPPED_ERROR);
     return;
   }
 
@@ -116,7 +119,7 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       handle_message(std::move(data));
     } else {
       // Bad HMAC signature
-      Close(SpekeSessionState::STOPPED_PEER_BAD_HMAC);
+      increase_bad_behavior_count();
     }
   } else if (message->has_init_data()) {
     std::string id = message->init_data().id();
@@ -128,16 +131,17 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     } catch (const std::logic_error& e) {
       // This error will occur if the pubkey and id were already provided.
       // TODO: Log it
-      return;
+      // increase_bad_behavior_count();
     } catch (const std::runtime_error& e) {
       // This will occur if the peer's id or public key is invalid.
       // TODO: Log it
-      // TODO: Increase fail count.
       Close(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_INVALID);
       return;
     }
 
-    send_key_confirmation();
+    if (not kcd_sent_) {
+      send_key_confirmation();
+    }
   } else if (message->has_key_confirmation()) {
     Bytes kcd{message->key_confirmation().data().begin(),
               message->key_confirmation().data().end()};
@@ -148,6 +152,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       return;
     }
   }
+
+  start_reading();
 }
 
 template <typename Protocol>
@@ -173,6 +179,8 @@ void SpekeSession<Protocol>::handle_message(Bytes&& message) {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::send_key_confirmation() {
+  kcd_sent_ = true;
+
   auto kcd = speke_->GetKeyConfirmationData();
 
   SpekeMessage kcd_message;
@@ -243,6 +251,13 @@ std::optional<SpekeMessage> SpekeSession<Protocol>::receive_message() {
   }
 
   return message;
+}
+
+template <typename Protocol>
+void SpekeSession<Protocol>::increase_bad_behavior_count() {
+  if (++bad_behavior_count_ >= BAD_BEHAVIOR_LIMIT) {
+    Close(SpekeSessionState::STOPPED_PEER_BAD_BEHAVIOR);
+  }
 }
 
 template <typename Protocol>

@@ -30,22 +30,24 @@
 
 namespace lrm::crypto {
 enum class SpekeSessionState {
-    IDLE,
-    RUNNING,
-    STOPPED_PEER_PUBLIC_KEY_INVALID,
-    STOPPED_PEER_BAD_HMAC,
-    STOPPED_KEY_CONFIRMATION_FAILED,
-    STOPPED_PEER_DISCONNECTED,
-    STOPPED
-  };
+  IDLE,
+  RUNNING,
+  STOPPED,
+  STOPPED_ERROR,
+  STOPPED_KEY_CONFIRMATION_FAILED,
+  STOPPED_PEER_BAD_BEHAVIOR,
+  STOPPED_PEER_BAD_HMAC,
+  STOPPED_PEER_DISCONNECTED,
+  STOPPED_PEER_PUBLIC_KEY_INVALID
+};
 
 /// The SpekeSession class uses asynchronous asio calls, so the context
 /// tied to the socket that is given in the constructor needs to be running.
 template <typename Protocol>
 class SpekeSession {
-  using tcp = asio::ip::tcp;
-
  public:
+  static constexpr int BAD_BEHAVIOR_LIMIT = 3;
+
   static SpekeMessage ReceiveMessage(
       asio::basic_stream_socket<Protocol>& socket);
 
@@ -100,11 +102,17 @@ class SpekeSession {
   void send_message(SpekeMessage& message);
   std::optional<SpekeMessage> receive_message();
 
+  void increase_bad_behavior_count();
+
   asio::basic_stream_socket<Protocol> socket_;
 
   std::unique_ptr<SpekeInterface> speke_;
 
   SpekeSessionState state_;
+  bool kcd_sent_ = false;
+
+  int bad_behavior_count_ = 0;
+  bool closed_ = false;
 
   /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;

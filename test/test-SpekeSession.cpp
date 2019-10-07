@@ -225,24 +225,24 @@ TEST(SpekeSessionTest, Run_InitDataIsSent) {
   EXPECT_EQ("pkey", peer_data.init_data().public_key());
 }
 
-TEST(SpekeSessionTest, ConnectionDroppedOnIncorrectPublicKey) {
-  auto sockets = get_local_socketpair(context_glob);
-  auto speke = std::make_unique<FakeSpeke>();
-  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
-
-  session.Run([](Bytes&& message){ return; });
+TEST_F(SpekeSessionTestF, ConnectionDroppedOnIncorrectPublicKey) {
+  auto session = GetSession();
+  session->Run([](auto){ return; });
 
   SpekeMessage message;
   SpekeMessage::InitData* init_data = message.mutable_init_data();
   init_data->set_id("bad");
   init_data->set_public_key("pkey");
 
-  SpekeSession<stream_protocol>::SendMessage(message, sockets.second);
+  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
 
-  context_glob.run_for(std::chrono::milliseconds(200));
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::RUNNING != session->GetState(); },
+      std::chrono::milliseconds(2));
 
   EXPECT_EQ(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_INVALID,
-            session.GetState())
+            session->GetState())
       << "Socket should be closed after the server closed the connection";
 }
 
@@ -337,4 +337,96 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectKeyConfirmation) {
 
   EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState())
       << "Key confirmation succeeded but the connection was severed";
+}
+
+TEST_F(SpekeSessionTestF, ConnectionNotDroppedBadHmac) {
+  auto session = GetSession();
+  session->Run([](auto){return;});
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::SignedData* sd = message.mutable_signed_data();
+  sd->set_hmac_signature("bad");
+  sd->set_data("test");
+
+  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::RUNNING != session->GetState(); },
+      std::chrono::milliseconds(2));
+
+  EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState())
+      << "The connection shouldn't be severed on one bad HMAC";
+}
+
+TEST_F(SpekeSessionTestF, ConnectionDroppedMultipleBadHMACs) {
+  auto session = GetSession();
+  session->Run([](auto){return;});
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::SignedData* sd = message.mutable_signed_data();
+  sd->set_hmac_signature("bad");
+  sd->set_data("test");
+
+  for(int i = 0; i < SpekeSession<stream_protocol>::BAD_BEHAVIOR_LIMIT; ++i) {
+    SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  }
+
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::RUNNING != session->GetState(); },
+      std::chrono::milliseconds(2));
+
+  EXPECT_EQ(SpekeSessionState::STOPPED_PEER_BAD_BEHAVIOR, session->GetState())
+      << "The connection should be severed on receiving bad HMACs in the "
+      "number exceeding SpekeSession::BAD_BEHAVIOR_LIMIT";
+}
+
+TEST_F(SpekeSessionTestF, ConnectionNotDroppedMultipleGoodHMACs) {
+  auto session = GetSession();
+  session->Run([](auto){return;});
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::SignedData* sd = message.mutable_signed_data();
+  sd->set_hmac_signature("hmac");
+  sd->set_data("test");
+
+  for(int i = 0; i < SpekeSession<stream_protocol>::BAD_BEHAVIOR_LIMIT; ++i) {
+    SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  }
+
+  wait_predicate(
+      [&session]{
+        return SpekeSessionState::RUNNING != session->GetState(); },
+      std::chrono::milliseconds(2));
+
+  EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState());
+}
+
+TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
+  auto session = GetSession();
+  std::string result;
+  session->Run([&result](Bytes&& message){
+                 result.resize(message.size());
+                 std::memcpy(result.data(), message.data(), message.size());
+               });
+
+  SendInitData();
+
+  SpekeMessage message;
+  SpekeMessage::SignedData* sd = message.mutable_signed_data();
+  sd->set_hmac_signature("hmac");
+  sd->set_data("test");
+  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+
+  wait_predicate([&result]{return result == "test";},
+                 std::chrono::milliseconds(3));
+
+  EXPECT_EQ(result, "test");
 }
