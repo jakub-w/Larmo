@@ -263,7 +263,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnIncorrectPublicKey) {
         return SpekeSessionState::RUNNING != session->GetState(); },
       std::chrono::milliseconds(2));
 
-  EXPECT_EQ(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_INVALID,
+  EXPECT_EQ(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_OR_ID_INVALID,
             session->GetState())
       << "Socket should be closed after the server closed the connection";
 }

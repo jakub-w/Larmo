@@ -135,7 +135,7 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     } catch (const std::runtime_error& e) {
       // This will occur if the peer's id or public key is invalid.
       // TODO: Log it
-      Close(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_INVALID);
+      Close(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_OR_ID_INVALID);
       return;
     }
 
@@ -217,6 +217,12 @@ SpekeSessionState SpekeSession<Protocol>::GetState() const {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::SendMessage(const Bytes &message) {
+  if (SpekeSessionState::RUNNING != state_) {
+    throw std::logic_error(
+        __PRETTY_FUNCTION__ +
+        std::string(": You can only send a message in RUNNING state"));
+  }
+
   Bytes hmac = speke_->HmacSign(std::forward<const Bytes&>(message));
 
   SpekeMessage msg;
@@ -240,7 +246,8 @@ void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
         Close(SpekeSessionState::STOPPED_PEER_DISCONNECTED);
         return;
       default:
-        throw;
+        // TODO: Log it
+        Close(SpekeSessionState::STOPPED_ERROR);
     }
   }
 }
@@ -260,7 +267,8 @@ std::optional<SpekeMessage> SpekeSession<Protocol>::receive_message() {
         Close(SpekeSessionState::STOPPED_PEER_DISCONNECTED);
         break;
       default:
-        throw;
+        // TODO: Log it
+        Close(SpekeSessionState::STOPPED_ERROR);
     }
   }
 
