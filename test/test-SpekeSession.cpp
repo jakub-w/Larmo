@@ -33,7 +33,7 @@ namespace {
 class TestSpekeSession : public SpekeSession<stream_protocol> {
  public:
   TestSpekeSession(asio::basic_stream_socket<stream_protocol>&& socket,
-                   std::unique_ptr<SpekeInterface>&& speke)
+                   std::shared_ptr<SpekeInterface>&& speke)
       : SpekeSession(std::move(socket), std::move(speke)) {}
   virtual ~TestSpekeSession(){}
 

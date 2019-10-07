@@ -73,7 +73,7 @@ class SpekeSession {
   /// \param speke A pointer to an already constructed \ref SpekeInterface
   /// object. I.e. \ref SPEKE object.
   SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
-               std::unique_ptr<SpekeInterface>&& speke);
+               std::shared_ptr<SpekeInterface>&& speke);
 
   virtual ~SpekeSession();
 
@@ -130,7 +130,7 @@ class SpekeSession {
 
   asio::basic_stream_socket<Protocol> socket_;
 
-  std::unique_ptr<SpekeInterface> speke_;
+  std::shared_ptr<SpekeInterface> speke_;
 
   SpekeSessionState state_;
   bool kcd_sent_ = false;

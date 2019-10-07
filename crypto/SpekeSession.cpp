@@ -25,7 +25,7 @@ namespace lrm::crypto {
 template <typename Protocol>
 SpekeSession<Protocol>::SpekeSession(
     asio::basic_stream_socket<Protocol>&& socket,
-    std::unique_ptr<SpekeInterface>&& speke)
+    std::shared_ptr<SpekeInterface>&& speke)
     : socket_(std::move(socket)),
       speke_(std::move(speke)),
       state_(SpekeSessionState::IDLE){
