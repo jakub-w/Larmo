@@ -102,7 +102,7 @@ class FakeSpeke : public SpekeInterface {
   }
 
   virtual Bytes HmacSign(const Bytes& message) override {
-    return message;
+    return {'h', 'm', 'a', 'c'};
   }
 
   virtual bool ConfirmHmacSignature(
@@ -451,4 +451,49 @@ TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
                  std::chrono::milliseconds(3));
 
   EXPECT_EQ(result, "test");
+}
+
+TEST_F(SpekeSessionTestF, SetMessageHandler) {
+  auto session = GetSession();
+  session->Run([](auto){});
+
+  SendInitData();
+
+  std::string result;
+  session->SetMessageHandler([&result](Bytes&& message){
+                 result.resize(message.size());
+                 std::memcpy(result.data(), message.data(), message.size());
+               });
+
+  SpekeMessage message;
+  SpekeMessage::SignedData* sd = message.mutable_signed_data();
+  sd->set_hmac_signature("hmac");
+  sd->set_data("test");
+  TestSpekeSession::TestSendMessage(message, GetSocket());
+
+  wait_predicate([&result]{return result == "test";},
+                 std::chrono::milliseconds(3));
+
+  EXPECT_EQ(result, "test");
+}
+
+TEST_F(SpekeSessionTestF, SendMessage) {
+  auto session = GetSession();
+  std::string result;
+  session->Run([](auto){});
+
+  SendInitData();
+
+  session->SendMessage({'t', 'e', 's', 't'});
+
+  SpekeMessage message;
+  // 3 messages sent by the session would be: init data, key confirmation and
+  // our signed message
+  for (int i = 0; i < 3; ++i) {
+    message = TestSpekeSession::TestReceiveMessage(GetSocket());
+    if (message.has_signed_data()) break;
+  }
+
+  EXPECT_EQ("hmac", message.signed_data().hmac_signature());
+  EXPECT_EQ("test", message.signed_data().data());
 }
