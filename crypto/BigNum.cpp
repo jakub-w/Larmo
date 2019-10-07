@@ -222,17 +222,8 @@ BigNum::operator std::string() const {
 }
 
 std::vector<unsigned char> BigNum::to_bytes() const {
-  std::vector<unsigned char> result;
-
-  int length = BN_num_bytes(bignum_);
-  result.reserve(length);
-  unsigned char* bytes = new unsigned char[length];
-  BN_bn2bin(bignum_, bytes);
-
-  for(int i = 0; i < length; ++i) {
-    result.push_back(bytes[i]);
-  }
-  delete[] bytes;
+  std::vector<unsigned char> result(BN_num_bytes(bignum_));
+  BN_bn2bin(bignum_, result.data());
 
   return result;
 }

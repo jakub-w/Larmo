@@ -132,17 +132,15 @@ Bytes SPEKE::HmacSign(const Bytes& message) {
                LRM_SPEKE_HASHFUNC, nullptr);
   HMAC_Update(ctx, message.data(), message.size());
 
-  unsigned char md[EVP_MAX_MD_SIZE];
+  Bytes md(EVP_MAX_MD_SIZE);
+  // unsigned char md[EVP_MAX_MD_SIZE];
   unsigned int len = 0;
-  HMAC_Final(ctx, md, &len);
+  HMAC_Final(ctx, md.data(), &len);
+  md.resize(len);
 
   HMAC_CTX_free(ctx);
 
-  Bytes result;
-  result.reserve(len);
-  std::copy_n(md, len, std::back_inserter(result));
-
-  return result;
+  return md;
 }
 
 bool SPEKE::ConfirmHmacSignature(const Bytes& hmac_signature,
@@ -206,16 +204,13 @@ void SPEKE::ensure_keying_material() {
 
   EVP_DigestUpdate(mdctx_, keying_material_.data(), keying_material_.size());
 
-  unsigned char md_value[EVP_MAX_MD_SIZE];
+  keying_material_.clear();
+  keying_material_.resize(EVP_MAX_MD_SIZE);
   unsigned int md_len;
-  EVP_DigestFinal_ex(mdctx_, md_value, &md_len);
+  EVP_DigestFinal_ex(mdctx_, keying_material_.data(), &md_len);
+  keying_material_.resize(md_len);
 
   EVP_MD_CTX_reset(mdctx_);
-
-  keying_material_.clear();
-  keying_material_.reserve(md_len);
-
-  std::copy_n(md_value, md_len, std::back_inserter(keying_material_));
 }
 
 void SPEKE::ensure_encryption_key() {
@@ -249,13 +244,10 @@ void SPEKE::ensure_encryption_key() {
   EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info) - 1);
 
   size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
-  unsigned char out[key_len];
-  EVP_PKEY_derive(pctx, out, &key_len);
+  encryption_key_.resize(key_len);
+  EVP_PKEY_derive(pctx, encryption_key_.data(), &key_len);
 
   EVP_PKEY_CTX_free(pctx);
-
-  encryption_key_.reserve(key_len);
-  std::copy_n(out, key_len, std::back_inserter(encryption_key_));
 }
 
 Bytes SPEKE::gen_kcd(std::string_view first_id,
@@ -282,16 +274,13 @@ Bytes SPEKE::gen_kcd(std::string_view first_id,
   Bytes rpk_bytes = second_pubkey.to_bytes();
   HMAC_Update(hmac_ctx, rpk_bytes.data(), rpk_bytes.size());
 
-  unsigned char md_value[EVP_MAX_MD_SIZE];
+  Bytes md_value(EVP_MAX_MD_SIZE);
   unsigned int md_len = 0;
-  HMAC_Final(hmac_ctx, md_value, &md_len);
+  HMAC_Final(hmac_ctx, md_value.data(), &md_len);
+  md_value.resize(md_len);
 
   HMAC_CTX_free(hmac_ctx);
 
-  Bytes result;
-  result.reserve(md_len);
-  std::copy_n(md_value, md_len, std::back_inserter(result));
-
-  return result;
+  return md_value;
 }
 }
