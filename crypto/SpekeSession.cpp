@@ -214,6 +214,18 @@ SpekeSessionState SpekeSession<Protocol>::GetState() const {
 }
 
 template <typename Protocol>
+void SpekeSession<Protocol>::SendMessage(const Bytes &message) {
+  Bytes hmac = speke_->HmacSign(std::forward<const Bytes&>(message));
+
+  SpekeMessage msg;
+  SpekeMessage::SignedData* sd = msg.mutable_signed_data();
+  sd->set_hmac_signature(hmac.data(), hmac.size());
+  sd->set_data(message.data(), message.size());
+
+  send_message(msg);
+}
+
+template <typename Protocol>
 void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
   try {
     SendMessage(std::forward<SpekeMessage>(message), socket_);

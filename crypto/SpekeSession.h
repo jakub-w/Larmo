@@ -48,13 +48,6 @@ class SpekeSession {
  public:
   static constexpr int BAD_BEHAVIOR_LIMIT = 3;
 
-  static SpekeMessage ReceiveMessage(
-      asio::basic_stream_socket<Protocol>& socket);
-
-  static void SendMessage(
-      const SpekeMessage& message,
-      asio::basic_stream_socket<Protocol>& socket);
-
   /// The \e Bytes param is a plain message in bytes, without HMAC signature.
   using MessageHandler = std::function<void(Bytes&&)>;
 
@@ -64,19 +57,19 @@ class SpekeSession {
   SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
                std::unique_ptr<SpekeInterface>&& speke);
 
-  ~SpekeSession();
+  virtual ~SpekeSession();
 
   /// \brief Establish SPEKE session and start listening for incoming
   /// messages.
   ///
   /// \param handler A function for handling messages. More info in
   /// \ref SetMessageHandler() and \ref MessageHandler documentation.
-  void Run(MessageHandler&& handler);
+  virtual void Run(MessageHandler&& handler);
 
   /// \brief Close the session and severe the connection.
   ///
   /// \param state \ref SpekeSessionState to set while closing the connection.
-  void Close(SpekeSessionState state);
+  virtual void Close(SpekeSessionState state);
 
   /// Set a handler to handle incoming HMAC-signed messages.
   ///
@@ -90,9 +83,20 @@ class SpekeSession {
   /// \endcode
   ///
   /// \param handler A function that will handle messages.
-  void SetMessageHandler(MessageHandler&& handler);
+  virtual void SetMessageHandler(MessageHandler&& handler);
 
-  SpekeSessionState GetState() const;
+  virtual SpekeSessionState GetState() const;
+
+  virtual void SendMessage(const Bytes& message);
+
+ protected:
+  static SpekeMessage ReceiveMessage(
+      asio::basic_stream_socket<Protocol>& socket);
+
+  static void SendMessage(
+      const SpekeMessage& message,
+      asio::basic_stream_socket<Protocol>& socket);
+
  private:
   void start_reading();
   void handle_read(const asio::error_code& ec);

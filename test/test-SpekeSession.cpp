@@ -30,6 +30,27 @@ using tcp = asio::ip::tcp;
 using stream_protocol = asio::local::stream_protocol;
 
 namespace {
+class TestSpekeSession : public SpekeSession<stream_protocol> {
+ public:
+  TestSpekeSession(asio::basic_stream_socket<stream_protocol>&& socket,
+                   std::unique_ptr<SpekeInterface>&& speke)
+      : SpekeSession(std::move(socket), std::move(speke)) {}
+  virtual ~TestSpekeSession(){}
+
+  static void TestSendMessage(
+      const SpekeMessage& message,
+      asio::basic_stream_socket<stream_protocol>& socket) {
+    SpekeSession<stream_protocol>::SendMessage(
+        std::forward<const SpekeMessage&>(message),
+        std::forward<asio::basic_stream_socket<stream_protocol>&>(socket));
+  }
+  static SpekeMessage TestReceiveMessage(
+      asio::basic_stream_socket<stream_protocol>& socket) {
+    return SpekeSession<stream_protocol>::ReceiveMessage(
+        std::forward<asio::basic_stream_socket<stream_protocol>&>(socket));
+  }
+};
+
 class FakeSpeke : public SpekeInterface {
  private:
   Bytes pkey_{'p', 'k', 'e', 'y'};
@@ -99,14 +120,14 @@ class SpekeSessionTestF : public ::testing::Test {
   std::thread context_thread;
   asio::error_code ec;
 
-  std::shared_ptr<SpekeSession<stream_protocol>> session;
+  std::shared_ptr<TestSpekeSession> session;
 
  protected:
   stream_protocol::socket& GetSocket() {
     return peer_socket;
   }
 
-  std::shared_ptr<SpekeSession<stream_protocol>> GetSession() {
+  std::shared_ptr<TestSpekeSession> GetSession() {
     return session;
   }
 
@@ -115,7 +136,7 @@ class SpekeSessionTestF : public ::testing::Test {
     SpekeMessage::InitData* init_data = message.mutable_init_data();
     init_data->set_id("id");
     init_data->set_public_key("pkey");
-    SpekeSession<stream_protocol>::SendMessage(message, peer_socket);
+    TestSpekeSession::TestSendMessage(message, peer_socket);
   }
 
  public:
@@ -123,7 +144,7 @@ class SpekeSessionTestF : public ::testing::Test {
       : ::testing::Test(), priv_socket(context), peer_socket(context) {
     asio::local::connect_pair(priv_socket, peer_socket);
 
-    session = std::make_unique<SpekeSession<stream_protocol>>(
+    session = std::make_unique<TestSpekeSession>(
         std::move(priv_socket), std::make_unique<FakeSpeke>());
 
     context_thread = std::thread(
@@ -178,7 +199,7 @@ TEST(SpekeSessionTest, Construct_ThrowSocketNotConnectedSpekeGood) {
   stream_protocol::socket socket(context_glob);
   auto speke = std::make_unique<SPEKE>("id", "password", 7);
 
-  EXPECT_THROW(SpekeSession(std::move(socket), std::move(speke)),
+  EXPECT_THROW(TestSpekeSession(std::move(socket), std::move(speke)),
                std::invalid_argument)
       << "Should throw when the given socket is not connected to anything";
 }
@@ -187,7 +208,7 @@ TEST(SpekeSessionTest, Construct_ThrowSocketConnectedSpekeNullptr) {
   auto sockets = get_local_socketpair(context_glob);
   auto speke = std::unique_ptr<FakeSpeke>(nullptr);
 
-  EXPECT_THROW(SpekeSession(std::move(sockets.first), std::move(speke)),
+  EXPECT_THROW(TestSpekeSession(std::move(sockets.first), std::move(speke)),
                std::invalid_argument)
       << "Should throw when speke is nullptr";
 }
@@ -196,7 +217,8 @@ TEST(SpekeSessionTest, Construct_NoThrowSocketConnectedSpekeGood) {
   auto sockets = get_local_socketpair(context_glob);
   auto speke = std::make_unique<FakeSpeke>();
 
-  EXPECT_NO_THROW(SpekeSession(std::move(sockets.first), std::move(speke)))
+  EXPECT_NO_THROW(TestSpekeSession(std::move(sockets.first),
+                                   std::move(speke)))
       << "Should not throw when the given socket is connected to another and "
       "speke is not nullptr";
 }
@@ -205,7 +227,7 @@ TEST(SpekeSessionTest, Construct_InIdleState) {
   auto sockets = get_local_socketpair(context_glob);
   auto speke = std::make_unique<FakeSpeke>();
 
-  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
+  auto session = TestSpekeSession(std::move(sockets.first), std::move(speke));
 
   EXPECT_EQ(SpekeSessionState::IDLE, session.GetState());
 }
@@ -213,12 +235,12 @@ TEST(SpekeSessionTest, Construct_InIdleState) {
 TEST(SpekeSessionTest, Run_InitDataIsSent) {
   auto sockets = get_local_socketpair(context_glob);
   auto speke = std::make_unique<FakeSpeke>();
-  auto session = SpekeSession(std::move(sockets.first), std::move(speke));
+  auto session = TestSpekeSession(std::move(sockets.first), std::move(speke));
 
   ASSERT_NO_THROW(session.Run([](Bytes&& message){ return; }));
 
   SpekeMessage peer_data =
-      SpekeSession<stream_protocol>::ReceiveMessage(sockets.second);
+      TestSpekeSession::TestReceiveMessage(sockets.second);
 
   ASSERT_TRUE(peer_data.has_init_data());
   EXPECT_EQ("id", peer_data.init_data().id());
@@ -234,7 +256,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnIncorrectPublicKey) {
   init_data->set_id("bad");
   init_data->set_public_key("pkey");
 
-  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  TestSpekeSession::TestSendMessage(message, GetSocket());
 
   wait_predicate(
       [&session]{
@@ -255,7 +277,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectPublicKey) {
   init_data->set_id("id");
   init_data->set_public_key("pkey");
 
-  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  TestSpekeSession::TestSendMessage(message, GetSocket());
 
   wait_predicate(
       [&session]{
@@ -277,10 +299,10 @@ TEST_F(SpekeSessionTestF, SendsKeyConfirmation) {
 
   // Receive init data
   SpekeMessage message =
-      SpekeSession<stream_protocol>::ReceiveMessage(socket);
+      TestSpekeSession::TestReceiveMessage(socket);
 
   // Receive the next message, which should be key confirmation data
-  message = SpekeSession<stream_protocol>::ReceiveMessage(socket);
+  message = TestSpekeSession::TestReceiveMessage(socket);
 
   EXPECT_EQ(SpekeSessionState::RUNNING, session->GetState());
   ASSERT_TRUE(message.has_key_confirmation());
@@ -301,7 +323,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnBadKeyConfirmation) {
   ASSERT_EQ(SpekeSessionState::RUNNING, session->GetState())
       << "The connection was severed before key confirmation was sent";
 
-  SpekeSession<stream_protocol>::SendMessage(message, socket);
+  TestSpekeSession::TestSendMessage(message, socket);
 
   wait_predicate(
       [&session]{
@@ -328,7 +350,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectKeyConfirmation) {
   ASSERT_EQ(SpekeSessionState::RUNNING, session->GetState())
       << "The connection was severed before key confirmation was sent";
 
-  SpekeSession<stream_protocol>::SendMessage(message, socket);
+  TestSpekeSession::TestSendMessage(message, socket);
 
   wait_predicate(
       [&session]{
@@ -350,7 +372,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedBadHmac) {
   sd->set_hmac_signature("bad");
   sd->set_data("test");
 
-  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  TestSpekeSession::TestSendMessage(message, GetSocket());
 
   wait_predicate(
       [&session]{
@@ -372,8 +394,8 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedMultipleBadHMACs) {
   sd->set_hmac_signature("bad");
   sd->set_data("test");
 
-  for(int i = 0; i < SpekeSession<stream_protocol>::BAD_BEHAVIOR_LIMIT; ++i) {
-    SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  for(int i = 0; i < TestSpekeSession::BAD_BEHAVIOR_LIMIT; ++i) {
+    TestSpekeSession::TestSendMessage(message, GetSocket());
   }
 
   wait_predicate(
@@ -397,8 +419,8 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedMultipleGoodHMACs) {
   sd->set_hmac_signature("hmac");
   sd->set_data("test");
 
-  for(int i = 0; i < SpekeSession<stream_protocol>::BAD_BEHAVIOR_LIMIT; ++i) {
-    SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  for(int i = 0; i < TestSpekeSession::BAD_BEHAVIOR_LIMIT; ++i) {
+    TestSpekeSession::TestSendMessage(message, GetSocket());
   }
 
   wait_predicate(
@@ -423,7 +445,7 @@ TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
   SpekeMessage::SignedData* sd = message.mutable_signed_data();
   sd->set_hmac_signature("hmac");
   sd->set_data("test");
-  SpekeSession<stream_protocol>::SendMessage(message, GetSocket());
+  TestSpekeSession::TestSendMessage(message, GetSocket());
 
   wait_predicate([&result]{return result == "test";},
                  std::chrono::milliseconds(3));
