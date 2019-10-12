@@ -21,6 +21,8 @@
 #include "crypto/certs.h"
 #include "filesystem.h"
 
+#include <openssl/pem.h>
+
 using namespace lrm::crypto::certs;
 
 const std::string serialized_privkey_path = "/tmp/lrm-test-privkey.pem";
@@ -30,20 +32,8 @@ std::unique_ptr<RsaKeyPair> key_pair;
 std::unique_ptr<RsaCertificate> certificate;
 std::string pem_privkey_content;
 
-std::string bio_to_str(BIO* bio) {
-  std::stringstream ss;
-  char buffer[256];
-  int readbytes = 0;
-  while ((readbytes = BIO_read(bio, buffer, 255)) > 0) {
-    buffer[readbytes] = '\0';
-    ss << buffer;
-  }
-
-  return ss.str();
-}
-
 TEST(CertTest, RsaKeyPair_Generates) {
-  EXPECT_NO_THROW(key_pair = std::make_unique<RsaKeyPair>());
+  EXPECT_NO_THROW(key_pair = std::make_unique<RsaKeyPair>(true));
 }
 
 TEST(CertTest, RsaKeyPair_SerializesPrivkeyToFile) {
@@ -84,21 +74,23 @@ TEST(CertTest, RsaKeyPair_SerializesPubkeyToFile) {
   EXPECT_EQ(last_line, "-----END PUBLIC KEY-----");
 }
 
+TEST(CertTest, RsaKeyPair_ToString) {
+  std::string key_pair_str;
+  ASSERT_NO_THROW(key_pair_str = key_pair->ToString());
+  ASSERT_FALSE(key_pair_str.empty());
+
+  EXPECT_EQ(0, key_pair_str.find("-----BEGIN PRIVATE KEY-----"))
+      << "The PEM private key string should start with "
+      "-----BEGIN PRIVATE KEY-----";
+}
+
 TEST(CertTest, RsaKeyPair_DeserializeFromFile) {
-  BIO* pk_bio = BIO_new(BIO_s_mem());
-  PEM_write_bio_PrivateKey(pk_bio, key_pair->Get(), nullptr,
-                           nullptr, 0, nullptr, nullptr);
-  std::string key = bio_to_str(pk_bio);
+  std::string key = key_pair->ToString();
 
-  key_pair.reset();
-  ASSERT_NO_THROW(
-      key_pair = std::make_unique<RsaKeyPair>(serialized_privkey_path));
-  PEM_write_bio_PrivateKey(pk_bio, key_pair->Get(), nullptr,
-                           nullptr, 0, nullptr, nullptr);
-  std::string file_key = bio_to_str(pk_bio);
-  BIO_free(pk_bio);
+  key_pair = std::make_unique<RsaKeyPair>(false);
+  ASSERT_NO_THROW(key_pair->DeserializePrivateKey(serialized_privkey_path));
 
-  EXPECT_EQ(key, file_key);
+  EXPECT_EQ(key, key_pair->ToString());
 }
 
 // TODO: add password encrypted (de)serialization tests
@@ -143,17 +135,29 @@ TEST(CertTest, RsaCertificate_Serialize) {
   EXPECT_EQ(last_line, "-----END CERTIFICATE-----");
 }
 
+TEST(CertTest, RsaCertificate_ToString) {
+  std::string cert_str;
+  ASSERT_NO_THROW(cert_str = certificate->ToString());
+  ASSERT_FALSE(cert_str.empty());
+
+  EXPECT_EQ(0, cert_str.find("-----BEGIN CERTIFICATE-----"))
+      << "The PEM certificate string should start with "
+      "-----BEGIN CERTIFICATE-----";
+}
+
 TEST(CertTest, RsaCertificate_DeserializeFromFile) {
-  BIO* cert_bio = BIO_new(BIO_s_mem());
-  PEM_write_bio_X509(cert_bio, certificate->Get());
-  std::string cert_str = bio_to_str(cert_bio);
+  std::string cert_str = certificate->ToString();
+
+  certificate = std::make_unique<RsaCertificate>();
+  ASSERT_NO_THROW(certificate->Deserialize(serialized_cert_path));
+  EXPECT_EQ(cert_str, certificate->ToString());
+}
+
+TEST(CertTest, RsaCertificate_ConstructFromPemString) {
+  std::string cert_str = certificate->ToString();
 
   certificate.reset();
-  ASSERT_NO_THROW(
-      certificate = std::make_unique<RsaCertificate>(serialized_cert_path));
-  PEM_write_bio_X509(cert_bio, certificate->Get());
-
-  EXPECT_EQ(cert_str, bio_to_str(cert_bio));
-
-  BIO_free(cert_bio);
+  ASSERT_NO_THROW(certificate = std::make_unique<RsaCertificate>(cert_str));
+  ASSERT_NE(certificate.get(), nullptr);
+  EXPECT_EQ(cert_str, certificate->ToString());
 }
