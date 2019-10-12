@@ -23,6 +23,17 @@
 #include "Util.h"
 
 namespace lrm {
+namespace {
+const static std::map<TimeInfo::PlaybackState, lrm::PlaybackState::State>
+time_info_playback_state_translation_map =
+{{TimeInfo::NOT_CHANGED, lrm::PlaybackState::UNDEFINED},
+ {TimeInfo::PLAYING, lrm::PlaybackState::PLAYING},
+ {TimeInfo::PAUSED, lrm::PlaybackState::PAUSED},
+ {TimeInfo::STOPPED, lrm::PlaybackState::STOPPED},
+ {TimeInfo::FINISHED, lrm::PlaybackState::FINISHED},
+ {TimeInfo::FINISHED_ERROR, lrm::PlaybackState::FINISHED_ERROR}};
+}
+
 PlaybackSynchronizer::~PlaybackSynchronizer() {
   Stop();
 }
@@ -115,7 +126,7 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
   while (stream->Read(&time_info)) {
     if (time_info.playback_state() != TimeInfo::NOT_CHANGED) {
       state_changed = true;
-      current_state = Util::time_info_playback_state_translation_map
+      current_state = time_info_playback_state_translation_map
                       .at(time_info.playback_state());
     } else {
       state_changed = false;

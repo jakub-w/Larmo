@@ -30,9 +30,6 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 
-#include "player_service.pb.h"
-#include "PlaybackState.h"
-
 namespace lrm::Util {
 class InterruptableSleeper {
  public:
@@ -93,16 +90,6 @@ bool wait_predicate(Predicate&& pred,
 /// /exception std::logic_error The exception thrown when the given port isn't
 /// valid.
 void check_port(std::string_view port_str);
-
-// TODO: Rethink if this should be here
-const static std::map<TimeInfo::PlaybackState, lrm::PlaybackState::State>
-time_info_playback_state_translation_map =
-{{TimeInfo::NOT_CHANGED, lrm::PlaybackState::UNDEFINED},
- {TimeInfo::PLAYING, lrm::PlaybackState::PLAYING},
- {TimeInfo::PAUSED, lrm::PlaybackState::PAUSED},
- {TimeInfo::STOPPED, lrm::PlaybackState::STOPPED},
- {TimeInfo::FINISHED, lrm::PlaybackState::FINISHED},
- {TimeInfo::FINISHED_ERROR, lrm::PlaybackState::FINISHED_ERROR}};
 }
 
 #endif // LRM_UTIL_H
