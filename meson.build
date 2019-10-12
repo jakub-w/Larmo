@@ -135,6 +135,7 @@ if gtest.found()
 				  'test/test-BigNum.cpp',
 				  'test/test-SPEKE.cpp',
 				  'test/test-SpekeSession.cpp',
+				  'test/test-certs.cpp',
 				  crypto_sources,
 				  protobuf_speke_files],
 			dependencies: [gtest, openssl_dep, protobuf_dep])
