@@ -19,84 +19,22 @@
 #ifndef LRM_CERTS_H_
 #define LRM_CERTS_H_
 
-#include <memory>
 #include <string_view>
-#include <type_traits>
-#include <unordered_map>
 
+#include <openssl/rsa.h>
 #include <openssl/evp.h>
-#include <openssl/x509.h>
-
-#include "filesystem.h"
-#include "Util.h"
 
 namespace lrm::crypto::certs {
+#define int_error(msg) handle_ssl_error(__FILE__, __LINE__, (msg))
 
-class RsaKeyPair {
- public:
-  /// \param generate If true, generate new RSA key pair. If not, construct
-  /// empty RsaKeyPair object.
-  RsaKeyPair(bool generate = false);
+static constexpr int KEY_BITS = 2048;
+static constexpr int KEY_EXPONENT = RSA_F4;
+static const EVP_CIPHER* KEY_PEM_CIPHER = EVP_aes_192_gcm();
+static const EVP_MD* KEY_SIGN_DIGEST = EVP_sha256();
 
-  RsaKeyPair(const RsaKeyPair&) = delete;
-  RsaKeyPair(RsaKeyPair&&) = delete;
-  RsaKeyPair& operator=(const RsaKeyPair&) = delete;
-  RsaKeyPair& operator=(RsaKeyPair&&) = delete;
-
-  inline EVP_PKEY* Get() {
-    return pkey_.get();
-  }
-
-  void SerializePrivateKey(std::string_view filename,
-                           std::string_view password = "") const;
-
-  void SerializePublicKey(std::string_view filename) const;
-
-  /// Read RsaKeyPair from PEM file storing RSA private key
-  void DeserializePrivateKey(std::string_view filename,
-                             std::string password = "");
-
-  std::string ToString() const;
-
- private:
-  std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> pkey_;
-};
-
-class RsaCertificate {
- public:
-  using CertNameMap =
-      std::unordered_map<std::string, std::string>;
-
-  RsaCertificate();
-  RsaCertificate(RsaKeyPair& key_pair,
-                 const CertNameMap name_entries,
-                 unsigned int expiration_days = 365);
-  /// Construct RsaCertificate object from the PEM form present in \e pem_str.
-  /// \param pem_str String storing PEM form of the certificate.
-  RsaCertificate(std::string& pem_str);
-
-  RsaCertificate(const RsaCertificate&) = delete;
-  RsaCertificate(RsaCertificate&&) = delete;
-  RsaCertificate& operator=(RsaCertificate&) = delete;
-  RsaCertificate& operator=(RsaCertificate&&) = delete;
-
-  void Sign(RsaKeyPair& key_pair);
-
-  bool Verify(RsaKeyPair& key_pair);
-
-  inline X509* Get() const {
-    return cert_.get();
-  }
-
-  void Serialize(std::string_view filename) const;
-
-  /// Deserialize certificate from PEM file storing X509 certificate
-  void Deserialize(std::string_view filename);
-  std::string ToString() const;
-
- private:
-  std::unique_ptr<X509, decltype(&X509_free)> cert_;
-};
+int print_errors_cb(const char* str, size_t len, void* arg);
+void handle_ssl_error(std::string_view file, int line, std::string_view msg);
+std::basic_string<unsigned char> str_to_uc(std::string_view str);
+std::string bio_to_str(BIO* bio) noexcept;
 }
-
 #endif  // LRM_CERTS_H_

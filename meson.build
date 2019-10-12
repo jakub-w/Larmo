@@ -96,8 +96,12 @@ spdlog_dep = declare_dependency(
   include_directories : include_directories('spdlog/include'))
 
 
-crypto_sources = ['crypto/BigNum.cpp', 'crypto/SPEKE.cpp',
-		  'crypto/SpekeSession.cpp', 'crypto/certs.cpp']
+crypto_sources = ['crypto/BigNum.cpp',
+		  'crypto/SPEKE.cpp',
+		  'crypto/SpekeSession.cpp',
+		  'crypto/certs.cpp',
+		  'crypto/RsaKeyPair.cpp',
+		  'crypto/RsaCertificate.cpp']
 
 
 # Executables

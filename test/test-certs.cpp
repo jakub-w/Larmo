@@ -18,10 +18,14 @@
 
 #include <gtest/gtest.h>
 
-#include "crypto/certs.h"
+#include "crypto/RsaCertificate.h"
+#include "crypto/RsaKeyPair.h"
+
 #include "filesystem.h"
 
 #include <openssl/pem.h>
+
+#include "Util.h"
 
 using namespace lrm::crypto::certs;
 
