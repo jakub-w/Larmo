@@ -33,11 +33,11 @@ class RsaCertificate {
 
   RsaCertificate();
   RsaCertificate(RsaKeyPair& key_pair,
-                 const CertNameMap name_entries,
+                 const CertNameMap& name_entries,
                  unsigned int expiration_days = 365);
   /// Construct RsaCertificate object from the PEM form present in \e pem_str.
   /// \param pem_str String storing PEM form of the certificate.
-  RsaCertificate(std::string& pem_str);
+  explicit RsaCertificate(std::string& pem_str);
 
   RsaCertificate(const RsaCertificate&) = delete;
   RsaCertificate(RsaCertificate&&) = delete;

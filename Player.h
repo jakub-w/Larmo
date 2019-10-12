@@ -34,7 +34,6 @@ class MpvException : public std::runtime_error {
   explicit MpvException(mpv_error error_code, std::string_view details = "")
       : std::runtime_error(mpv_error_string(error_code)),
         code_(error_code), details_(details) {}
-  virtual ~MpvException() {}
 
   inline mpv_error code() const { return code_; }
   inline const std::string& details() const { return details_; }

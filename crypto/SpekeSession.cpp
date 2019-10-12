@@ -90,8 +90,9 @@ void SpekeSession<Protocol>::Close(SpekeSessionState state) {
 template <typename Protocol>
 void SpekeSession<Protocol>::start_reading() {
   socket_.async_wait(asio::socket_base::wait_read,
-                     std::bind(&SpekeSession<Protocol>::handle_read, this,
-                               std::placeholders::_1));
+                     [this](const asio::error_code& ec) {
+                       handle_read(std::forward<const asio::error_code>(ec));
+                     });
 }
 
 template <typename Protocol>

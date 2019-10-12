@@ -109,7 +109,7 @@ void init_logging(const fs::path& log_file) {
   gpr_set_log_function(gpr_log_function);
 }
 
-pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info> dinfo) {
+pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo) {
   if (dinfo->config_file.empty()) {
     Config::Load();
   } else {

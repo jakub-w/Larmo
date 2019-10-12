@@ -46,7 +46,7 @@ namespace lrm {
 const fs::path Daemon::socket_path =
     fs::temp_directory_path().append("lrm/socket");
 
-Daemon::Daemon(std::unique_ptr<daemon_info> dinfo)
+Daemon::Daemon(std::unique_ptr<daemon_info>&& dinfo)
     : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_),
       log_(spdlog::get("Daemon")) {
   assert(socket_path.is_absolute());
@@ -348,32 +348,31 @@ void Daemon::trace_grpc_channel_state(
                 std::chrono::seconds(5)))) {
       state = channel->GetState(false);
 
-      std::string state_msg;
-      spdlog::level::level_enum log_level;
-      switch (state) {
-        case GRPC_CHANNEL_IDLE:
-          log_level = spdlog::level::debug;
-          state_msg = "is idle";
-          break;
-        case GRPC_CHANNEL_CONNECTING:
-          log_level = spdlog::level::info;
-          state_msg = "is connecting";
-          break;
-        case GRPC_CHANNEL_READY:
-          log_level = spdlog::level::info;
-          state_msg = "is ready for work";
-          break;
-        case GRPC_CHANNEL_TRANSIENT_FAILURE:
-          log_level = spdlog::level::warn;
-          state_msg = "has seen a failure but expects to recover";
-          break;
-        case GRPC_CHANNEL_SHUTDOWN:
-          log_level = spdlog::level::err;
-          state_msg = "has seen a failure that it cannot recover from";
-          break;
-      }
+      const auto log_info =
+          [&](){
+            switch (state) {
+              case GRPC_CHANNEL_IDLE:
+                return std::make_pair(spdlog::level::debug, "is idle");
+              case GRPC_CHANNEL_CONNECTING:
+                return std::make_pair(spdlog::level::info, "is connecting");
+              case GRPC_CHANNEL_READY:
+                return std::make_pair(
+                    spdlog::level::info,"is ready for work");
+              case GRPC_CHANNEL_TRANSIENT_FAILURE:
+                return std::make_pair(
+                    spdlog::level::warn,
+                    "has seen a failure but expects to recover");
+              case GRPC_CHANNEL_SHUTDOWN:
+                return std::make_pair(
+                    spdlog::level::err,
+                    "has seen a failure that it cannot recover from");
+              default:
+                return std::make_pair(
+                    spdlog::level::warn,
+                    "is in an unknown state (not implemented)");
+            }}();
 
-      log_->log(log_level, "gRPC channel {}", state_msg);
+      log_->log(log_info.first, "gRPC channel {}", log_info.second);
     }
   }
 }

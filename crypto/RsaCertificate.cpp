@@ -30,7 +30,7 @@ namespace lrm::crypto::certs {
 RsaCertificate::RsaCertificate() : cert_(X509_new(), &X509_free) {}
 
 RsaCertificate::RsaCertificate(RsaKeyPair& key_pair,
-                               const CertNameMap name_entries,
+                               const CertNameMap& name_entries,
                                unsigned int expiration_days)
     : cert_(X509_new(), &X509_free) {
   if (not cert_) int_error("Failed to create X509 object");
