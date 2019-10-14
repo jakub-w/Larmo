@@ -35,9 +35,9 @@ SPEKE::SPEKE(std::string_view id,
              std::string_view password,
              BigNum safe_prime)
     : mdctx_{EVP_MD_CTX_new()},
-      p_{safe_prime},
+      p_{std::move(safe_prime)},
       q_{(p_ - 1) / 2} {
-  if (not safe_prime.IsOdd()) {
+  if (not p_.IsOdd()) {
     throw std::runtime_error(
         "In SPEKE::SPEKE(): safe_prime is not an odd number");
   }
