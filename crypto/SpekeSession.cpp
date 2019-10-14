@@ -71,10 +71,13 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
   state_ = SpekeSessionState::RUNNING;
 }
 
-// TODO: Maybe add an argument to notify the peer why are we disconnecting
 template <typename Protocol>
 void SpekeSession<Protocol>::Close(SpekeSessionState state) {
-  if (closed_) return;
+  if (not closed_) {
+    closed_ = true;
+  } else {
+    return;
+  }
 
   if (socket_.is_open()) {
     socket_.shutdown(asio::socket_base::shutdown_both);
@@ -84,7 +87,6 @@ void SpekeSession<Protocol>::Close(SpekeSessionState state) {
   speke_.reset();
 
   state_ = state;
-  closed_ = true;
 }
 
 template <typename Protocol>
@@ -325,8 +327,8 @@ void SpekeSession<Protocol>::SendMessage(
   std::memcpy(buffer.data(), &size, sizeof(size));
   message.SerializeToArray(buffer.data() + sizeof(size), size);
 
-  asio::write(socket, asio::buffer(buffer),
-              asio::transfer_exactly(buffer.size()));
+  asio::async_write(socket, asio::buffer(buffer),
+                    asio::transfer_exactly(buffer.size()));
 }
 
 template class SpekeSession<asio::ip::tcp>;

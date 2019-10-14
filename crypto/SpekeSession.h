@@ -29,6 +29,8 @@
 #include "crypto/SPEKE.h"
 
 namespace lrm::crypto {
+/// The states are arranged in a way that everything >= STOPPED means that
+/// the SpekeSession was closed.
 enum class SpekeSessionState {
   /// Active before a call to \ref SpekeSession::Run().
   IDLE,
@@ -110,9 +112,11 @@ class SpekeSession {
   virtual void SendMessage(const Bytes& message);
 
  protected:
+  // This is synchronous
   static SpekeMessage ReceiveMessage(
       asio::basic_stream_socket<Protocol>& socket);
 
+  // This is asynchronous
   static void SendMessage(
       const SpekeMessage& message,
       asio::basic_stream_socket<Protocol>& socket);
@@ -132,11 +136,11 @@ class SpekeSession {
 
   std::shared_ptr<SpekeInterface> speke_;
 
-  SpekeSessionState state_;
+  std::atomic<SpekeSessionState> state_;
   bool kcd_sent_ = false;
 
   int bad_behavior_count_ = 0;
-  bool closed_ = false;
+  std::atomic_bool closed_ = false;
 
   /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;
