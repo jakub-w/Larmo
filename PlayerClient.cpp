@@ -161,7 +161,7 @@ PlayerClient::PlayerClient(const std::string& streaming_port,
   port_.set_port(port);
 }
 
-PlayerClient::~PlayerClient() noexcept {
+PlayerClient::~PlayerClient() {
   try {
     log_->debug("Stopping the ASIO context...");
     try {

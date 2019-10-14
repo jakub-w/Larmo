@@ -50,14 +50,19 @@ void PlaybackSynchronizer::Start(std::chrono::milliseconds update_interval) {
                         std::move(update_interval));
 }
 
-void PlaybackSynchronizer::Stop() {
-  {
-    std::lock_guard<std::mutex> lck(is_updating_mtx_);
-    is_updating_ = false;
-  }
-  is_updating_cv_.notify_all();
+void PlaybackSynchronizer::Stop() noexcept {
+  try {
+    {
+      std::lock_guard<std::mutex> lck(is_updating_mtx_);
+      is_updating_ = false;
+    }
+    is_updating_cv_.notify_all();
 
-  updating_thread_.join();
+    if (updating_thread_.joinable())
+      updating_thread_.join();
+  } catch (const std::system_error& e) {
+    spdlog::error("Trying to stop PlaybackSynchronizer: {}", e.what());
+  }
 }
 
 PlaybackSynchronizer::PlaybackInfo

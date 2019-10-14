@@ -58,7 +58,7 @@ class PlaybackSynchronizer {
   /// update will occur only on the playback status change.
   void Start(std::chrono::milliseconds update_interval =
              std::chrono::milliseconds(1000));
-  void Stop();
+  void Stop() noexcept;
 
   PlaybackInfo GetPlaybackInfo() const;
 

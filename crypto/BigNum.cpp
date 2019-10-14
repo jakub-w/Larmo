@@ -53,7 +53,7 @@ BigNum::BigNum(const BigNum& other) noexcept
 BigNum::BigNum(BigNum&& other) noexcept
     : bignum_{std::exchange(other.bignum_, nullptr)} {}
 
-BigNum::~BigNum() noexcept {
+BigNum::~BigNum() {
   BN_free(bignum_);
 }
 

@@ -51,8 +51,28 @@ Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy),
 
 Player::~Player() {
   stop_event_loop();
-  tcp_sock_.close();
-  event_loop_thread_.join();
+
+  asio::error_code ec;
+  if (tcp_sock_.is_open()) {
+    tcp_sock_.shutdown(asio::socket_base::shutdown_both, ec);
+    if (ec) {
+      spdlog::warn("Trying to shutdown socket in Player: {}", ec.message());
+      ec.clear();
+    }
+  }
+  tcp_sock_.close(ec);
+  if (ec) {
+    spdlog::warn("Trying to close socket in Player: {}", ec.message());
+    ec.clear();
+  }
+  if (event_loop_thread_.joinable()) {
+    try {
+      event_loop_thread_.join();
+    } catch (const std::system_error& e) {
+      spdlog::warn("Trying to join event loop thread in Player: {}",
+                   e.what());
+    }
+  }
 }
 
 int Player::Play() {
@@ -212,7 +232,7 @@ void Player::start_event_loop() {
   }
 }
 
-void Player::stop_event_loop() {
+void Player::stop_event_loop() noexcept {
   event_loop_running_ = false;
 }
 

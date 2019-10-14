@@ -35,7 +35,7 @@ class BigNum {
   explicit BigNum(const unsigned char* bytes, size_t size) noexcept;
   BigNum(const BigNum& other) noexcept;
   BigNum(BigNum&& other) noexcept;
-  ~BigNum() noexcept;
+  ~BigNum();
 
   BigNum& operator=(const BigNum& other) noexcept;
   BigNum& operator=(BigNum&& other) noexcept;

@@ -89,7 +89,7 @@ class SpekeSession {
   /// \brief Close the session and severe the connection.
   ///
   /// \param state \ref SpekeSessionState to set while closing the connection.
-  virtual void Close(SpekeSessionState state);
+  virtual void Close(SpekeSessionState state) noexcept;
 
   /// \brief Set a handler to handle incoming HMAC-signed messages.
   ///

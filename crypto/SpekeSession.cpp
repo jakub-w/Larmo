@@ -72,17 +72,19 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
 }
 
 template <typename Protocol>
-void SpekeSession<Protocol>::Close(SpekeSessionState state) {
+void SpekeSession<Protocol>::Close(SpekeSessionState state) noexcept {
   if (not closed_) {
     closed_ = true;
   } else {
     return;
   }
 
+  asio::error_code ec;
+
   if (socket_.is_open()) {
-    socket_.shutdown(asio::socket_base::shutdown_both);
+    socket_.shutdown(asio::socket_base::shutdown_both, ec);
   }
-  socket_.close();
+  socket_.close(ec);
 
   speke_.reset();
 

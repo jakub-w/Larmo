@@ -62,7 +62,7 @@ Daemon::Daemon(std::unique_ptr<daemon_info>&& dinfo)
   }
 }
 
-Daemon::~Daemon() noexcept {
+Daemon::~Daemon() {
   try {
     grpc_channel_state_run_ = false;
     fs::remove(socket_path);

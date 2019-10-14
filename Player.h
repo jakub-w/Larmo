@@ -58,7 +58,7 @@ class Player {
   double get_property_double_(const std::string_view prop_name) const;
 
   void start_event_loop();
-  void stop_event_loop();
+  void stop_event_loop() noexcept;
   void mpv_event_loop();
 
  public:
