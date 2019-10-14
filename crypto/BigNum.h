@@ -38,6 +38,7 @@ class BigNum {
   ~BigNum() noexcept;
 
   BigNum& operator=(const BigNum& other) noexcept;
+  BigNum& operator=(BigNum&& other) noexcept;
   BigNum& operator+=(const BigNum& rhs) noexcept;
   friend BigNum operator+(BigNum lhs, const BigNum& rhs) noexcept;
   BigNum& operator-=(const BigNum& rhs) noexcept;
@@ -78,8 +79,13 @@ class BigNum {
   std::vector<unsigned char> to_bytes() const;
 
  private:
+  static thread_local struct Context {
+    Context() : ctx{BN_CTX_new()} {}
+    ~Context() { BN_CTX_free(ctx); }
+    BN_CTX* ctx;
+  } ctx_;
+
   BIGNUM* bignum_;
-  BN_CTX* ctx_;
 };
 
 BigNum PrimeGenerate(int bits, bool safe,

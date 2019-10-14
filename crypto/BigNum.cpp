@@ -25,11 +25,12 @@
 #include <openssl/err.h>
 
 namespace lrm::crypto {
-BigNum::BigNum() noexcept : bignum_(BN_new()), ctx_(BN_CTX_new()) {}
+thread_local BigNum::Context BigNum::ctx_{};
 
-BigNum::BigNum(const BIGNUM* bignum) noexcept : BigNum() {
-  BN_copy(bignum_, bignum);
-}
+BigNum::BigNum() noexcept : bignum_(BN_new()) {}
+
+BigNum::BigNum(const BIGNUM* bignum) noexcept
+    : bignum_{BN_dup(bignum)} {}
 
 BigNum::BigNum(std::string_view dec_num_str) noexcept : BigNum() {
   BN_dec2bn(&bignum_, dec_num_str.data());
@@ -39,35 +40,39 @@ BigNum::BigNum(BN_ULONG num) noexcept : BigNum() {
   BN_set_word(bignum_, num);
 }
 
-BigNum::BigNum(const std::vector<unsigned char>& bytes) noexcept : BigNum() {
-  BN_bin2bn((unsigned char*)bytes.data(), bytes.size(), bignum_);
-}
+BigNum::BigNum(const std::vector<unsigned char>& bytes) noexcept
+    : bignum_{BN_bin2bn((unsigned char*)bytes.data(), bytes.size(), nullptr)}
+  {}
 
-BigNum::BigNum(const unsigned char* bytes, size_t size) noexcept : BigNum() {
-  BN_bin2bn(bytes, size, bignum_);
-}
+BigNum::BigNum(const unsigned char* bytes, size_t size) noexcept
+    : bignum_{BN_bin2bn(bytes, size, nullptr)} {}
 
-BigNum::BigNum(const BigNum& other) noexcept : BigNum() {
-  BN_copy(this->bignum_, other.bignum_);
-}
+BigNum::BigNum(const BigNum& other) noexcept
+    : bignum_(BN_dup(other.bignum_)) {}
 
-BigNum::BigNum(BigNum&& other) noexcept {
-  ctx_ = other.ctx_;
-  other.ctx_ = nullptr;
-
-  bignum_ = other.bignum_;
-  other.bignum_ = nullptr;
-}
+BigNum::BigNum(BigNum&& other) noexcept
+    : bignum_{std::exchange(other.bignum_, nullptr)} {}
 
 BigNum::~BigNum() noexcept {
   BN_free(bignum_);
-  BN_CTX_free(ctx_);
 }
 
 BigNum& BigNum::operator=(const BigNum& other) noexcept {
   if (this != &other) {
-    BN_copy(this->bignum_, other.bignum_);
+    if (not bignum_) {
+      bignum_ = BN_dup(other.bignum_);
+    } else {
+      BN_copy(this->bignum_, other.bignum_);
+    }
   }
+  return *this;
+}
+
+BigNum& BigNum::operator=(BigNum&& other) noexcept {
+  BN_free(bignum_);
+
+  bignum_ = std::exchange(other.bignum_, nullptr);
+
   return *this;
 }
 
@@ -92,7 +97,7 @@ BigNum operator-(BigNum lhs, const BigNum& rhs) noexcept {
 }
 
 BigNum& BigNum::operator*=(const BigNum& rhs) noexcept {
-  BN_mul(bignum_, bignum_, rhs.bignum_, ctx_);
+  BN_mul(bignum_, bignum_, rhs.bignum_, ctx_.ctx);
   return *this;
 }
 
@@ -102,7 +107,7 @@ BigNum operator*(BigNum lhs, const BigNum& rhs) noexcept {
 }
 
 BigNum& BigNum::operator/=(const BigNum& rhs) noexcept {
-  BN_div(bignum_, NULL, bignum_, rhs.bignum_, ctx_);
+  BN_div(bignum_, NULL, bignum_, rhs.bignum_, ctx_.ctx);
   return *this;
 }
 
@@ -112,7 +117,7 @@ BigNum operator/(BigNum lhs, const BigNum& rhs) noexcept {
 }
 
 BigNum& BigNum::operator%=(const BigNum& rhs) noexcept {
-  BN_mod(bignum_, bignum_, rhs.bignum_, ctx_);
+  BN_mod(bignum_, bignum_, rhs.bignum_, ctx_.ctx);
   return *this;
 }
 
@@ -122,7 +127,7 @@ BigNum operator%(BigNum lhs, const BigNum& rhs) noexcept {
 }
 
 BigNum& BigNum::operator^=(const BigNum& rhs) noexcept {
-  BN_exp(bignum_, bignum_, rhs.bignum_, ctx_);
+  BN_exp(bignum_, bignum_, rhs.bignum_, ctx_.ctx);
   return *this;
 }
 
@@ -162,25 +167,25 @@ std::ostream& operator<<(std::ostream& stream, const BigNum& num) {
 
 BigNum BigNum::ModAdd(const BigNum& other, const BigNum& mod) noexcept {
   BigNum result;
-  BN_mod_add(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_);
+  BN_mod_add(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
 BigNum BigNum::ModSub(const BigNum& other, const BigNum& mod) noexcept {
   BigNum result;
-  BN_mod_sub(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_);
+  BN_mod_sub(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
 BigNum BigNum::ModMul(const BigNum& other, const BigNum& mod) noexcept {
   BigNum result;
-  BN_mod_mul(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_);
+  BN_mod_mul(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
 BigNum BigNum::ModSqr(const BigNum& mod) noexcept {
   BigNum result;
-  BN_mod_sqr(result.bignum_, bignum_, mod.bignum_, ctx_);
+  BN_mod_sqr(result.bignum_, bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
@@ -196,12 +201,12 @@ BigNum BigNum::ModExp(const BigNum& power, const BigNum& mod) {
         "flag set");
   }
   BigNum result;
-  BN_mod_exp(result.bignum_, bignum_, power.bignum_, mod.bignum_, ctx_);
+  BN_mod_exp(result.bignum_, bignum_, power.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
 bool BigNum::IsPrime() const noexcept {
-  return BN_is_prime_ex(bignum_, BN_prime_checks, ctx_, nullptr);
+  return BN_is_prime_ex(bignum_, BN_prime_checks, ctx_.ctx, nullptr);
 }
 
 bool BigNum::IsOdd() const noexcept {
