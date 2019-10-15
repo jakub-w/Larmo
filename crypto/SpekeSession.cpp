@@ -48,6 +48,7 @@ SpekeSession<Protocol>::~SpekeSession() {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
+  assert(handler);
   if (state_ != SpekeSessionState::IDLE) {
     throw std::logic_error(
         __PRETTY_FUNCTION__ +
@@ -133,6 +134,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
 
     try {
       speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
+
+      send_key_confirmation();
     } catch (const std::logic_error& e) {
       // This error will occur if the pubkey and id were already provided.
       // TODO: Log it
@@ -142,10 +145,6 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       // TODO: Log it
       Close(SpekeSessionState::STOPPED_PEER_PUBLIC_KEY_OR_ID_INVALID);
       return;
-    }
-
-    if (not kcd_sent_) {
-      send_key_confirmation();
     }
   } else if (message->has_key_confirmation()) {
     Bytes kcd{message->key_confirmation().data().begin(),
@@ -165,29 +164,19 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::handle_message(Bytes&& message) {
-  // Add The message to a queue if the handler is not set. Otherwise
-  // just call the handler.
   MessageHandler handler;
   {
     std::lock_guard lck{message_handler_mtx_};
 
-    if (message_handler_) {
-      handler = message_handler_;
-    } else {
-      message_queue_.push(std::move(message));
-      return;
-    }
+    handler = message_handler_;
   }
 
-  if (handler) {
-    handler(std::move(message));
-  }
+  assert(handler);
+  handler(std::move(message));
 }
 
 template <typename Protocol>
 void SpekeSession<Protocol>::send_key_confirmation() {
-  kcd_sent_ = true;
-
   auto kcd = speke_->GetKeyConfirmationData();
 
   SpekeMessage kcd_message;
@@ -201,18 +190,9 @@ void SpekeSession<Protocol>::send_key_confirmation() {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::SetMessageHandler(MessageHandler&& handler) {
-  {
-    std::lock_guard lck{message_handler_mtx_};
-    message_handler_ = std::move(handler);
-  }
-
-  Bytes message;
-  // this shouldn't need a lock because there should be no way the queue is
-  // modified while the handler is set
-  while (not message_queue_.empty()) {
-    handle_message(std::move(message_queue_.front()));
-    message_queue_.pop();
-  }
+  assert(handler);
+  std::lock_guard lck{message_handler_mtx_};
+  message_handler_ = std::move(handler);
 }
 
 template <typename Protocol>

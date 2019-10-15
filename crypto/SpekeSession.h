@@ -137,16 +137,12 @@ class SpekeSession {
   std::shared_ptr<SpekeInterface> speke_;
 
   std::atomic<SpekeSessionState> state_;
-  bool kcd_sent_ = false;
 
   int bad_behavior_count_ = 0;
   std::atomic_bool closed_ = false;
 
-  /// Mutex for both message_handler_ and message_queue_
   std::mutex message_handler_mtx_;
   MessageHandler message_handler_;
-
-  std::queue<Bytes> message_queue_;
 };
 }
 
