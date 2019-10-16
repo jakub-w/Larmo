@@ -60,17 +60,12 @@ std::string file_to_str(std::string_view filename) {
 
   if(in_stream.is_open()) {
     in_stream.seekg(0, std::ios::end);
-    size_t length = in_stream.tellg();
+    const size_t length = in_stream.tellg();
 
     in_stream.seekg(0, std::ios::beg);
 
-    char* str = new char[length+1];
-    in_stream.read(str, length);
-    in_stream.read(str, length);
-    str[length] = '\0';
-
-    std::string result(str);
-    delete[] str;
+    std::string result(length, ' ');
+    in_stream.read(result.data(), length);
 
     return result;
   }
@@ -80,7 +75,7 @@ std::string file_to_str(std::string_view filename) {
 
 void check_port(std::string_view port_str) {
   try {
-    int port = std::stoi(port_str.data());
+    const int port = std::stoi(port_str.data());
     if ((port <= IPPORT_USERRESERVED or port > UINT16_MAX) and
         (port != 0)) {
       throw std::logic_error("Port should be in the range: [" +

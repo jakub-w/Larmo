@@ -95,7 +95,7 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
   }
   remote_pubkey_ = std::move(temp);
 
-  std::string id_num = std::to_string(++id_counts[remote_id]);
+  const std::string id_num = std::to_string(++id_counts[remote_id]);
   id_numbered_ = id_ + "-" + id_num;
   remote_id_numbered_ = remote_id + "-" + id_num;
 }
@@ -153,12 +153,12 @@ std::string SPEKE::make_id(const std::string& prefix) {
 
   EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
 
-  Bytes pkey = this->GetPublicKey();
+  const Bytes pkey = this->GetPublicKey();
   assert(not pkey.empty());
   EVP_DigestUpdate(ctx, pkey.data(), pkey.size());
 
-  auto timestamp = std::chrono::high_resolution_clock::now()
-                   .time_since_epoch().count();
+  const auto timestamp = std::chrono::high_resolution_clock::now()
+                         .time_since_epoch().count();
   EVP_DigestUpdate(ctx, &timestamp, sizeof(timestamp));
 
   unsigned char md_val[MD5_DIGEST_LENGTH];
@@ -197,8 +197,8 @@ void SPEKE::ensure_keying_material() {
   EVP_DigestUpdate(mdctx_, first_id.c_str(), first_id.length());
   EVP_DigestUpdate(mdctx_, second_id.c_str(), second_id.length());
 
-  Bytes first_pubkey = std::min(pubkey_, remote_pubkey_).to_bytes();
-  Bytes second_pubkey = std::max(pubkey_, remote_pubkey_).to_bytes();
+  const Bytes first_pubkey = std::min(pubkey_, remote_pubkey_).to_bytes();
+  const Bytes second_pubkey = std::max(pubkey_, remote_pubkey_).to_bytes();
   EVP_DigestUpdate(mdctx_, first_pubkey.data(), first_pubkey.size());
   EVP_DigestUpdate(mdctx_, second_pubkey.data(), second_pubkey.size());
 
@@ -226,7 +226,7 @@ void SPEKE::ensure_encryption_key() {
   EVP_PKEY_CTX_set_hkdf_md(pctx, LRM_SPEKE_HASHFUNC);
 
   // generate salt from public keys
-  auto keys = std::minmax(pubkey_, remote_pubkey_);
+  const auto keys = std::minmax(pubkey_, remote_pubkey_);
   Bytes key = keys.first.to_bytes();
   Bytes salt;
   salt.insert(salt.end(), key.begin(), key.end());
@@ -239,7 +239,7 @@ void SPEKE::ensure_encryption_key() {
                              keying_material_.data(),
                              keying_material_.size());
 
-  const char info[] = "Larmo_SPEKE_HKDF";
+  constexpr char info[] = "Larmo_SPEKE_HKDF";
   // 'sizeof - 1' to drop the last null byte
   EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info) - 1);
 
@@ -271,8 +271,8 @@ Bytes SPEKE::gen_kcd(std::string_view first_id,
 
   Bytes pk_bytes = first_pubkey.to_bytes();
   HMAC_Update(hmac_ctx, pk_bytes.data(), pk_bytes.size());
-  Bytes rpk_bytes = second_pubkey.to_bytes();
-  HMAC_Update(hmac_ctx, rpk_bytes.data(), rpk_bytes.size());
+  pk_bytes = second_pubkey.to_bytes();
+  HMAC_Update(hmac_ctx, pk_bytes.data(), pk_bytes.size());
 
   Bytes md_value(EVP_MAX_MD_SIZE);
   unsigned int md_len = 0;

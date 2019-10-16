@@ -23,7 +23,7 @@
 #include <regex>
 
 namespace lrm {
-const std::string Config::default_conf_file = "lrm.conf";
+const fs::path Config::default_conf_file = "lrm.conf";
 std::unordered_map<std::string, std::string> Config::config_ = {};
 std::unordered_set<std::string> Config::required_ = {};
 Config::State Config::state_ = NOT_LOADED;

@@ -38,7 +38,7 @@ std::vector<char> PlayerClient::read_file(std::string_view filename) {
         std::string("Couldn't open the file: ") + filename.data());
   }
   ifs.seekg(0, std::ios::end);
-  size_t length = ifs.tellg();
+  const size_t length = ifs.tellg();
 
   ifs.seekg(0, std::ios::beg);
 
@@ -196,7 +196,8 @@ int PlayerClient::Play(std::string_view filename)
   log_->debug("PlayerClient::Play(\"{}\")", filename);
 
   try {
-    unsigned short port = start_streaming(filename.data(), port_.port());
+    const unsigned short port =
+        start_streaming(filename.data(), port_.port());
     port_.set_port(port);
   } catch (const std::exception& e) {
     // TODO: Rethrow
@@ -206,7 +207,7 @@ int PlayerClient::Play(std::string_view filename)
 
   ClientContext context;
   MpvResponse response;
-  grpc::Status status = stub_->PlayFrom(&context, port_, &response);
+  const grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
   if (status.ok()) {
     return response.response();
@@ -221,7 +222,7 @@ int PlayerClient::Stop() {
   ClientContext context;
   MpvResponse response;
 
-  grpc::Status status = stub_->Stop(&context, Empty(), &response);
+  const grpc::Status status = stub_->Stop(&context, Empty(), &response);
   if (status.ok()) {
     return response.response();
   } else {
@@ -235,7 +236,8 @@ int PlayerClient::TogglePause() {
   ClientContext context;
   MpvResponse response;
 
-  grpc::Status status = stub_->TogglePause(&context, Empty(), &response);
+  const grpc::Status status = stub_->TogglePause(&context, Empty(),
+                                                 &response);
   if (status.ok()) {
     return response.response();
   } else {
@@ -252,7 +254,7 @@ int PlayerClient::Volume(std::string_view volume) {
   VolumeMessage vol_msg;
   vol_msg.set_volume(volume.data());
 
-  grpc::Status status = stub_->Volume(&context, vol_msg, &response);
+  const grpc::Status status = stub_->Volume(&context, vol_msg, &response);
   if (status.ok()) {
     return response.response();
   } else {
@@ -267,11 +269,12 @@ int PlayerClient::Seek(std::string_view seconds) {
   MpvResponse response;
 
   SeekMessage seek_msg;
-  int usecs = std::stoi(seconds.data());
-  std::clamp(usecs, INT32_MIN, INT32_MAX);
+  const int usecs =
+      std::clamp(std::stoi(seconds.data()), INT32_MIN, INT32_MAX);
+
   seek_msg.set_seconds(usecs);
 
-  grpc::Status status = stub_->Seek(&context, seek_msg, &response);
+  const grpc::Status status = stub_->Seek(&context, seek_msg, &response);
   if (status.ok()) {
     return status.ok();
   } else {
@@ -289,7 +292,7 @@ bool PlayerClient::Ping() {
   ClientContext context;
   Empty empty;
 
-  grpc::Status status = stub_->Ping(&context, empty, &empty);
+  const grpc::Status status = stub_->Ping(&context, empty, &empty);
   if (status.ok()) {
     return status.ok();
   } else {
@@ -341,13 +344,13 @@ std::string PlayerClient::Info(std::string_view format) {
     result_stream.write(begin, tok_beg - begin);
 
     ++tok_beg;
-    auto tok_end = std::find_if(tok_beg, format.cend(),
-                                [](char c) {
-                                  return not std::iswalpha(c);
-                                });
+    const auto tok_end = std::find_if(tok_beg, format.cend(),
+                                      [](char c) {
+                                        return not std::iswalpha(c);
+                                      });
 
-    std::string token(tok_beg, tok_end - tok_beg);
-    std::string replacement{info_get(token, &playback_info)};
+    const std::string token(tok_beg, tok_end - tok_beg);
+    const std::string replacement{info_get(token, &playback_info)};
     if (replacement.empty()) {
       result_stream.write(tok_beg - 1, (tok_end - tok_beg) + 1);
     } else {

@@ -127,7 +127,7 @@ class SpekeSession {
   void handle_message(Bytes&& message);
   void send_key_confirmation();
 
-  void send_message(SpekeMessage& message);
+  void send_message(const SpekeMessage& message);
   std::optional<SpekeMessage> receive_message();
 
   void increase_bad_behavior_count();

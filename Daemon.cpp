@@ -123,14 +123,11 @@ void Daemon::initialize_config() {
     return;
   }
 
-  fs::path conf;
-
   // This will throw if the config file cannot be loaded.
-  if (dinfo_->config_file.empty()) {
-    conf = Config::default_conf_file;
-  } else {
-    conf = dinfo_->config_file;
-  }
+  const fs::path conf = dinfo_->config_file.empty() ?
+                        Config::default_conf_file :
+                        dinfo_->config_file;
+
   log_->info("Initializing the configuration from file: '{}'...",
                conf.string());
   Config::Load(conf);
@@ -164,7 +161,7 @@ void Daemon::initialize_config() {
     throw std::logic_error(error_message);
   }
 
-  auto grpc_port = Config::Get("grpc_port");
+  const auto grpc_port = Config::Get("grpc_port");
   Util::check_port(grpc_port);
 
   auto streaming_port = Config::Get("streaming_port");
@@ -197,28 +194,28 @@ void Daemon::initialize_grpc_client() {
 
   log_->info("Initializing gRPC client...");
 
-  grpc::string grpc_address(Config::Get("grpc_host") + ':' +
-                            Config::Get("grpc_port"));
+  const grpc::string grpc_address(Config::Get("grpc_host") + ':' +
+                                  Config::Get("grpc_port"));
 
   log_->info("Connecting to gRPC remote at: {}", grpc_address);
 
   std::shared_ptr<grpc::ChannelCredentials> creds;
   {
-    auto call_creds = grpc::MetadataCredentialsFromPlugin(
+    const auto call_creds = grpc::MetadataCredentialsFromPlugin(
         std::make_unique<GrpcCallAuthenticator>(Config::Get("passphrase")));
     grpc::SslCredentialsOptions options;
 
-    std::string ssl_cert = Util::file_to_str(Config::Get("cert_file"));
+    const std::string ssl_cert = Util::file_to_str(Config::Get("cert_file"));
     // log_->debug("Certificate:\n{}", ssl_cert);
     if (ssl_cert.empty()) {
-      std::string error_message{"Certificate file '" +
-                                Config::Get("cert_file") + "' is empty"};
+      const std::string error_message{
+        "Certificate file '" + Config::Get("cert_file") + "' is empty"};
       log_->error(error_message);
       throw std::logic_error(error_message);
     }
 
     options.pem_root_certs = std::move(ssl_cert);
-    auto channel_creds = grpc::SslCredentials(options);
+    const auto channel_creds = grpc::SslCredentials(options);
 
     creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
   }

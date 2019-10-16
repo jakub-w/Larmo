@@ -43,7 +43,7 @@ using namespace grpc;
 namespace lrm {
 bool
 PlayerServiceImpl::check_passphrase_(const ServerContext* context) const {
-  auto pass = context->client_metadata().find("x-custom-passphrase");
+  const auto pass = context->client_metadata().find("x-custom-passphrase");
   if(context->client_metadata().end() == pass) {
     return false;
   }
@@ -71,7 +71,7 @@ PlayerServiceImpl::PlayFrom(ServerContext* context,
   CHECK_PASSPHRASE(context);
 
   spdlog::debug("Peer: {}", context->peer());
-  std::vector<std::string> peer = Util::tokenize(context->peer(), ":");
+  const std::vector<std::string> peer = Util::tokenize(context->peer(), ":");
 
   if (peer.size() != 3 or not Util::is_ipv4(peer[1])) {
     spdlog::error("Couldn't retrieve IPv4 client address from '{}'",

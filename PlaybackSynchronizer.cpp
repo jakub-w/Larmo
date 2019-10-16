@@ -79,7 +79,7 @@ PlaybackSynchronizer::GetPlaybackInfo() const {
     result.volume = base_playback_info.info.volume;
 
     if (base_playback_info.info.playback_state == PlaybackState::PLAYING) {
-      auto time_difference =
+      const auto time_difference =
           std::chrono::steady_clock::now() - base_playback_info.last_update;
 
       result.elapsed_time =
@@ -166,7 +166,7 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
   }
 
   writer.join();
-  auto status = stream->Finish();
+  const auto status = stream->Finish();
   if (status.ok()) {
     spdlog::debug("The info stream has closed");
   } else {

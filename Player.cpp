@@ -27,7 +27,7 @@
 namespace lrm {
 int Player::send_command_(const std::vector<std::string>&& args) {
   const char* command[16];
-  int arg_count = std::min<size_t>(args.size(), 15);
+  const int arg_count = std::min<size_t>(args.size(), 15);
 
   for(auto i = 0; i < arg_count; ++i) {
     command[i] = args[i].c_str();
@@ -76,8 +76,7 @@ Player::~Player() {
 }
 
 int Player::Play() {
-  int result = send_command_({"loadfile", input_});
-  return result;
+  return send_command_({"loadfile", input_});
 }
 
 int Player::TogglePause() {
@@ -87,8 +86,9 @@ int Player::TogglePause() {
 
   int pause_flag = is_paused == 0 ? 1 : 0;
 
-  int result =  check_result(mpv_set_property(ctx_.get(), "pause",
-                                              MPV_FORMAT_FLAG, &pause_flag));
+  int result =  check_result(
+      mpv_set_property(ctx_.get(), "pause", MPV_FORMAT_FLAG, &pause_flag));
+
   if (MPV_ERROR_SUCCESS == result) {
     playback_state_.SetState(
         pause_flag == 1 ? PlaybackState::PAUSED : PlaybackState::PLAYING);
@@ -98,9 +98,7 @@ int Player::TogglePause() {
 }
 
 int Player::Stop() {
-  int result = send_command_({"stop"});
-
-  return result;
+  return send_command_({"stop"});
 }
 
 int Player::Volume(std::string_view volume) {
@@ -153,7 +151,7 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
   endpoint_.port(0);
   spdlog::debug("Trying to resolve address: {}:{}...",
                 host.data(), port.data());
-  auto endpoints = tcp_resolver_.resolve(host.data(), port.data());
+  const auto endpoints = tcp_resolver_.resolve(host.data(), port.data());
 
   for (auto it = endpoints.begin(); it != endpoints.end(); ++it) {
       if (it->endpoint().protocol() == tcp::v4()) {
@@ -196,8 +194,8 @@ int Player::PlayFrom(std::string_view host, std::string_view port) {
 
 int64_t Player::get_property_int64_(const std::string_view prop_name) const {
   int64_t prop_value = 0;
-  int result = mpv_get_property(ctx_.get(), prop_name.data(),
-                                MPV_FORMAT_INT64, &prop_value);
+  const int result = mpv_get_property(ctx_.get(), prop_name.data(),
+                                      MPV_FORMAT_INT64, &prop_value);
   if (MPV_ERROR_SUCCESS != result) {
     throw lrm::MpvException((mpv_error)result, prop_name.data());
   }
@@ -207,8 +205,8 @@ int64_t Player::get_property_int64_(const std::string_view prop_name) const {
 
 double Player::get_property_double_(const std::string_view prop_name) const {
   double prop_value = 0;
-  int result = mpv_get_property(ctx_.get(), prop_name.data(),
-                                MPV_FORMAT_DOUBLE, &prop_value);
+  const int result = mpv_get_property(ctx_.get(), prop_name.data(),
+                                      MPV_FORMAT_DOUBLE, &prop_value);
   if (MPV_ERROR_SUCCESS != result) {
     throw lrm::MpvException((mpv_error)result, prop_name.data());
   }
@@ -239,7 +237,7 @@ void Player::stop_event_loop() noexcept {
 void Player::mpv_event_loop() {
   spdlog::debug("Starting mpv event loop...");
   while (event_loop_running_) {
-    mpv_event* event =  mpv_wait_event(ctx_.get(), 1);
+    const mpv_event* event =  mpv_wait_event(ctx_.get(), 1);
 
     if (event->error != MPV_ERROR_SUCCESS) {
       spdlog::error("mpv event '{}': {}",
@@ -253,7 +251,7 @@ void Player::mpv_event_loop() {
         continue;
       case MPV_EVENT_END_FILE:
         {
-          mpv_event_end_file* end_file_data =
+          const mpv_event_end_file* end_file_data =
               (mpv_event_end_file*)event->data;
 
           switch (end_file_data->reason) {

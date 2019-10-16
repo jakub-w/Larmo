@@ -71,7 +71,7 @@ public:
   // config
   static std::vector<const std::string*> CheckMissing();
 
-  static const std::string default_conf_file;
+  static const fs::path default_conf_file;
 
  private:
   static std::unordered_map<std::string, std::string> config_;

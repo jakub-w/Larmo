@@ -62,7 +62,7 @@ void SpekeSession<Protocol>::Run(MessageHandler&& handler) {
 
   init_data->set_id(speke_->GetId());
 
-  auto pubkey = speke_->GetPublicKey();
+  const auto pubkey = speke_->GetPublicKey();
   init_data->set_public_key(pubkey.data(), pubkey.size());
 
   start_reading();
@@ -96,7 +96,7 @@ template <typename Protocol>
 void SpekeSession<Protocol>::start_reading() {
   socket_.async_wait(asio::socket_base::wait_read,
                      [this](const asio::error_code& ec) {
-                       handle_read(std::forward<const asio::error_code>(ec));
+                       handle_read(ec);
                      });
 }
 
@@ -116,8 +116,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
   }
 
   if (message->has_signed_data()) {
-    Bytes hmac{message->signed_data().hmac_signature().begin(),
-               message->signed_data().hmac_signature().end()};
+    const Bytes hmac{message->signed_data().hmac_signature().begin(),
+                     message->signed_data().hmac_signature().end()};
     Bytes data{message->signed_data().data().begin(),
                message->signed_data().data().end()};
 
@@ -128,8 +128,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       increase_bad_behavior_count();
     }
   } else if (message->has_init_data()) {
-    std::string id = message->init_data().id();
-    Bytes pubkey{message->init_data().public_key().begin(),
+    const std::string id = message->init_data().id();
+    const Bytes pubkey{message->init_data().public_key().begin(),
                  message->init_data().public_key().end()};
 
     try {
@@ -147,8 +147,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       return;
     }
   } else if (message->has_key_confirmation()) {
-    Bytes kcd{message->key_confirmation().data().begin(),
-              message->key_confirmation().data().end()};
+    const Bytes kcd{message->key_confirmation().data().begin(),
+                    message->key_confirmation().data().end()};
 
     if (not speke_->ConfirmKey(kcd)) {
       // TODO: Log it
@@ -177,7 +177,7 @@ void SpekeSession<Protocol>::handle_message(Bytes&& message) {
 
 template <typename Protocol>
 void SpekeSession<Protocol>::send_key_confirmation() {
-  auto kcd = speke_->GetKeyConfirmationData();
+  const auto kcd = speke_->GetKeyConfirmationData();
 
   SpekeMessage kcd_message;
   SpekeMessage::KeyConfirmation* kcd_p =
@@ -208,7 +208,7 @@ void SpekeSession<Protocol>::SendMessage(const Bytes &message) {
         std::string(": You can only send a message in RUNNING state"));
   }
 
-  Bytes hmac = speke_->HmacSign(std::forward<const Bytes&>(message));
+  const Bytes hmac = speke_->HmacSign(message);
 
   SpekeMessage msg;
   SpekeMessage::SignedData* sd = msg.mutable_signed_data();
@@ -219,9 +219,9 @@ void SpekeSession<Protocol>::SendMessage(const Bytes &message) {
 }
 
 template <typename Protocol>
-void SpekeSession<Protocol>::send_message(SpekeMessage& message) {
+void SpekeSession<Protocol>::send_message(const SpekeMessage& message) {
   try {
-    SendMessage(std::forward<SpekeMessage>(message), socket_);
+    SendMessage(message, socket_);
   } catch (const asio::system_error& e) {
     switch (e.code().value()) {
       case asio::error::eof:

@@ -50,7 +50,7 @@ RsaCertificate::RsaCertificate(RsaKeyPair& key_pair,
   if (not name) int_error("Failed to create X509_NAME object");
 
   for(const auto& [key, value] : name_entries) {
-    auto value_uc = str_to_uc(value);
+    const auto value_uc = str_to_uc(value);
     if (not X509_NAME_add_entry_by_txt(
             name, key.c_str(), MBSTRING_ASC,
             value_uc.c_str(), value_uc.size(), -1, 0)) {
@@ -103,7 +103,7 @@ void RsaCertificate::Serialize(std::string_view filename) const {
           std::string("Error opening certificate file '")
           + filename.data() + "': " + std::strerror(errno));
 
-  int result = PEM_write_X509(fp, cert_.get());
+  const int result = PEM_write_X509(fp, cert_.get());
   std::fclose(fp);
   if (result != 1) int_error("Error while writing certificate");
 }
