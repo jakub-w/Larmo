@@ -25,6 +25,8 @@
 
 #include <asio.hpp>
 
+#include "Util.h"
+
 using namespace lrm::crypto;
 using tcp = asio::ip::tcp;
 using stream_protocol = asio::local::stream_protocol;
@@ -53,12 +55,12 @@ class TestSpekeSession : public SpekeSession<stream_protocol> {
 
 class FakeSpeke : public SpekeInterface {
  private:
-  Bytes pkey_{'p', 'k', 'e', 'y'};
+  Bytes pkey_ = lrm::Util::str_to_bytes("pkey");
   std::string id_{"id"};
-  Bytes enc_key_{'e', 'n', 'c', 'k', 'e', 'y'};
-  Bytes kcd_{'k', 'c', 'd'};
+  Bytes enc_key_ = lrm::Util::str_to_bytes("enckey");
+  Bytes kcd_ = lrm::Util::str_to_bytes("kcd");
 
-  Bytes bad_bytes_{'b', 'a', 'd'};
+  Bytes bad_bytes_ = lrm::Util::str_to_bytes("bad");
   std::string bad_str_{"bad"};
 
   bool init_data_already_sent_ = false;
@@ -102,7 +104,7 @@ class FakeSpeke : public SpekeInterface {
   }
 
   virtual Bytes HmacSign(const Bytes& message) override {
-    return {'h', 'm', 'a', 'c'};
+    return lrm::Util::str_to_bytes("hmac");
   }
 
   virtual bool ConfirmHmacSignature(
@@ -484,7 +486,7 @@ TEST_F(SpekeSessionTestF, SendMessage) {
 
   SendInitData();
 
-  session->SendMessage({'t', 'e', 's', 't'});
+  session->SendMessage(lrm::Util::str_to_bytes("test"));
 
   SpekeMessage message;
   // 3 messages sent by the session would be: init data, key confirmation and

@@ -24,6 +24,8 @@
 
 #include <openssl/bn.h>
 
+#include "crypto/config.h"
+
 namespace lrm::crypto {
 class BigNum {
  public:
@@ -32,6 +34,7 @@ class BigNum {
   explicit BigNum(std::string_view dec_num_str) noexcept;
   BigNum(BN_ULONG num) noexcept;
   explicit BigNum(const std::vector<unsigned char>& bytes) noexcept;
+  explicit BigNum(const Bytes& bytes) noexcept;
   explicit BigNum(const unsigned char* bytes, size_t size) noexcept;
   BigNum(const BigNum& other) noexcept;
   BigNum(BigNum&& other) noexcept;
@@ -76,7 +79,7 @@ class BigNum {
 
   std::string to_string() const;
   operator std::string() const;
-  std::vector<unsigned char> to_bytes() const;
+  Bytes to_bytes() const;
 
  private:
   static thread_local struct Context {

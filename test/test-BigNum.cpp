@@ -344,18 +344,18 @@ TEST(BigNumTest, to_string) {
 }
 
 TEST(BigNumTest, OperatorStdString) {
-  EXPECT_EQ("1234", (std::string)BigNum(1234));
+  EXPECT_EQ("1234", BigNum(1234).to_string());
 }
 
 TEST(BigNumTest, to_bytes) {
-  std::vector<unsigned char> bytes = BigNum(1234).to_bytes();
+  Bytes bytes = BigNum(1234).to_bytes();
 
   BIGNUM* bn = BN_new();
   BN_dec2bn(&bn, "1234");
 
   int length = BN_num_bytes(bn);
-  unsigned char chars[length];
-  BN_bn2bin(bn, chars);
+  std::byte chars[length];
+  BN_bn2bin(bn, reinterpret_cast<unsigned char*>(chars));
 
   BN_free(bn);
 

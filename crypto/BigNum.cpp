@@ -41,8 +41,12 @@ BigNum::BigNum(BN_ULONG num) noexcept : BigNum() {
 }
 
 BigNum::BigNum(const std::vector<unsigned char>& bytes) noexcept
-    : bignum_{BN_bin2bn((unsigned char*)bytes.data(), bytes.size(), nullptr)}
+    : bignum_{BN_bin2bn(bytes.data(), bytes.size(), nullptr)}
   {}
+
+BigNum::BigNum(const Bytes& bytes) noexcept
+    : bignum_{BN_bin2bn(reinterpret_cast<const unsigned char*>(bytes.data()),
+                        bytes.size(), nullptr)} {}
 
 BigNum::BigNum(const unsigned char* bytes, size_t size) noexcept
     : bignum_{BN_bin2bn(bytes, size, nullptr)} {}
@@ -229,9 +233,9 @@ BigNum::operator std::string() const {
   return result;
 }
 
-std::vector<unsigned char> BigNum::to_bytes() const {
-  std::vector<unsigned char> result(BN_num_bytes(bignum_));
-  BN_bn2bin(bignum_, result.data());
+Bytes BigNum::to_bytes() const {
+  Bytes result(BN_num_bytes(bignum_));
+  BN_bn2bin(bignum_, reinterpret_cast<unsigned char*>(result.data()));
 
   return result;
 }

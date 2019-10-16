@@ -19,6 +19,7 @@
 #include "Util.h"
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -86,5 +87,11 @@ void check_port(std::string_view port_str) {
     throw std::logic_error(std::string("Port '") + port_str.data() +
                            "' is invalid: " + e.what());
   }
+}
+
+std::vector<std::byte> str_to_bytes(std::string_view str) {
+  auto result = std::vector<std::byte>(str.size());
+  std::memcpy(result.data(), str.data(), str.size());
+  return result;
 }
 }

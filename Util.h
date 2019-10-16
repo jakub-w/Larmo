@@ -90,6 +90,8 @@ bool wait_predicate(Predicate&& pred,
 /// /exception std::logic_error The exception thrown when the given port isn't
 /// valid.
 void check_port(std::string_view port_str);
+
+std::vector<std::byte> str_to_bytes(std::string_view str);
 }
 
 #endif // LRM_UTIL_H

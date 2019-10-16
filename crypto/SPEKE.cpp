@@ -132,12 +132,14 @@ Bytes SPEKE::HmacSign(const Bytes& message) {
 
   HMAC_Init_ex(ctx, encryption_key_.data(), encryption_key_.size(),
                LRM_SPEKE_HASHFUNC, nullptr);
-  HMAC_Update(ctx, message.data(), message.size());
+  HMAC_Update(ctx,
+              reinterpret_cast<const unsigned char*>(message.data()),
+              message.size());
 
   Bytes md(EVP_MAX_MD_SIZE);
   // unsigned char md[EVP_MAX_MD_SIZE];
   unsigned int len = 0;
-  HMAC_Final(ctx, md.data(), &len);
+  HMAC_Final(ctx, reinterpret_cast<unsigned char*>(md.data()), &len);
   md.resize(len);
 
   HMAC_CTX_free(ctx);
@@ -209,7 +211,10 @@ void SPEKE::ensure_keying_material() {
   keying_material_.clear();
   keying_material_.resize(EVP_MAX_MD_SIZE);
   unsigned int md_len;
-  EVP_DigestFinal_ex(mdctx_, keying_material_.data(), &md_len);
+  EVP_DigestFinal_ex(
+      mdctx_,
+      reinterpret_cast<unsigned char*>(keying_material_.data()),
+      &md_len);
   keying_material_.resize(md_len);
 
   EVP_MD_CTX_reset(mdctx_);
@@ -247,7 +252,9 @@ void SPEKE::ensure_encryption_key() {
 
   size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
   encryption_key_.resize(key_len);
-  EVP_PKEY_derive(pctx, encryption_key_.data(), &key_len);
+  EVP_PKEY_derive(pctx,
+                  reinterpret_cast<unsigned char*>(encryption_key_.data()),
+                  &key_len);
 
   EVP_PKEY_CTX_free(pctx);
 }
@@ -268,17 +275,27 @@ Bytes SPEKE::gen_kcd(std::string_view first_id,
   // 'sizeof - 1' to drop the last null byte
   HMAC_Update(hmac_ctx, method, sizeof(method) - 1);
 
-  HMAC_Update(hmac_ctx, (unsigned char*)first_id.data(), first_id.size());
-  HMAC_Update(hmac_ctx, (unsigned char*)second_id.data(), second_id.size());
+  HMAC_Update(hmac_ctx,
+              reinterpret_cast<const unsigned char*>(first_id.data()),
+              first_id.size());
+  HMAC_Update(hmac_ctx,
+              reinterpret_cast<const unsigned char*>(second_id.data()),
+              second_id.size());
 
   Bytes pk_bytes = first_pubkey.to_bytes();
-  HMAC_Update(hmac_ctx, pk_bytes.data(), pk_bytes.size());
+  HMAC_Update(hmac_ctx,
+              reinterpret_cast<unsigned char*>(pk_bytes.data()),
+              pk_bytes.size());
   pk_bytes = second_pubkey.to_bytes();
-  HMAC_Update(hmac_ctx, pk_bytes.data(), pk_bytes.size());
+  HMAC_Update(hmac_ctx,
+              reinterpret_cast<unsigned char*>(pk_bytes.data()),
+              pk_bytes.size());
 
   Bytes md_value(EVP_MAX_MD_SIZE);
   unsigned int md_len = 0;
-  HMAC_Final(hmac_ctx, md_value.data(), &md_len);
+  HMAC_Final(hmac_ctx,
+             reinterpret_cast<unsigned char*>(md_value.data()),
+             &md_len);
   md_value.resize(md_len);
 
   HMAC_CTX_free(hmac_ctx);

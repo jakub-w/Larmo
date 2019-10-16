@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstring>
+
 #include <openssl/rand.h>
 #include <openssl/md5.h>
 
@@ -82,7 +84,7 @@ RAND_METHOD SpekeTestStatic::test_rand_meth = {
         test_rand_status
 };
 
-Bytes SpekeTestStatic::remote_pubkey_ = {0x15, 0xdd, 0xa1}; // 1432993
+Bytes SpekeTestStatic::remote_pubkey_ = BigNum(1432993).to_bytes();
 std::string SpekeTestStatic::remote_id_ = "remote-id";
 
 const RAND_METHOD* SpekeTestStatic::old_rand_method;
@@ -91,7 +93,7 @@ const RAND_METHOD* SpekeTestStatic::old_rand_method;
 TEST_F(SpekeTestStatic, GetPublicKey) {
   Bytes pubkey;
   EXPECT_NO_THROW(pubkey = speke_->GetPublicKey());
-  Bytes control = {0x25, 0x1F, 0xE1}; // 2432993
+  Bytes control = BigNum(2432993).to_bytes();
 
   EXPECT_TRUE(pubkey == control);
 }
@@ -259,10 +261,9 @@ TEST(SpekeTest, HmacSign) {
   peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
   peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
-  unsigned char msg[] = "message";
-  Bytes msg_bytes;
-  msg_bytes.reserve(sizeof(msg) - 1);
-  std::copy_n(msg, sizeof(msg) - 1, std::back_inserter(msg_bytes));
+  const unsigned char msg[] = "message";
+  Bytes msg_bytes(sizeof(msg) - 1);
+  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
   auto peer2_msg_hmac = peer2.HmacSign(msg_bytes);
@@ -280,10 +281,9 @@ TEST(SpekeTest, HmacSign_WrongPassword) {
   peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
   peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
-  unsigned char msg[] = "message";
-  Bytes msg_bytes;
-  msg_bytes.reserve(sizeof(msg) - 1);
-  std::copy_n(msg, sizeof(msg) - 1, std::back_inserter(msg_bytes));
+  const unsigned char msg[] = "message";
+  Bytes msg_bytes(sizeof(msg) - 1);
+  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
   auto peer2_msg_hmac = peer2.HmacSign(msg_bytes);
@@ -301,10 +301,9 @@ TEST(SpekeTest, ConfirmHmacSignature) {
   peer2.ProvideRemotePublicKeyIdPair(peer1_key, peer1.GetId());
   peer1.ProvideRemotePublicKeyIdPair(peer2_key, peer2.GetId());
 
-  unsigned char msg[] = "message";
-  Bytes msg_bytes;
-  msg_bytes.reserve(sizeof(msg) - 1);
-  std::copy_n(msg, sizeof(msg) - 1, std::back_inserter(msg_bytes));
+  const unsigned char msg[] = "message";
+  Bytes msg_bytes(sizeof(msg) - 1);
+  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
 
@@ -326,13 +325,13 @@ TEST(SpekeTest, GetKeyConfirmationData_WithoutProvidingPkey) {
 TEST(SpekeTest, ConfirmKey_WithoutProvidingPkey) {
   SPEKE speke("id", "password", 2692367);
 
-  EXPECT_ANY_THROW(speke.ConfirmKey({1, 1, 1}));
+  EXPECT_ANY_THROW(speke.ConfirmKey(Bytes()));
 }
 
 TEST(SpekeTest, HmacSign_WithoutProvidingPkey) {
   SPEKE speke("id", "password", 2692367);
 
-  EXPECT_ANY_THROW(speke.HmacSign({1, 1, 1}));
+  EXPECT_ANY_THROW(speke.HmacSign(Bytes()));
 }
 
 TEST(SpekeTest, ImpersonationAttack) {

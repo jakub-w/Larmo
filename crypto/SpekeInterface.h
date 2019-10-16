@@ -22,8 +22,9 @@
 #include <vector>
 #include <string>
 
+#include "crypto/config.h"
+
 namespace lrm::crypto {
-typedef std::vector<unsigned char> Bytes;
 /// \brief Abstract class for SPEKE implementation.
 ///
 /// More info in \ref SPEKE.

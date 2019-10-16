@@ -21,6 +21,8 @@
 #include "crypto/SPEKE.pb.h"
 #include "openssl/md5.h"
 
+#include "Util.h"
+
 namespace lrm::crypto {
 template <typename Protocol>
 SpekeSession<Protocol>::SpekeSession(
@@ -118,10 +120,9 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
   }
 
   if (message->has_signed_data()) {
-    const Bytes hmac{message->signed_data().hmac_signature().begin(),
-                     message->signed_data().hmac_signature().end()};
-    Bytes data{message->signed_data().data().begin(),
-               message->signed_data().data().end()};
+    const Bytes hmac =
+        Util::str_to_bytes(message->signed_data().hmac_signature());
+    Bytes data = Util::str_to_bytes(message->signed_data().data());
 
     if (speke_->ConfirmHmacSignature(hmac, data)) {
       handle_message(std::move(data));
@@ -131,8 +132,8 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
     }
   } else if (message->has_init_data()) {
     const std::string id = message->init_data().id();
-    const Bytes pubkey{message->init_data().public_key().begin(),
-                 message->init_data().public_key().end()};
+    const Bytes pubkey =
+        Util::str_to_bytes(message->init_data().public_key());
 
     try {
       speke_->ProvideRemotePublicKeyIdPair(pubkey, id);
@@ -149,8 +150,7 @@ void SpekeSession<Protocol>::handle_read(const asio::error_code& ec) {
       return;
     }
   } else if (message->has_key_confirmation()) {
-    const Bytes kcd{message->key_confirmation().data().begin(),
-                    message->key_confirmation().data().end()};
+    const Bytes kcd = Util::str_to_bytes(message->key_confirmation().data());
 
     if (not speke_->ConfirmKey(kcd)) {
       // TODO: Log it
