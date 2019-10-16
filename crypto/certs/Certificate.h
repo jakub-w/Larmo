@@ -27,11 +27,11 @@
 #include "crypto/certs/KeyPairBase.h"
 
 namespace lrm::crypto::certs {
-class Certificate {
- public:
-  using CertNameMap =
+using CertNameMap =
       std::unordered_map<std::string, std::string>;
 
+class Certificate {
+ public:
   Certificate();
   Certificate(KeyPairBase& key_pair,
               const CertNameMap& name_entries,

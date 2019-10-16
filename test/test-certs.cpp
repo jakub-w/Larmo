@@ -135,10 +135,10 @@ TEST_F(CertificateTest, FromKeyPair) {
   EXPECT_NO_THROW(
       certificate = std::make_unique<Certificate>(
           *key_pair,
-          Certificate::CertNameMap({{"countryName", "FO"},
-                                    {"stateOrProvinceName", "BAR"},
-                                    {"organizationName", "FooBar"},
-                                    {"commonName", "CN"}})));
+          CertNameMap({{"countryName", "FO"},
+                       {"stateOrProvinceName", "BAR"},
+                       {"organizationName", "FooBar"},
+                       {"commonName", "CN"}})));
 }
 
 TEST_F(CertificateTest, VerifyWithoutSignThrows) {

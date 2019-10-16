@@ -84,8 +84,10 @@ void SpekeSession<Protocol>::Close(SpekeSessionState state) noexcept {
 
   if (socket_.is_open()) {
     socket_.shutdown(asio::socket_base::shutdown_both, ec);
+    // TODO: Log if ec, then ec.clean()
   }
   socket_.close(ec);
+  // TODO: Log if ec
 
   speke_.reset();
 
