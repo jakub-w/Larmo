@@ -18,33 +18,46 @@
 
 #include <gtest/gtest.h>
 
-#include "crypto/RsaCertificate.h"
+#include "crypto/Certificate.h"
+#include "crypto/EddsaKeyPair.h"
 #include "crypto/RsaKeyPair.h"
-
-#include "filesystem.h"
 
 #include <openssl/pem.h>
 
+#include "filesystem.h"
 #include "Util.h"
 
 using namespace lrm::crypto::certs;
 
-const std::string serialized_privkey_path = "/tmp/lrm-test-privkey.pem";
-const std::string serialized_pubkey_path = "/tmp/lrm-test-pubkey.pem";
+const fs::path serialized_privkey_path = "/tmp/lrm-test-privkey.pem";
+const fs::path serialized_pubkey_path = "/tmp/lrm-test-pubkey.pem";
 const std::string serialized_cert_path = "/tmp/lrm-test-cert.pem";
-std::unique_ptr<RsaKeyPair> key_pair;
-std::unique_ptr<RsaCertificate> certificate;
-std::string pem_privkey_content;
 
-TEST(CertTest, RsaKeyPair_Generates) {
-  EXPECT_NO_THROW(key_pair = std::make_unique<RsaKeyPair>(true));
+template <typename T>
+class KeyPairTest : public ::testing::Test {
+ public:
+  static std::unique_ptr<T> key_pair;
+};
+template <typename T>
+std::unique_ptr<T> KeyPairTest<T>::key_pair;
+
+using KeyPairTypes = ::testing::Types<RsaKeyPair, EddsaKeyPair>;
+TYPED_TEST_CASE(KeyPairTest, KeyPairTypes);
+
+TYPED_TEST(KeyPairTest, Constructs) {
+  EXPECT_NO_THROW(TestFixture::key_pair = std::make_unique<TypeParam>());
 }
 
-TEST(CertTest, RsaKeyPair_SerializesPrivkeyToFile) {
+TYPED_TEST(KeyPairTest, Generates) {
+  EXPECT_NO_THROW(TestFixture::key_pair->Generate());
+}
+
+TYPED_TEST(KeyPairTest, SerializesPrivkeyToPemFile) {
   fs::remove(serialized_privkey_path);
 
-  EXPECT_NO_THROW(key_pair->SerializePrivateKey(serialized_privkey_path));
-  ASSERT_TRUE(lrm::Util::file_exists(serialized_privkey_path));
+  EXPECT_NO_THROW(
+      TestFixture::key_pair->ToPemFilePrivKey(serialized_privkey_path));
+  ASSERT_TRUE(lrm::Util::file_exists(serialized_privkey_path.c_str()));
 
   std::string line;
   auto fs = std::ifstream(serialized_privkey_path);
@@ -59,11 +72,12 @@ TEST(CertTest, RsaKeyPair_SerializesPrivkeyToFile) {
   EXPECT_EQ(last_line, "-----END PRIVATE KEY-----");
 }
 
-TEST(CertTest, RsaKeyPair_SerializesPubkeyToFile) {
+TYPED_TEST(KeyPairTest, SerializesPubkeyToPemFile) {
   fs::remove(serialized_pubkey_path);
 
-  EXPECT_NO_THROW(key_pair->SerializePublicKey(serialized_pubkey_path));
-  ASSERT_TRUE(lrm::Util::file_exists(serialized_pubkey_path));
+  EXPECT_NO_THROW(
+      TestFixture::key_pair->ToPemFilePubKey(serialized_pubkey_path));
+  ASSERT_TRUE(lrm::Util::file_exists(serialized_pubkey_path.c_str()));
 
   std::string line;
   auto fs = std::ifstream(serialized_pubkey_path);
@@ -78,9 +92,9 @@ TEST(CertTest, RsaKeyPair_SerializesPubkeyToFile) {
   EXPECT_EQ(last_line, "-----END PUBLIC KEY-----");
 }
 
-TEST(CertTest, RsaKeyPair_ToString) {
+TYPED_TEST(KeyPairTest, ToPemString) {
   std::string key_pair_str;
-  ASSERT_NO_THROW(key_pair_str = key_pair->ToString());
+  ASSERT_NO_THROW(key_pair_str = TestFixture::key_pair->ToPemPrivKey());
   ASSERT_FALSE(key_pair_str.empty());
 
   EXPECT_EQ(0, key_pair_str.find("-----BEGIN PRIVATE KEY-----"))
@@ -88,32 +102,51 @@ TEST(CertTest, RsaKeyPair_ToString) {
       "-----BEGIN PRIVATE KEY-----";
 }
 
-TEST(CertTest, RsaKeyPair_DeserializeFromFile) {
-  std::string key = key_pair->ToString();
+TYPED_TEST(KeyPairTest, DeserializeFromFile) {
+  std::string key = TestFixture::key_pair->ToPemPrivKey();
 
-  key_pair = std::make_unique<RsaKeyPair>(false);
-  ASSERT_NO_THROW(key_pair->DeserializePrivateKey(serialized_privkey_path));
+  TestFixture::key_pair.reset(new TypeParam);
+  ASSERT_NO_THROW(
+      TestFixture::key_pair->FromPemFile(serialized_privkey_path));
 
-  EXPECT_EQ(key, key_pair->ToString());
+  EXPECT_EQ(key, TestFixture::key_pair->ToPemPrivKey());
 }
 
 // TODO: add password encrypted (de)serialization tests
+// TODO: add tests for DER serialization
 
-TEST(CertTest, RsaCertificate_FromKeyPair) {
+
+// -------------------- CERTIFICATE TESTS --------------------
+
+class CertificateTest : public ::testing::Test {
+ public:
+  static void SetUpTestCase() {
+    key_pair = std::make_unique<EddsaKeyPair>();
+    key_pair->Generate();
+  }
+
+  static std::unique_ptr<EddsaKeyPair> key_pair;
+  static std::unique_ptr<Certificate> certificate;
+};
+std::unique_ptr<EddsaKeyPair> CertificateTest::key_pair;
+std::unique_ptr<Certificate> CertificateTest::certificate;
+
+TEST_F(CertificateTest, FromKeyPair) {
   EXPECT_NO_THROW(
-      certificate = std::make_unique<RsaCertificate>(
+      certificate = std::make_unique<Certificate>(
           *key_pair,
-          RsaCertificate::CertNameMap({{"countryName", "FO"},
-                                       {"stateOrProvinceName", "BAR"},
-                                       {"organizationName", "FooBar"},
-                                       {"commonName", "CN"}})));
+          Certificate::CertNameMap({{"countryName", "FO"},
+                                    {"stateOrProvinceName", "BAR"},
+                                    {"organizationName", "FooBar"},
+                                    {"commonName", "CN"}})));
 }
 
-TEST(CertTest, RsaCertificate_VerifyWithoutSignThrows) {
-  ASSERT_ANY_THROW(certificate->Verify(*key_pair));
+TEST_F(CertificateTest, VerifyWithoutSignThrows) {
+  ASSERT_THROW(certificate->Verify(*key_pair), std::runtime_error);
 }
 
-TEST(CertTest, RsaCertificate_SelfSignAndVerify) {
+TEST_F(CertificateTest, SelfSignAndVerify) {
+  certificate->Sign(*key_pair);
   ASSERT_NO_THROW(certificate->Sign(*key_pair));
 
   bool verified = false;
@@ -123,7 +156,7 @@ TEST(CertTest, RsaCertificate_SelfSignAndVerify) {
   EXPECT_TRUE(verified);
 }
 
-TEST(CertTest, RsaCertificate_Serialize) {
+TEST_F(CertificateTest, Serialize) {
   ASSERT_NO_THROW(certificate->Serialize(serialized_cert_path));
 
   std::string line;
@@ -139,7 +172,7 @@ TEST(CertTest, RsaCertificate_Serialize) {
   EXPECT_EQ(last_line, "-----END CERTIFICATE-----");
 }
 
-TEST(CertTest, RsaCertificate_ToString) {
+TEST_F(CertificateTest, ToString) {
   std::string cert_str;
   ASSERT_NO_THROW(cert_str = certificate->ToString());
   ASSERT_FALSE(cert_str.empty());
@@ -149,19 +182,19 @@ TEST(CertTest, RsaCertificate_ToString) {
       "-----BEGIN CERTIFICATE-----";
 }
 
-TEST(CertTest, RsaCertificate_DeserializeFromFile) {
+TEST_F(CertificateTest, DeserializeFromFile) {
   std::string cert_str = certificate->ToString();
 
-  certificate = std::make_unique<RsaCertificate>();
+  certificate = std::make_unique<Certificate>();
   ASSERT_NO_THROW(certificate->Deserialize(serialized_cert_path));
   EXPECT_EQ(cert_str, certificate->ToString());
 }
 
-TEST(CertTest, RsaCertificate_ConstructFromPemString) {
+TEST_F(CertificateTest, ConstructFromPemString) {
   std::string cert_str = certificate->ToString();
 
   certificate.reset();
-  ASSERT_NO_THROW(certificate = std::make_unique<RsaCertificate>(cert_str));
+  ASSERT_NO_THROW(certificate = std::make_unique<Certificate>(cert_str));
   ASSERT_NE(certificate.get(), nullptr);
   EXPECT_EQ(cert_str, certificate->ToString());
 }

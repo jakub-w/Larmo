@@ -19,6 +19,7 @@
 #ifndef LRM_CERTS_H_
 #define LRM_CERTS_H_
 
+#include <memory>
 #include <string_view>
 
 #include <openssl/rsa.h>
@@ -30,11 +31,32 @@ namespace lrm::crypto::certs {
 static constexpr int KEY_BITS = 2048;
 static constexpr int KEY_EXPONENT = RSA_F4;
 static const EVP_CIPHER* KEY_PEM_CIPHER = EVP_aes_192_gcm();
-static const EVP_MD* KEY_SIGN_DIGEST = EVP_sha256();
+static const EVP_MD* KEY_RSA_SIGN_DIGEST = EVP_sha256();
 
 int print_errors_cb(const char* str, size_t len, void* arg);
 void handle_ssl_error(std::string_view file, int line, std::string_view msg);
 std::basic_string<unsigned char> str_to_uc(std::string_view str);
-std::string bio_to_str(BIO* bio) noexcept;
+
+
+using bio_ptr = std::unique_ptr<BIO, decltype(&BIO_free_all)>;
+bio_ptr make_bio(const BIO_METHOD* type = nullptr);
+
+template <typename Container>
+Container bio_to_container(BIO* bio) noexcept {
+  Container result;
+  result.resize(BIO_pending(bio));
+  BIO_read(bio, result.data(), result.size());
+  return result;
+}
+
+template <typename Container>
+bio_ptr container_to_bio(const Container& container) {
+  auto bio = make_bio(BIO_s_mem());
+  if (not bio) int_error("Failed to create BIO object");
+
+  BIO_write(bio.get(), container.data(), container.size());
+  return bio;
+}
+
 }
 #endif  // LRM_CERTS_H_

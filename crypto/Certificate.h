@@ -16,37 +16,38 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#ifndef LRM_RSACERTIFICATE_H_
-#define LRM_RSACERTIFICATE_H_
+#ifndef LRM_CERTIFICATE_H_
+#define LRM_CERTIFICATE_H_
 
+#include <memory>
 #include <unordered_map>
 
 #include <openssl/x509.h>
 
-#include "crypto/RsaKeyPair.h"
+#include "crypto/KeyPairBase.h"
 
 namespace lrm::crypto::certs {
-class RsaCertificate {
+class Certificate {
  public:
   using CertNameMap =
       std::unordered_map<std::string, std::string>;
 
-  RsaCertificate();
-  RsaCertificate(RsaKeyPair& key_pair,
-                 const CertNameMap& name_entries,
-                 unsigned int expiration_days = 365);
+  Certificate();
+  Certificate(KeyPairBase& key_pair,
+              const CertNameMap& name_entries,
+              unsigned int expiration_days = 365);
   /// Construct RsaCertificate object from the PEM form present in \e pem_str.
   /// \param pem_str String storing PEM form of the certificate.
-  explicit RsaCertificate(std::string& pem_str);
+  explicit Certificate(std::string& pem_str);
 
-  RsaCertificate(const RsaCertificate&) = delete;
-  RsaCertificate(RsaCertificate&&) = delete;
-  RsaCertificate& operator=(RsaCertificate&) = delete;
-  RsaCertificate& operator=(RsaCertificate&&) = delete;
+  Certificate(const Certificate&) = delete;
+  Certificate(Certificate&&) = delete;
+  Certificate& operator=(Certificate&) = delete;
+  Certificate& operator=(Certificate&&) = delete;
 
-  void Sign(RsaKeyPair& key_pair);
+  void Sign(KeyPairBase& key_pair);
 
-  bool Verify(RsaKeyPair& key_pair);
+  bool Verify(KeyPairBase& key_pair);
 
   inline X509* Get() const {
     return cert_.get();
@@ -63,4 +64,4 @@ class RsaCertificate {
 };
 }
 
-#endif  // LRM_RSACERTIFICATE_H_
+#endif  // LRM_CERTIFICATE_H_

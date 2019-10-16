@@ -16,18 +16,27 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "crypto/KeyPairBase.h"
+#include "crypto/EddsaKeyPair.h"
 #include "crypto/certs.h"
 
+#include <openssl/x509.h>
+
 namespace lrm::crypto::certs {
-class RsaKeyPair : public KeyPairBase {
- public:
-  void Generate() final;
-  const EVP_MD* DigestType() const final {
-    return KEY_RSA_SIGN_DIGEST;
+void EddsaKeyPair::Generate() {
+  EVP_PKEY* pkey = nullptr;
+  EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+  if (not pctx) int_error("Failed to create EVP_PKEY_CTX object");
+
+  if (not EVP_PKEY_keygen_init(pctx)) {
+    EVP_PKEY_CTX_free(pctx);
+    int_error("Error initializing EVP_PKEY keygen");
   }
-  inline bool is_correct_type(const EVP_PKEY* pkey) const final {
-    return EVP_PKEY_id(pkey) == EVP_PKEY_RSA;
+  if (not EVP_PKEY_keygen(pctx, &pkey)) {
+    EVP_PKEY_CTX_free(pctx);
+    int_error("Error generating key");
   }
-};
+  EVP_PKEY_CTX_free(pctx);
+
+  pkey_.reset(pkey);
+}
 }

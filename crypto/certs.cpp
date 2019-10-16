@@ -50,15 +50,13 @@ std::basic_string<unsigned char> str_to_uc(std::string_view str) {
   return result;
 }
 
-std::string bio_to_str(BIO* bio) noexcept {
-  std::stringstream ss;
-  char buffer[256];
-  int readbytes = 0;
-  while ((readbytes = BIO_read(bio, buffer, 255)) > 0) {
-    buffer[readbytes] = '\0';
-    ss << buffer;
+bio_ptr make_bio(const BIO_METHOD* type) {
+  if (not type) {
+    return std::unique_ptr<BIO, decltype(&BIO_free_all)>(
+        nullptr, &BIO_free_all);
+  } else {
+    return std::unique_ptr<BIO, decltype(&BIO_free_all)>(
+        BIO_new(type), &BIO_free_all);
   }
-
-  return ss.str();
 }
 }

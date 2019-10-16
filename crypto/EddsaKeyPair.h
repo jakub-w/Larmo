@@ -16,18 +16,23 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "crypto/KeyPairBase.h"
-#include "crypto/certs.h"
+#ifndef LRM_EDDSAKEYPAIR_H_
+#define LRM_EDDSAKEYPAIR_H_
+
+#include "KeyPairBase.h"
 
 namespace lrm::crypto::certs {
-class RsaKeyPair : public KeyPairBase {
+class EddsaKeyPair : public KeyPairBase {
  public:
   void Generate() final;
-  const EVP_MD* DigestType() const final {
-    return KEY_RSA_SIGN_DIGEST;
+  inline const EVP_MD* DigestType() const final {
+    return EVP_md_null();
   }
+ protected:
   inline bool is_correct_type(const EVP_PKEY* pkey) const final {
-    return EVP_PKEY_id(pkey) == EVP_PKEY_RSA;
+    return EVP_PKEY_id(pkey) == EVP_PKEY_ED25519;
   }
 };
 }
+
+#endif  // LRM_EDDSAKEYPAIR_H_
