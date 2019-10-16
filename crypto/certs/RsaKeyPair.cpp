@@ -16,8 +16,9 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "crypto/RsaKeyPair.h"
-#include "crypto/certs.h"
+#include "crypto/certs/RsaKeyPair.h"
+#include "crypto/certs/CertsUtil.h"
+#include "crypto/config.h"
 
 namespace lrm::crypto::certs {
 void RsaKeyPair::Generate() {
@@ -28,7 +29,7 @@ void RsaKeyPair::Generate() {
   try {
     if (EVP_PKEY_keygen_init(pctx) <= 0)
       int_error("Error initializing EVP_PKEY keygen");
-    if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, KEY_BITS) <= 0)
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, LRM_RSA_KEY_BITS) <= 0)
       int_error("Error setting keygen bits for RSA");
     if (EVP_PKEY_keygen(pctx, &pkey) <= 0)
       int_error("Error generating key");

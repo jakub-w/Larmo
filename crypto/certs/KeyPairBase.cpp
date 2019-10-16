@@ -16,14 +16,15 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "crypto/KeyPairBase.h"
-#include "crypto/certs.h"
+#include "crypto/certs/KeyPairBase.h"
 
 #include <cassert>
 #include <fstream>
 
 #include <openssl/pem.h>
 
+#include "crypto/certs/CertsUtil.h"
+#include "crypto/config.h"
 #include "Util.h"
 
 namespace lrm::crypto::certs {
@@ -31,7 +32,7 @@ KeyPairBase::KeyPairBase() : pkey_(nullptr, &EVP_PKEY_free) {}
 
 std::string KeyPairBase::ToPemPrivKey(std::string password) const {
   assert(pkey_);
-  const EVP_CIPHER* enc = password.empty() ? nullptr : KEY_PEM_CIPHER;
+  const EVP_CIPHER* enc = password.empty() ? nullptr : LRM_RSA_KEY_PEM_CIPHER;
 
   const auto bio = make_bio(BIO_s_mem());
   if (not bio) int_error("Failed to create BIO object");

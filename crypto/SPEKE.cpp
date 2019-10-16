@@ -28,6 +28,8 @@
 
 #include "crypto/SPEKE.pb.h"
 
+#include "crypto/config.h"
+
 namespace lrm::crypto {
 std::unordered_map<std::string, int> SPEKE::id_counts;
 

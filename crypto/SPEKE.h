@@ -25,10 +25,7 @@
 
 #include <openssl/evp.h>
 
-#include "BigNum.h"
-
-#define LRM_SPEKE_HASHFUNC EVP_sha3_512()
-#define LRM_SPEKE_CIPHER_TYPE EVP_aes_192_gcm()
+#include "crypto/BigNum.h"
 
 namespace lrm::crypto {
 

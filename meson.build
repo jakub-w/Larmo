@@ -99,11 +99,11 @@ spdlog_dep = declare_dependency(
 crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/SPEKE.cpp',
 		  'crypto/SpekeSession.cpp',
-		  'crypto/certs.cpp',
-		  'crypto/KeyPairBase.cpp',
-		  'crypto/EddsaKeyPair.cpp',
-		  'crypto/RsaKeyPair.cpp',
-		  'crypto/Certificate.cpp']
+		  'crypto/certs/CertsUtil.cpp',
+		  'crypto/certs/KeyPairBase.cpp',
+		  'crypto/certs/EddsaKeyPair.cpp',
+		  'crypto/certs/RsaKeyPair.cpp',
+		  'crypto/certs/Certificate.cpp']
 
 
 # Executables

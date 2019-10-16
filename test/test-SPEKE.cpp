@@ -22,6 +22,7 @@
 #include <openssl/md5.h>
 
 #include "crypto/SPEKE.h"
+#include "crypto/config.h"
 
 using namespace lrm::crypto;
 

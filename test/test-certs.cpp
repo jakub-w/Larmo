@@ -18,9 +18,9 @@
 
 #include <gtest/gtest.h>
 
-#include "crypto/Certificate.h"
-#include "crypto/EddsaKeyPair.h"
-#include "crypto/RsaKeyPair.h"
+#include "crypto/certs/Certificate.h"
+#include "crypto/certs/EddsaKeyPair.h"
+#include "crypto/certs/RsaKeyPair.h"
 
 #include <openssl/pem.h>
 

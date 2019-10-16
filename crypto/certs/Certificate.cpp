@@ -16,8 +16,8 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
-#include "crypto/Certificate.h"
-#include "crypto/certs.h"
+#include "crypto/certs/Certificate.h"
+#include "crypto/certs/CertsUtil.h"
 
 #include <cstring>
 #include <sstream>

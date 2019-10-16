@@ -28,11 +28,6 @@
 namespace lrm::crypto::certs {
 #define int_error(msg) handle_ssl_error(__FILE__, __LINE__, (msg))
 
-static constexpr int KEY_BITS = 2048;
-static constexpr int KEY_EXPONENT = RSA_F4;
-static const EVP_CIPHER* KEY_PEM_CIPHER = EVP_aes_192_gcm();
-static const EVP_MD* KEY_RSA_SIGN_DIGEST = EVP_sha256();
-
 int print_errors_cb(const char* str, size_t len, void* arg);
 void handle_ssl_error(std::string_view file, int line, std::string_view msg);
 std::basic_string<unsigned char> str_to_uc(std::string_view str);
