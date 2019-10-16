@@ -77,19 +77,19 @@ class SpekeSession {
   SpekeSession(asio::basic_stream_socket<Protocol>&& socket,
                std::shared_ptr<SpekeInterface>&& speke);
 
-  virtual ~SpekeSession();
+  ~SpekeSession();
 
   /// \brief Establish SPEKE session and start listening for incoming
   /// messages asynchronously.
   ///
   /// \param handler A function for handling messages. More info in
   /// \ref SetMessageHandler() and \ref MessageHandler documentation.
-  virtual void Run(MessageHandler&& handler);
+  void Run(MessageHandler&& handler);
 
   /// \brief Close the session and severe the connection.
   ///
   /// \param state \ref SpekeSessionState to set while closing the connection.
-  virtual void Close(SpekeSessionState state) noexcept;
+  void Close(SpekeSessionState state) noexcept;
 
   /// \brief Set a handler to handle incoming HMAC-signed messages.
   ///
@@ -103,13 +103,13 @@ class SpekeSession {
   /// \endcode
   ///
   /// \param handler A function that will handle messages.
-  virtual void SetMessageHandler(MessageHandler&& handler);
+  void SetMessageHandler(MessageHandler&& handler);
 
   /// \brief Get the session state
-  virtual SpekeSessionState GetState() const;
+  SpekeSessionState GetState() const;
 
   /// \brief Send a \e message to peer. The message will be signed with HMAC.
-  virtual void SendMessage(const Bytes& message);
+  void SendMessage(const Bytes& message);
 
  protected:
   // This is synchronous

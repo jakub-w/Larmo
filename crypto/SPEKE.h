@@ -71,18 +71,18 @@ class SPEKE : public SpekeInterface {
   SPEKE(std::string_view id, std::string_view password, BigNum safe_prime);
   virtual ~SPEKE();
 
-  virtual Bytes GetPublicKey() const override;
+  Bytes GetPublicKey() const final;
 
-  virtual inline const std::string& GetId() const override {
+  inline const std::string& GetId() const final {
     return id_;
   }
 
   /// Provide the SPEKE session with a public key of the remote party.
   /// \param remote_pubkey Public key of the remote party.
   /// \param remote_id Id of the remote party.
-  virtual void ProvideRemotePublicKeyIdPair(
+  void ProvideRemotePublicKeyIdPair(
       const Bytes& remote_pubkey,
-      const std::string& remote_id) override;
+      const std::string& remote_id) final;
 
   /// Return the encryption key created by using HKDF on Diffie-Hellman key
   /// provided by the SPEKE algorithm.
@@ -92,7 +92,7 @@ class SPEKE : public SpekeInterface {
   ///
   /// The key's length is hardcoded and it's value corresponds to the
   /// key length used with \ref LRM_SPEKE_CIPHER_TYPE.
-  virtual const Bytes& GetEncryptionKey() override;
+  const Bytes& GetEncryptionKey() final;
 
   /// Return the key confirmation data that can be used by the remote party
   /// to confirm that the encryption keys and ids are the same.
@@ -103,22 +103,22 @@ class SPEKE : public SpekeInterface {
   /// Unlike in the default SPEKE standard, the encryption key (created using
   /// HKDF) is used to generate the key confirmation data, not the regular
   /// SPEKE key.
-  virtual const Bytes& GetKeyConfirmationData() override;
+  const Bytes& GetKeyConfirmationData() final;
 
   /// Confirm that the remote has the same key.
   /// \param remote_kcd Key confirmation data of the remote party.
-  virtual bool ConfirmKey(const Bytes& remote_kcd) override;
+  bool ConfirmKey(const Bytes& remote_kcd) final;
 
   /// Sign a \e message with HMAC using an encryption key derived from DH
   /// exchange.
-  virtual Bytes HmacSign(const Bytes& message) override;
+  Bytes HmacSign(const Bytes& message) final;
 
   /// Confirm a signature created by the remote party with \ref HmacSign()
   /// \return \c true if the signature matches.
   /// \return \c false otherwise.
-  virtual bool ConfirmHmacSignature(
+  bool ConfirmHmacSignature(
       const Bytes& hmac_signature,
-      const Bytes& message) override;
+      const Bytes& message) final;
 
  private:
   /// \brief Make an ID out of the public key and the timestamp.
