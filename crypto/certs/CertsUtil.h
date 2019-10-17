@@ -24,6 +24,7 @@
 
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
+#include <openssl/x509.h>
 
 namespace lrm::crypto::certs {
 #define int_error(msg) handle_ssl_error(__FILE__, __LINE__, (msg))
@@ -53,5 +54,22 @@ bio_ptr container_to_bio(const Container& container) {
   return bio;
 }
 
+template <typename Map>
+auto map_to_x509_name(const Map& map) {
+  std::unique_ptr<X509_NAME, decltype(&X509_NAME_free)>
+      name{X509_NAME_new(), &X509_NAME_free};
+  if (not name) int_error("Failed to create X509_NAME object");
+
+  for(const auto& [key, value] : map) {
+    const auto value_uc = str_to_uc(value);
+    if (not X509_NAME_add_entry_by_txt(
+            name.get(), key.c_str(), MBSTRING_ASC,
+            value_uc.c_str(), value_uc.size(), -1, 0)) {
+      int_error("Error adding entry '" + key + "' to X509_NAME object");
+    }
+  }
+
+  return name;
+}
 }
 #endif  // LRM_CERTS_H_

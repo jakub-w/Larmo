@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "crypto/certs/Certificate.h"
+#include "crypto/certs/CertificateRequest.h"
 #include "crypto/certs/EddsaKeyPair.h"
 #include "crypto/certs/RsaKeyPair.h"
 
@@ -32,6 +33,23 @@ using namespace lrm::crypto::certs;
 const fs::path serialized_privkey_path = "/tmp/lrm-test-privkey.pem";
 const fs::path serialized_pubkey_path = "/tmp/lrm-test-pubkey.pem";
 const std::string serialized_cert_path = "/tmp/lrm-test-cert.pem";
+std::shared_ptr<EddsaKeyPair> glob_key_pair;
+
+bool check_pem_file_contents(std::string_view filename) {
+  std::string line;
+  auto fs = std::ifstream(filename.data());
+  std::getline(fs, line);
+  if (line.find("-----BEGIN ") != 0) return false;
+
+  std::string last_line = line;
+  while (std::getline(fs, line)) {
+    if (line.empty()) break;
+    last_line = line;
+  }
+
+  if (last_line.find("-----END ") == 0) return true;
+  return false;
+}
 
 template <typename T>
 class KeyPairTest : public ::testing::Test {
@@ -59,17 +77,7 @@ TYPED_TEST(KeyPairTest, SerializesPrivkeyToPemFile) {
       TestFixture::key_pair->ToPemFilePrivKey(serialized_privkey_path));
   ASSERT_TRUE(lrm::Util::file_exists(serialized_privkey_path.c_str()));
 
-  std::string line;
-  auto fs = std::ifstream(serialized_privkey_path);
-  std::getline(fs, line);
-  ASSERT_EQ(line, "-----BEGIN PRIVATE KEY-----");
-
-  std::string last_line = line;
-  while (std::getline(fs, line)) {
-    if (line.empty()) break;
-    last_line = line;
-  }
-  EXPECT_EQ(last_line, "-----END PRIVATE KEY-----");
+  EXPECT_TRUE(check_pem_file_contents(serialized_privkey_path.string()));
 }
 
 TYPED_TEST(KeyPairTest, SerializesPubkeyToPemFile) {
@@ -79,17 +87,7 @@ TYPED_TEST(KeyPairTest, SerializesPubkeyToPemFile) {
       TestFixture::key_pair->ToPemFilePubKey(serialized_pubkey_path));
   ASSERT_TRUE(lrm::Util::file_exists(serialized_pubkey_path.c_str()));
 
-  std::string line;
-  auto fs = std::ifstream(serialized_pubkey_path);
-  std::getline(fs, line);
-  ASSERT_EQ(line, "-----BEGIN PUBLIC KEY-----");
-
-  std::string last_line = line;
-  while (std::getline(fs, line)) {
-    if (line.empty()) break;
-    last_line = line;
-  }
-  EXPECT_EQ(last_line, "-----END PUBLIC KEY-----");
+  EXPECT_TRUE(check_pem_file_contents(serialized_pubkey_path.string()));
 }
 
 TYPED_TEST(KeyPairTest, ToPemString) {
@@ -121,14 +119,15 @@ TYPED_TEST(KeyPairTest, DeserializeFromFile) {
 class CertificateTest : public ::testing::Test {
  public:
   static void SetUpTestCase() {
-    key_pair = std::make_unique<EddsaKeyPair>();
+    key_pair = std::make_shared<EddsaKeyPair>();
     key_pair->Generate();
+    glob_key_pair = key_pair;
   }
 
-  static std::unique_ptr<EddsaKeyPair> key_pair;
+  static std::shared_ptr<EddsaKeyPair> key_pair;
   static std::unique_ptr<Certificate> certificate;
 };
-std::unique_ptr<EddsaKeyPair> CertificateTest::key_pair;
+std::shared_ptr<EddsaKeyPair> CertificateTest::key_pair;
 std::unique_ptr<Certificate> CertificateTest::certificate;
 
 TEST_F(CertificateTest, FromKeyPair) {
@@ -159,17 +158,7 @@ TEST_F(CertificateTest, SelfSignAndVerify) {
 TEST_F(CertificateTest, Serialize) {
   ASSERT_NO_THROW(certificate->Serialize(serialized_cert_path));
 
-  std::string line;
-  auto fs = std::ifstream(serialized_cert_path);
-  std::getline(fs, line);
-  ASSERT_EQ(line, "-----BEGIN CERTIFICATE-----");
-
-  std::string last_line = line;
-  while (std::getline(fs, line)) {
-    if (line.empty()) break;
-    last_line = line;
-  }
-  EXPECT_EQ(last_line, "-----END CERTIFICATE-----");
+  EXPECT_TRUE(check_pem_file_contents(serialized_cert_path));
 }
 
 TEST_F(CertificateTest, ToString) {
@@ -197,4 +186,58 @@ TEST_F(CertificateTest, ConstructFromPemString) {
   ASSERT_NO_THROW(certificate = std::make_unique<Certificate>(cert_str));
   ASSERT_NE(certificate.get(), nullptr);
   EXPECT_EQ(cert_str, certificate->ToString());
+}
+
+// -------------------- CERTIFICATE REQUEST TESTS --------------------
+
+std::unique_ptr<CertificateRequest> glob_cert_req;
+
+class CertificateRequestTest : public ::testing::Test {
+ protected:
+  inline static const fs::path cert_req_pem_filename =
+      "/tmp/lrm-test-certreq.pem";
+  inline static lrm::crypto::Bytes glob_cert_req_der;
+
+  static void SetUpTestCase() {
+    fs::remove(cert_req_pem_filename);
+  }
+};
+
+
+TEST_F(CertificateRequestTest, Constructs) {
+  EXPECT_NO_THROW(glob_cert_req = std::make_unique<CertificateRequest>());
+}
+
+TEST_F(CertificateRequestTest, Constructs_FromKeyPair) {
+  EXPECT_NO_THROW(
+      glob_cert_req = std::make_unique<CertificateRequest>(
+          *glob_key_pair,
+          CertNameMap({{"countryName", "FO"},
+                       {"stateOrProvinceName", "ReqProvince"},
+                       {"organizationName", "ReqOrganization"},
+                       {"commonName", "ReqCN"}})));
+}
+
+TEST_F(CertificateRequestTest, ToDER) {
+  EXPECT_NO_THROW(glob_cert_req_der = glob_cert_req->ToDER());
+}
+
+TEST_F(CertificateRequestTest, FromDER) {
+  auto new_cert_req = std::make_unique<CertificateRequest>();
+  ASSERT_NO_THROW(new_cert_req->FromDER(glob_cert_req_der));
+
+  EXPECT_EQ(new_cert_req->ToDER(), glob_cert_req->ToDER());
+}
+
+TEST_F(CertificateRequestTest, ToPemFile) {
+  ASSERT_NO_THROW(glob_cert_req->ToPemFile(cert_req_pem_filename));
+
+  EXPECT_TRUE(check_pem_file_contents(cert_req_pem_filename.string()));
+}
+
+TEST_F(CertificateRequestTest, FromPemFile) {
+  auto new_cert_req = std::make_unique<CertificateRequest>();
+  ASSERT_NO_THROW(new_cert_req->FromPemFile(cert_req_pem_filename));
+
+  EXPECT_EQ(new_cert_req->ToDER(), glob_cert_req_der);
 }

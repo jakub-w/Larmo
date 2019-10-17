@@ -46,23 +46,10 @@ Certificate::Certificate(KeyPairBase& key_pair,
   if (not X509_set_pubkey(cert_.get(), key_pair.Get()))
     int_error("Error setting public key of the certificate");
 
-  X509_NAME* name = X509_NAME_new();
-  if (not name) int_error("Failed to create X509_NAME object");
+  auto name = map_to_x509_name(name_entries);
 
-  for(const auto& [key, value] : name_entries) {
-    const auto value_uc = str_to_uc(value);
-    if (not X509_NAME_add_entry_by_txt(
-            name, key.c_str(), MBSTRING_ASC,
-            value_uc.c_str(), value_uc.size(), -1, 0)) {
-      X509_NAME_free(name);
-      int_error("Error adding entry '" + key + "' to X509_NAME object");
-    }
-  }
-  if (not X509_set_subject_name(cert_.get(), name)) {
-    X509_NAME_free(name);
+  if (not X509_set_subject_name(cert_.get(), name.get()))
     int_error("Error setting subject name of certificate");
-  }
-  X509_NAME_free(name);
 }
 
 Certificate::Certificate(std::string& pem_str)

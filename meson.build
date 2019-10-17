@@ -103,7 +103,8 @@ crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/certs/KeyPairBase.cpp',
 		  'crypto/certs/EddsaKeyPair.cpp',
 		  'crypto/certs/RsaKeyPair.cpp',
-		  'crypto/certs/Certificate.cpp']
+		  'crypto/certs/Certificate.cpp',
+		  'crypto/certs/CertificateRequest.cpp']
 
 
 # Executables
