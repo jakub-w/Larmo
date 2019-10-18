@@ -66,6 +66,16 @@ Certificate::Certificate(std::string& pem_str)
   if (not cert_) int_error("Error reading certificate from BIO");
 }
 
+Certificate::Certificate(const Certificate& cert)
+    : cert_{X509_dup(cert.Get()), &X509_free} {}
+
+Certificate& Certificate::operator=(Certificate& cert) {
+  cert_ = std::unique_ptr<X509, decltype(&X509_free)>(
+      X509_dup(cert.Get()), &X509_free);
+
+  return *this;
+}
+
 void Certificate::Sign(KeyPairBase& key_pair) {
   if (not X509_sign(cert_.get(), key_pair.Get(), key_pair.DigestType())) {
     int_error("Error signing certificate");
@@ -118,5 +128,64 @@ std::string Certificate::ToString() const {
   if (result.empty()) int_error("Error reading from BIO");
 
   return result;
+}
+
+Certificate::Map Certificate::GetExtensions() const {
+  const auto ext_count = X509_get_ext_count(cert_.get());
+  Map extensions;
+  extensions.reserve(ext_count);
+
+  for (auto i = 0; i < ext_count; ++i) {
+    const auto ext = X509_get_ext(cert_.get(), i);
+    if (not ext) int_error("Error reading certificate extension");
+
+    const auto obj = X509_EXTENSION_get_object(ext);
+    if (not obj) int_error("Error reading object from extension");
+    char key[256];
+    OBJ_obj2txt(key, 256, obj, 0);
+
+    const auto data = X509_EXTENSION_get_data(ext);
+    if (not data) int_error("Error reading data from extension");
+
+    extensions[key] =
+        reinterpret_cast<const char*>(ASN1_STRING_get0_data(data));
+  }
+
+  return extensions;
+}
+
+Certificate::Map Certificate::GetSubjectName() const {
+  const X509_NAME* name = X509_get_subject_name(cert_.get());
+  if (not name) int_error("Failed to read certificate subject name");
+
+  return name_to_map(name);
+}
+
+Certificate::Map Certificate::GetIssuerName() const {
+  const X509_NAME* name = X509_get_issuer_name(cert_.get());
+  if (not name) int_error("Failed to read certificate subject name");
+
+  return name_to_map(name);
+}
+
+Certificate::Map Certificate::name_to_map(const X509_NAME* name) const {
+  Map entries;
+  const int num_entries = X509_NAME_entry_count(name);
+  entries.reserve(num_entries);
+  for (int i = 0; i < num_entries; ++i) {
+    const X509_NAME_ENTRY* entry = X509_NAME_get_entry(name, i);
+    if (not entry) int_error("Error reading entry from certificate name");
+
+    const ASN1_OBJECT* obj = X509_NAME_ENTRY_get_object(entry);
+    if (not obj) int_error("Error reading object from name entry");
+
+    char key[256];
+    OBJ_obj2txt(key, 256, obj, 0);
+    const ASN1_STRING* data = X509_NAME_ENTRY_get_data(entry);
+    if (not data) int_error("Error reading data from name entry");
+
+    entries[key] = reinterpret_cast<const char*>(ASN1_STRING_get0_data(data));
+  }
+  return entries;
 }
 }

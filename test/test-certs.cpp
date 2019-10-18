@@ -116,6 +116,13 @@ TYPED_TEST(KeyPairTest, DeserializeFromFile) {
 
 // -------------------- CERTIFICATE TESTS --------------------
 
+static std::unique_ptr<Certificate> glob_certificate;
+auto glob_cert_name = lrm::crypto::certs::CertNameMap{
+  {"countryName", "FO"},
+  {"stateOrProvinceName", "BAR"},
+  {"organizationName", "FooBar"},
+  {"commonName", "CN"}};
+
 class CertificateTest : public ::testing::Test {
  public:
   static void SetUpTestCase() {
@@ -125,45 +132,40 @@ class CertificateTest : public ::testing::Test {
   }
 
   static std::shared_ptr<EddsaKeyPair> key_pair;
-  static std::unique_ptr<Certificate> certificate;
 };
 std::shared_ptr<EddsaKeyPair> CertificateTest::key_pair;
-std::unique_ptr<Certificate> CertificateTest::certificate;
 
 TEST_F(CertificateTest, FromKeyPair) {
   EXPECT_NO_THROW(
-      certificate = std::make_unique<Certificate>(
+      glob_certificate = std::make_unique<Certificate>(
           *key_pair,
-          CertNameMap({{"countryName", "FO"},
-                       {"stateOrProvinceName", "BAR"},
-                       {"organizationName", "FooBar"},
-                       {"commonName", "CN"}})));
+          glob_cert_name));
 }
 
 TEST_F(CertificateTest, VerifyWithoutSignThrows) {
-  ASSERT_THROW(certificate->Verify(*key_pair), std::runtime_error);
+  ASSERT_THROW(glob_certificate->Verify(*key_pair), std::runtime_error);
 }
 
 TEST_F(CertificateTest, SelfSignAndVerify) {
-  certificate->Sign(*key_pair);
-  ASSERT_NO_THROW(certificate->Sign(*key_pair));
+  glob_certificate->Sign(*key_pair);
+  ASSERT_NO_THROW(glob_certificate->Sign(*key_pair));
 
   bool verified = false;
-  certificate->Verify(*key_pair);
-  ASSERT_NO_THROW(verified = certificate->Verify(*key_pair));
+  glob_certificate->Verify(*key_pair);
+  ASSERT_NO_THROW(verified = glob_certificate->Verify(*key_pair));
 
   EXPECT_TRUE(verified);
 }
 
 TEST_F(CertificateTest, Serialize) {
-  ASSERT_NO_THROW(certificate->Serialize(serialized_cert_path));
+  ASSERT_NO_THROW(glob_certificate->Serialize(serialized_cert_path));
 
   EXPECT_TRUE(check_pem_file_contents(serialized_cert_path));
 }
 
 TEST_F(CertificateTest, ToString) {
   std::string cert_str;
-  ASSERT_NO_THROW(cert_str = certificate->ToString());
+  ASSERT_NO_THROW(cert_str = glob_certificate->ToString());
   ASSERT_FALSE(cert_str.empty());
 
   EXPECT_EQ(0, cert_str.find("-----BEGIN CERTIFICATE-----"))
@@ -172,20 +174,38 @@ TEST_F(CertificateTest, ToString) {
 }
 
 TEST_F(CertificateTest, DeserializeFromFile) {
-  std::string cert_str = certificate->ToString();
+  std::string cert_str = glob_certificate->ToString();
 
-  certificate = std::make_unique<Certificate>();
-  ASSERT_NO_THROW(certificate->Deserialize(serialized_cert_path));
-  EXPECT_EQ(cert_str, certificate->ToString());
+  glob_certificate = std::make_unique<Certificate>();
+  ASSERT_NO_THROW(glob_certificate->Deserialize(serialized_cert_path));
+  EXPECT_EQ(cert_str, glob_certificate->ToString());
 }
 
 TEST_F(CertificateTest, ConstructFromPemString) {
-  std::string cert_str = certificate->ToString();
+  std::string cert_str = glob_certificate->ToString();
 
-  certificate.reset();
-  ASSERT_NO_THROW(certificate = std::make_unique<Certificate>(cert_str));
-  ASSERT_NE(certificate.get(), nullptr);
-  EXPECT_EQ(cert_str, certificate->ToString());
+  glob_certificate.reset();
+  ASSERT_NO_THROW(glob_certificate = std::make_unique<Certificate>(cert_str));
+  ASSERT_NE(glob_certificate.get(), nullptr);
+  EXPECT_EQ(cert_str, glob_certificate->ToString());
+}
+
+TEST_F(CertificateTest, GetSubjectName) {
+  auto name = glob_certificate->GetSubjectName();
+
+  EXPECT_EQ(name, glob_cert_name);
+}
+
+TEST_F(CertificateTest, GetIssuerName_Empty) {
+  Certificate cert{*glob_key_pair, glob_cert_name};
+
+  EXPECT_EQ(0, cert.GetIssuerName().size());
+}
+
+TEST_F(CertificateTest, GetExtensions_Empty) {
+  Certificate cert{*glob_key_pair, glob_cert_name};
+
+  EXPECT_EQ(0, cert.GetExtensions().size());
 }
 
 // -------------------- CERTIFICATE REQUEST TESTS --------------------

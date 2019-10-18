@@ -27,11 +27,13 @@
 #include "crypto/certs/KeyPairBase.h"
 
 namespace lrm::crypto::certs {
-using CertNameMap =
-      std::unordered_map<std::string, std::string>;
+using CertNameMap = std::unordered_map<std::string, std::string>;
 
 class Certificate {
  public:
+  // using Map = std::vector<std::pair<std::string, std::string>>;
+  using Map = CertNameMap;
+
   Certificate();
   Certificate(KeyPairBase& key_pair,
               const CertNameMap& name_entries,
@@ -40,10 +42,10 @@ class Certificate {
   /// \param pem_str String storing PEM form of the certificate.
   explicit Certificate(std::string& pem_str);
 
-  Certificate(const Certificate&) = delete;
-  Certificate(Certificate&&) = delete;
-  Certificate& operator=(Certificate&) = delete;
-  Certificate& operator=(Certificate&&) = delete;
+  Certificate(const Certificate& cert);
+  Certificate& operator=(Certificate& cert);
+  Certificate(Certificate&& cert) = default;
+  Certificate& operator=(Certificate&& cert) = default;
 
   void Sign(KeyPairBase& key_pair);
 
@@ -59,7 +61,12 @@ class Certificate {
   void Deserialize(std::string_view filename);
   std::string ToString() const;
 
+  Map GetExtensions() const;
+  Map GetSubjectName() const;
+  Map GetIssuerName() const;
  private:
+  Map name_to_map(const X509_NAME* name) const;
+
   std::unique_ptr<X509, decltype(&X509_free)> cert_;
 };
 }
