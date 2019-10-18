@@ -37,10 +37,13 @@ CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
     : req_{make_req(X509_REQ_new())} {
   if (not req_) int_error("Failed to create X509_REQ object");
 
+  if (not X509_REQ_set_version(req_.get(), 2L))
+    int_error("Error setting version in certificate request");
+
   if (not X509_REQ_set_pubkey(req_.get(), key_pair.Get()))
     int_error("Error setting public key in certificate request");
 
-  auto name = map_to_x509_name(name_entries);
+  const auto name = map_to_x509_name(name_entries);
 
   if (not X509_REQ_set_subject_name(req_.get(), name.get()))
     int_error("Error adding subject to certificate request");
@@ -51,7 +54,7 @@ CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
 
 Bytes CertificateRequest::ToDER() const {
   assert(req_ != nullptr);
-  auto bio = make_bio(BIO_s_mem());
+  const auto bio = make_bio(BIO_s_mem());
   if (not bio) int_error("Failed to create BIO object");
 
   if (not i2d_X509_REQ_bio(bio.get(), req_.get()))
@@ -61,7 +64,7 @@ Bytes CertificateRequest::ToDER() const {
 }
 
 void CertificateRequest::FromDER(const Bytes& der) {
-  auto bio = container_to_bio(der);
+  const auto bio = container_to_bio(der);
 
   X509_REQ* req = d2i_X509_REQ_bio(bio.get(), nullptr);
   if (not req) int_error("Error reading cert request from BIO");
@@ -82,7 +85,7 @@ void CertificateRequest::ToPemFile(const fs::path& filename) const {
 
   const auto result = PEM_write_X509_REQ(fp, req_.get());
   std::fclose(fp);
-  if (result == 0) int_error("Error writing certificate request to pem file");
+  if (result != 1) int_error("Error writing certificate request to pem file");
 }
 
 void CertificateRequest::FromPemFile(const fs::path& filename) {

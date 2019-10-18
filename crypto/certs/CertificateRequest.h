@@ -46,7 +46,7 @@ class CertificateRequest {
  private:
   static ReqUnique make_req(X509_REQ* req);
 
-  ReqShared req_;
+  ReqUnique req_;
 };
 }
 
