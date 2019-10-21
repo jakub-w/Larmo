@@ -26,27 +26,27 @@
 
 namespace lrm::crypto::certs {
 class CertificateRequest {
-  using Bytes = std::vector<std::byte>;
-  using ReqUnique = std::unique_ptr<X509_REQ, std::function<void(X509_REQ*)>>;
-  using ReqShared = std::shared_ptr<X509_REQ>;
-
  public:
   CertificateRequest();
-  CertificateRequest(KeyPairBase& key_pair, const CertNameMap& name_entries);
+  CertificateRequest(KeyPairBase& key_pair,
+                     const Map& name_entries,
+                     const Map& extensions = {});
+
+  std::string ToPem() const;
+  void FromPem(std::string_view pem_str);
+  void ToPemFile(const fs::path& filename) const;
+  void FromPemFile(const fs::path& filename);
 
   Bytes ToDER() const;
   void FromDER(const Bytes& der);
-  void ToPemFile(const fs::path& filename) const;
-  void FromPemFile(const fs::path& filename);
+
 
   inline X509_REQ* Get() {
     return req_.get();
   }
 
  private:
-  static ReqUnique make_req(X509_REQ* req);
-
-  ReqUnique req_;
+  std::unique_ptr<X509_REQ, decltype(&X509_REQ_free)> req_;
 };
 }
 

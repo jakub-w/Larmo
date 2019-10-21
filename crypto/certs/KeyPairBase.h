@@ -33,6 +33,7 @@ class KeyPairBase {
   using Bytes = std::vector<std::byte>;
   KeyPairBase();
   virtual ~KeyPairBase() = default;
+  KeyPairBase(KeyPairBase&&) = default;
 
   inline EVP_PKEY* Get() {
     return pkey_.get();

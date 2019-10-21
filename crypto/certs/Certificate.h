@@ -25,41 +25,37 @@
 #include <openssl/x509.h>
 
 #include "crypto/certs/KeyPairBase.h"
+#include "crypto/config.h"
 
 namespace lrm::crypto::certs {
-using CertNameMap = std::unordered_map<std::string, std::string>;
+using Map = std::unordered_map<std::string, std::string>;
 
 class Certificate {
  public:
-  // using Map = std::vector<std::pair<std::string, std::string>>;
-  using Map = CertNameMap;
-
   Certificate();
-  Certificate(KeyPairBase& key_pair,
-              const CertNameMap& name_entries,
-              unsigned int expiration_days = 365);
   /// Construct RsaCertificate object from the PEM form present in \e pem_str.
   /// \param pem_str String storing PEM form of the certificate.
-  explicit Certificate(std::string& pem_str);
+  explicit Certificate(std::string_view pem_str);
 
   Certificate(const Certificate& cert);
   Certificate& operator=(Certificate& cert);
   Certificate(Certificate&& cert) = default;
   Certificate& operator=(Certificate&& cert) = default;
 
-  void Sign(KeyPairBase& key_pair);
-
-  bool Verify(KeyPairBase& key_pair);
+  /// \brief Verify \e another certificate with this one.
+  bool Verify(const Certificate& another) const;
 
   inline X509* Get() const {
     return cert_.get();
   }
 
-  void Serialize(std::string_view filename) const;
+  void ToPemFile(std::string_view filename) const;
+  void FromPemFile(std::string_view filename);
+  std::string ToPem() const;
+  void FromPem(std::string_view pem_str);
 
-  /// Deserialize certificate from PEM file storing X509 certificate
-  void Deserialize(std::string_view filename);
-  std::string ToString() const;
+  Bytes ToDer() const;
+  void FromDer(const Bytes& der);
 
   Map GetExtensions() const;
   Map GetSubjectName() const;

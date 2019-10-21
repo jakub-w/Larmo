@@ -55,8 +55,10 @@ bio_ptr make_bio(const BIO_METHOD* type) {
     return std::unique_ptr<BIO, decltype(&BIO_free_all)>(
         nullptr, &BIO_free_all);
   } else {
-    return std::unique_ptr<BIO, decltype(&BIO_free_all)>(
+    auto bio = std::unique_ptr<BIO, decltype(&BIO_free_all)>(
         BIO_new(type), &BIO_free_all);
+    if (not bio) int_error("Failed to create BIO object");
+    return bio;
   }
 }
 }

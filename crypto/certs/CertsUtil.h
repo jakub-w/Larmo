@@ -25,6 +25,7 @@
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 
 namespace lrm::crypto::certs {
 #define int_error(msg) handle_ssl_error(__FILE__, __LINE__, (msg))
@@ -70,6 +71,25 @@ auto map_to_x509_name(const Map& map) {
   }
 
   return name;
+}
+
+template <typename Map>
+auto map_to_x509_extension_stack(const Map& map) {
+  const auto deleter =
+      [](STACK_OF(X509_EXTENSION)* stack) {
+        sk_X509_EXTENSION_pop_free(stack, X509_EXTENSION_free);
+      };
+  std::unique_ptr<STACK_OF(X509_EXTENSION), decltype(deleter)>
+      extlist(sk_X509_EXTENSION_new_null(), deleter);
+
+  for(const auto& [key, value] : map) {
+    X509_EXTENSION* ext = X509V3_EXT_conf(nullptr, nullptr,
+                                          key.c_str(), value.c_str());
+    if (not ext) int_error("Error creating extension: " + key);
+    sk_X509_EXTENSION_push(extlist.get(), ext);
+  }
+
+  return extlist;
 }
 }
 #endif  // LRM_CERTS_H_

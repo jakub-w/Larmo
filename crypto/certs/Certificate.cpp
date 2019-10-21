@@ -19,6 +19,7 @@
 #include "crypto/certs/Certificate.h"
 #include "crypto/certs/CertsUtil.h"
 
+#include <cassert>
 #include <cstring>
 #include <sstream>
 
@@ -27,43 +28,11 @@
 #include "Util.h"
 
 namespace lrm::crypto::certs {
-Certificate::Certificate() : cert_(X509_new(), &X509_free) {}
+Certificate::Certificate() : cert_(nullptr, &X509_free) {}
 
-Certificate::Certificate(KeyPairBase& key_pair,
-                         const CertNameMap& name_entries,
-                         unsigned int expiration_days)
-    : cert_(X509_new(), &X509_free) {
-  if (not cert_) int_error("Failed to create X509 object");
-  if (not X509_set_version(cert_.get(), 2L))
-    int_error("Error setting certificate version");
-
-  if (not X509_gmtime_adj(X509_get_notBefore(cert_.get()), 0))
-    int_error("Error setting beginning time of the certificate");
-  if (not X509_gmtime_adj(X509_get_notAfter(cert_.get()),
-                          60 * 60 * 24 * expiration_days))
-    int_error("Error setting ending time of the certificate");
-
-  if (not X509_set_pubkey(cert_.get(), key_pair.Get()))
-    int_error("Error setting public key of the certificate");
-
-  auto name = map_to_x509_name(name_entries);
-
-  if (not X509_set_subject_name(cert_.get(), name.get()))
-    int_error("Error setting subject name of certificate");
-}
-
-Certificate::Certificate(std::string& pem_str)
+Certificate::Certificate(std::string_view pem_str)
     : Certificate() {
-  if (pem_str.empty() or (pem_str.find("-----BEGIN CERTIFICATE-----") != 0)) {
-    throw std::invalid_argument(
-        std::string(__PRETTY_FUNCTION__) +
-        "Error reading pem_str, doesn't contain a certificate");
-  }
-
-  const auto bio = container_to_bio(pem_str);
-
-  cert_.reset(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
-  if (not cert_) int_error("Error reading certificate from BIO");
+  FromPem(pem_str);
 }
 
 Certificate::Certificate(const Certificate& cert)
@@ -76,21 +45,20 @@ Certificate& Certificate::operator=(Certificate& cert) {
   return *this;
 }
 
-void Certificate::Sign(KeyPairBase& key_pair) {
-  if (not X509_sign(cert_.get(), key_pair.Get(), key_pair.DigestType())) {
-    int_error("Error signing certificate");
-  }
-}
+bool Certificate::Verify(const Certificate& another) const {
+  assert(cert_.get() != nullptr);
+  EVP_PKEY* this_pubkey = X509_get_pubkey(cert_.get());
+  if (not this_pubkey) int_error("Error getting certificate public key");
 
-bool Certificate::Verify(KeyPairBase& key_pair) {
-  const int result = X509_verify(cert_.get(), key_pair.Get());
+  const int result = X509_verify(another.Get(), this_pubkey);
   if (-1 == result)
     int_error("Error verifying signature on certificate");
 
   return result == 1 ? true : false;
 }
 
-void Certificate::Serialize(std::string_view filename) const {
+void Certificate::ToPemFile(std::string_view filename) const {
+  assert(cert_.get() != nullptr);
   FILE* fp = std::fopen(filename.data(), "w");
   if (not fp) throw std::runtime_error(
           std::string("Error opening certificate file '")
@@ -101,7 +69,7 @@ void Certificate::Serialize(std::string_view filename) const {
   if (result != 1) int_error("Error while writing certificate");
 }
 
-void Certificate::Deserialize(std::string_view filename) {
+void Certificate::FromPemFile(std::string_view filename) {
   FILE* fp = nullptr;
   if ((not Util::file_exists(filename)) or
       (not (fp = std::fopen(filename.data(), "r")))) {
@@ -117,9 +85,9 @@ void Certificate::Deserialize(std::string_view filename) {
   cert_.reset(cert);
 }
 
-std::string Certificate::ToString() const {
-  const auto bio = make_bio(BIO_s_mem());
-  if (not bio) int_error("Failed to create BIO object");
+std::string Certificate::ToPem() const {
+  assert(cert_.get() != nullptr);
+  auto bio = make_bio(BIO_s_mem());
 
   if (not PEM_write_bio_X509(bio.get(), cert_.get()))
     int_error("Error writing certificate to BIO object");
@@ -130,45 +98,78 @@ std::string Certificate::ToString() const {
   return result;
 }
 
-Certificate::Map Certificate::GetExtensions() const {
+void Certificate::FromPem(std::string_view pem_str) {
+  if (pem_str.empty() or (pem_str.find("-----BEGIN CERTIFICATE-----") != 0)) {
+    throw std::invalid_argument(
+        std::string(__PRETTY_FUNCTION__) +
+        "Error reading pem_str, doesn't contain a certificate");
+  }
+
+  const auto bio = container_to_bio(pem_str);
+
+  cert_.reset(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
+  if (not cert_) int_error("Error reading certificate from BIO");
+}
+
+Bytes Certificate::ToDer() const {
+  assert(cert_.get() != nullptr);
+
+  auto bio = make_bio(BIO_s_mem());
+
+  if (not i2d_X509_bio(bio.get(), cert_.get()))
+    int_error("Error writing certificate to BIO");
+
+  return bio_to_container<Bytes>(bio.get());
+}
+
+void Certificate::FromDer(const Bytes& der) {
+  auto bio = container_to_bio(der);
+
+  X509* cert = d2i_X509_bio(bio.get(), nullptr);
+  if (not cert) int_error("Error reading certificate from BIO");
+
+  cert_.reset(cert);
+}
+
+Map Certificate::GetExtensions() const {
   const auto ext_count = X509_get_ext_count(cert_.get());
   Map extensions;
   extensions.reserve(ext_count);
 
+  auto bio = make_bio(BIO_s_mem());
   for (auto i = 0; i < ext_count; ++i) {
     const auto ext = X509_get_ext(cert_.get(), i);
     if (not ext) int_error("Error reading certificate extension");
 
     const auto obj = X509_EXTENSION_get_object(ext);
     if (not obj) int_error("Error reading object from extension");
+
     char key[256];
     OBJ_obj2txt(key, 256, obj, 0);
 
-    const auto data = X509_EXTENSION_get_data(ext);
-    if (not data) int_error("Error reading data from extension");
+    X509V3_EXT_print(bio.get(), ext, 0, 0);
 
-    extensions[key] =
-        reinterpret_cast<const char*>(ASN1_STRING_get0_data(data));
+    extensions[key] = bio_to_container<std::string>(bio.get());
   }
 
   return extensions;
 }
 
-Certificate::Map Certificate::GetSubjectName() const {
+Map Certificate::GetSubjectName() const {
   const X509_NAME* name = X509_get_subject_name(cert_.get());
   if (not name) int_error("Failed to read certificate subject name");
 
   return name_to_map(name);
 }
 
-Certificate::Map Certificate::GetIssuerName() const {
+Map Certificate::GetIssuerName() const {
   const X509_NAME* name = X509_get_issuer_name(cert_.get());
   if (not name) int_error("Failed to read certificate subject name");
 
   return name_to_map(name);
 }
 
-Certificate::Map Certificate::name_to_map(const X509_NAME* name) const {
+Map Certificate::name_to_map(const X509_NAME* name) const {
   Map entries;
   const int num_entries = X509_NAME_entry_count(name);
   entries.reserve(num_entries);

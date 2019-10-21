@@ -30,11 +30,12 @@
 
 namespace lrm::crypto::certs {
 CertificateRequest::CertificateRequest()
-    : req_(make_req(nullptr)) {}
+    : req_{nullptr, &X509_REQ_free} {}
 
 CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
-                                       const CertNameMap& name_entries)
-    : req_{make_req(X509_REQ_new())} {
+                                       const Map& name_entries,
+                                       const Map& extensions)
+    : req_{X509_REQ_new(), &X509_REQ_free} {
   if (not req_) int_error("Failed to create X509_REQ object");
 
   if (not X509_REQ_set_version(req_.get(), 2L))
@@ -44,18 +45,39 @@ CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
     int_error("Error setting public key in certificate request");
 
   const auto name = map_to_x509_name(name_entries);
-
   if (not X509_REQ_set_subject_name(req_.get(), name.get()))
     int_error("Error adding subject to certificate request");
+
+  const auto extlist = map_to_x509_extension_stack(extensions);
+  if (not X509_REQ_add_extensions(req_.get(), extlist.get()))
+    int_error("Error adding extensions to the certificate request");
 
   if (not X509_REQ_sign(req_.get(), key_pair.Get(), key_pair.DigestType()))
     int_error("Error signing certificate request");
 }
 
+std::string CertificateRequest::ToPem() const {
+  assert(req_ != nullptr);
+  auto bio = make_bio(BIO_s_mem());
+
+  if (not PEM_write_bio_X509_REQ(bio.get(), req_.get()))
+    int_error("Error writing certificate request to BIO");
+
+  return bio_to_container<std::string>(bio.get());
+}
+
+void CertificateRequest::FromPem(std::string_view pem_str) {
+  auto bio = container_to_bio(pem_str);
+
+  X509_REQ* req = PEM_read_bio_X509_REQ(bio.get(), nullptr, nullptr, nullptr);
+  if (not req) int_error("Error reading certificate request from BIO");
+
+  req_.reset(req);
+}
+
 Bytes CertificateRequest::ToDER() const {
   assert(req_ != nullptr);
   const auto bio = make_bio(BIO_s_mem());
-  if (not bio) int_error("Failed to create BIO object");
 
   if (not i2d_X509_REQ_bio(bio.get(), req_.get()))
     int_error("Error translating cert request to BIO");
@@ -69,7 +91,7 @@ void CertificateRequest::FromDER(const Bytes& der) {
   X509_REQ* req = d2i_X509_REQ_bio(bio.get(), nullptr);
   if (not req) int_error("Error reading cert request from BIO");
 
-  req_ = make_req(req);
+  req_.reset(req);
 }
 
 void CertificateRequest::ToPemFile(const fs::path& filename) const {
@@ -103,15 +125,6 @@ void CertificateRequest::FromPemFile(const fs::path& filename) {
 
   if (not req) int_error("Error reading certificate request from file");
 
-  req_ = make_req(req);
-}
-
-CertificateRequest::ReqUnique CertificateRequest::make_req(X509_REQ* req) {
-  const auto deleter = [](X509_REQ* req){ X509_REQ_free(req); };
-  if (req == nullptr) {
-    return ReqUnique(nullptr, deleter);
-  } else {
-    return ReqUnique(req, deleter);
-  }
+  req_.reset(req);
 }
 }

@@ -116,148 +116,243 @@ TYPED_TEST(KeyPairTest, DeserializeFromFile) {
 
 // -------------------- CERTIFICATE TESTS --------------------
 
-static std::unique_ptr<Certificate> glob_certificate;
-auto glob_cert_name = lrm::crypto::certs::CertNameMap{
-  {"countryName", "FO"},
-  {"stateOrProvinceName", "BAR"},
-  {"organizationName", "FooBar"},
-  {"commonName", "CN"}};
-
 class CertificateTest : public ::testing::Test {
- public:
-  static void SetUpTestCase() {
-    key_pair = std::make_shared<EddsaKeyPair>();
-    key_pair->Generate();
-    glob_key_pair = key_pair;
+  inline static constexpr auto CA_privkey_pem =
+      "-----BEGIN PRIVATE KEY-----\n"
+      "MC4CAQAwBQYDK2VwBCIEIHf8jm7hxCwO/3yKihJBZktmg/iA1ma/WEabZf/MDqrN\n"
+      "-----END PRIVATE KEY-----\n";
+
+  inline static constexpr auto good_privkey_pem =
+      "-----BEGIN PRIVATE KEY-----\n"
+      "MC4CAQAwBQYDK2VwBCIEIGb1ageNgHFPC0nJEaTFy4q3+ybg7wW2tX4V5xh7xqoN\n"
+      "-----END PRIVATE KEY-----\n";
+
+ protected:
+  // inline static const EddsaKeyPair key_pair = []{
+  //                                               EddsaKeyPair kp;
+  //                                               kp.FromPEM(CA_privkey_pem);
+  //                                               return kp;
+  //                                             }();
+  inline static constexpr auto CA_cert_pem =
+      "-----BEGIN CERTIFICATE-----\n"
+      "MIIBmzCCAU2gAwIBAgIUHeVgIYnpzLshMqmYEh81ltKSCY0wBQYDK2VwMEMxCzAJ\n"
+      "BgNVBAYTAlBMMRIwEAYDVQQIDAlMYXJtb2xhbmQxDjAMBgNVBAoMBUxhcm1vMRAw\n"
+      "DgYDVQQDDAdMYXJtb0NOMB4XDTE5MTAyMTExMzkxMloXDTE5MTEyMDExMzkxMlow\n"
+      "QzELMAkGA1UEBhMCUEwxEjAQBgNVBAgMCUxhcm1vbGFuZDEOMAwGA1UECgwFTGFy\n"
+      "bW8xEDAOBgNVBAMMB0xhcm1vQ04wKjAFBgMrZXADIQCFQAmkVerTerwycGZiuzaK\n"
+      "/WAp4xrt34JXM0LNZ2e51aNTMFEwHQYDVR0OBBYEFKOuVXhpBxcBBGEl5X5hgMVY\n"
+      "uEzUMB8GA1UdIwQYMBaAFKOuVXhpBxcBBGEl5X5hgMVYuEzUMA8GA1UdEwEB/wQF\n"
+      "MAMBAf8wBQYDK2VwA0EAunjCsJ/4P1NEhrNUhPV5gs5jsvWMSrZh4GzlMofoW0v7\n"
+      "4+FobSRL4S0CO5FOFf2+tUclpuqTRcvI7RNXqKF1Cg==\n"
+      "-----END CERTIFICATE-----\n";
+
+  inline static constexpr auto good_cert_pem =
+      "-----BEGIN CERTIFICATE-----\n"
+      "MIIBSjCB/QIUJmA+DtNgkD4VxtKbfoJEATsBhKQwBQYDK2VwMEMxCzAJBgNVBAYT\n"
+      "AlBMMRIwEAYDVQQIDAlMYXJtb2xhbmQxDjAMBgNVBAoMBUxhcm1vMRAwDgYDVQQD\n"
+      "DAdMYXJtb0NOMB4XDTE5MTAyMTE1MDEyNloXDTE5MTEyMDE1MDEyNlowTTELMAkG\n"
+      "A1UEBhMCUEwxFjAUBgNVBAgMDUFsc29MYXJtb2xhbmQxETAPBgNVBAoMCE5vdExh\n"
+      "cm1vMRMwEQYDVQQDDApOb3RMYXJtb0NOMCowBQYDK2VwAyEAD4uVdAmFYZzjTKfu\n"
+      "1qSqL3fkRTL0GrvTCDLJw4vdqxswBQYDK2VwA0EABfie6B8acRCZT52YHqRtc+/m\n"
+      "v0SO6JxNNcA19WIO1SfGHNkuVP/wnqEJd+v+XEuZU1Hckby0QQFXlVzZ2cuYBQ==\n"
+      "-----END CERTIFICATE-----\n";
+
+  inline static const auto cert_pem_file = "test-certs_cert.pem";
+
+  void SetUp() {
+    fs::remove(cert_pem_file);
   }
-
-  static std::shared_ptr<EddsaKeyPair> key_pair;
 };
-std::shared_ptr<EddsaKeyPair> CertificateTest::key_pair;
 
-TEST_F(CertificateTest, FromKeyPair) {
-  EXPECT_NO_THROW(
-      glob_certificate = std::make_unique<Certificate>(
-          *key_pair,
-          glob_cert_name));
+TEST_F(CertificateTest, Construct_Empty) {
+  const auto cert = Certificate{};
+
+  EXPECT_EQ(cert.Get(), nullptr);
 }
 
-TEST_F(CertificateTest, VerifyWithoutSignThrows) {
-  ASSERT_THROW(glob_certificate->Verify(*key_pair), std::runtime_error);
+TEST_F(CertificateTest, FromPem) {
+  auto cert = Certificate{};
+
+  cert.FromPem(CA_cert_pem);
+
+  EXPECT_NE(cert.Get(), nullptr);
 }
 
-TEST_F(CertificateTest, SelfSignAndVerify) {
-  glob_certificate->Sign(*key_pair);
-  ASSERT_NO_THROW(glob_certificate->Sign(*key_pair));
+TEST_F(CertificateTest, Construct_PEM) {
+  const auto cert = Certificate{CA_cert_pem};
 
-  bool verified = false;
-  glob_certificate->Verify(*key_pair);
-  ASSERT_NO_THROW(verified = glob_certificate->Verify(*key_pair));
-
-  EXPECT_TRUE(verified);
+  EXPECT_NE(cert.Get(), nullptr);
 }
 
-TEST_F(CertificateTest, Serialize) {
-  ASSERT_NO_THROW(glob_certificate->Serialize(serialized_cert_path));
+TEST_F(CertificateTest, ToPem) {
+  const auto cert = Certificate{CA_cert_pem};
 
-  EXPECT_TRUE(check_pem_file_contents(serialized_cert_path));
+  EXPECT_EQ(cert.ToPem(), CA_cert_pem);
 }
 
-TEST_F(CertificateTest, ToString) {
-  std::string cert_str;
-  ASSERT_NO_THROW(cert_str = glob_certificate->ToString());
-  ASSERT_FALSE(cert_str.empty());
+TEST_F(CertificateTest, Verify_Self) {
+  const auto cert = Certificate{CA_cert_pem};
 
-  EXPECT_EQ(0, cert_str.find("-----BEGIN CERTIFICATE-----"))
-      << "The PEM certificate string should start with "
-      "-----BEGIN CERTIFICATE-----";
+  EXPECT_TRUE(cert.Verify(cert));
 }
 
-TEST_F(CertificateTest, DeserializeFromFile) {
-  std::string cert_str = glob_certificate->ToString();
+TEST_F(CertificateTest, Verify_AnotherGood) {
+  const auto CAcert = Certificate{CA_cert_pem};
+  const auto goodCert = Certificate{good_cert_pem};
 
-  glob_certificate = std::make_unique<Certificate>();
-  ASSERT_NO_THROW(glob_certificate->Deserialize(serialized_cert_path));
-  EXPECT_EQ(cert_str, glob_certificate->ToString());
+  EXPECT_TRUE(CAcert.Verify(goodCert));
 }
 
-TEST_F(CertificateTest, ConstructFromPemString) {
-  std::string cert_str = glob_certificate->ToString();
+TEST_F(CertificateTest, Verify_AnotherBad) {
+  const auto CAcert = Certificate{good_cert_pem};
+  const auto badCert = Certificate{CA_cert_pem};
 
-  glob_certificate.reset();
-  ASSERT_NO_THROW(glob_certificate = std::make_unique<Certificate>(cert_str));
-  ASSERT_NE(glob_certificate.get(), nullptr);
-  EXPECT_EQ(cert_str, glob_certificate->ToString());
+  EXPECT_FALSE(CAcert.Verify(badCert));
+}
+
+TEST_F(CertificateTest, GetExtensions) {
+  const auto cert = Certificate{CA_cert_pem};
+
+  const auto extensions = cert.GetExtensions();
+
+  ASSERT_EQ(3, extensions.size());
+  EXPECT_EQ(
+      extensions.at("X509v3 Authority Key Identifier"),
+      "keyid:A3:AE:55:78:69:07:17:01:04:61:25:E5:7E:61:80:C5:58:B8:4C:D4\n");
+  EXPECT_EQ(
+      extensions.at("X509v3 Subject Key Identifier"),
+      "A3:AE:55:78:69:07:17:01:04:61:25:E5:7E:61:80:C5:58:B8:4C:D4");
+  EXPECT_EQ(extensions.at("X509v3 Basic Constraints"), "CA:TRUE");
 }
 
 TEST_F(CertificateTest, GetSubjectName) {
-  auto name = glob_certificate->GetSubjectName();
+  const auto cert = Certificate{CA_cert_pem};
 
-  EXPECT_EQ(name, glob_cert_name);
+  const auto name = cert.GetSubjectName();
+
+  ASSERT_EQ(4, name.size());
+  EXPECT_EQ(name.at("organizationName"), "Larmo");
+  EXPECT_EQ(name.at("stateOrProvinceName"), "Larmoland");
+  EXPECT_EQ(name.at("commonName"), "LarmoCN");
+  EXPECT_EQ(name.at("countryName"), "PL");
 }
 
-TEST_F(CertificateTest, GetIssuerName_Empty) {
-  Certificate cert{*glob_key_pair, glob_cert_name};
+TEST_F(CertificateTest, GetIssuerName_SelfSigned) {
+  const auto cert = Certificate{CA_cert_pem};
 
-  EXPECT_EQ(0, cert.GetIssuerName().size());
+  EXPECT_EQ(cert.GetIssuerName(), cert.GetSubjectName());
 }
 
-TEST_F(CertificateTest, GetExtensions_Empty) {
-  Certificate cert{*glob_key_pair, glob_cert_name};
+TEST_F(CertificateTest, ToPemFile) {
+  const auto cert = Certificate{CA_cert_pem};
 
-  EXPECT_EQ(0, cert.GetExtensions().size());
+  cert.ToPemFile(cert_pem_file);
+  ASSERT_TRUE(lrm::Util::file_exists(cert_pem_file));
+  EXPECT_TRUE(check_pem_file_contents(cert_pem_file));
+}
+
+TEST_F(CertificateTest, FromPemFile) {
+  Certificate{CA_cert_pem}.ToPemFile(cert_pem_file);
+
+  auto cert = Certificate{};
+  cert.FromPemFile(cert_pem_file);
+
+  EXPECT_EQ(cert.GetSubjectName().size(), 4);
+}
+
+TEST_F(CertificateTest, FromPemFile_DoesntExist) {
+  auto cert = Certificate{};
+
+  EXPECT_THROW(cert.FromPemFile(cert_pem_file), std::invalid_argument);
+}
+
+TEST_F(CertificateTest, ToDer) {
+  auto cert = Certificate{CA_cert_pem};
+
+  const auto der = cert.ToDer();
+  EXPECT_FALSE(der.empty());
+}
+
+TEST_F(CertificateTest, FromDer) {
+  auto cert = Certificate{};
+
+  const auto control = Certificate{CA_cert_pem};
+  cert.FromDer(control.ToDer());
+
+  EXPECT_EQ(control.ToPem(), cert.ToPem());
 }
 
 // -------------------- CERTIFICATE REQUEST TESTS --------------------
 
-std::unique_ptr<CertificateRequest> glob_cert_req;
-
 class CertificateRequestTest : public ::testing::Test {
  protected:
-  inline static const fs::path cert_req_pem_filename =
-      "/tmp/lrm-test-certreq.pem";
-  inline static lrm::crypto::Bytes glob_cert_req_der;
+  inline static constexpr auto req_pem =
+      "-----BEGIN CERTIFICATE REQUEST-----\n"
+      "MIHNMIGAAgEAME0xCzAJBgNVBAYTAlBMMRYwFAYDVQQIDA1BbHNvTGFybW9sYW5k\n"
+      "MREwDwYDVQQKDAhOb3RMYXJtbzETMBEGA1UEAwwKTm90TGFybW9DTjAqMAUGAytl\n"
+      "cAMhAA+LlXQJhWGc40yn7takqi935EUy9Bq70wgyycOL3asboAAwBQYDK2VwA0EA\n"
+      "A1WiVIXZky6ginbf77fLhrONcS4ljE/+Us7b67QuWOC4zfg9ZfgvrY4BzUhQhpKq\n"
+      "wyVnqLf+P2tyiT/U+FWrBQ==\n"
+      "-----END CERTIFICATE REQUEST-----\n";
 
-  static void SetUpTestCase() {
-    fs::remove(cert_req_pem_filename);
-  }
+  inline static constexpr auto req_key_pair_pem =
+      "-----BEGIN PRIVATE KEY-----\n"
+      "MC4CAQAwBQYDK2VwBCIEIGb1ageNgHFPC0nJEaTFy4q3+ybg7wW2tX4V5xh7xqoN\n"
+      "-----END PRIVATE KEY-----\n";
+
+  inline static EddsaKeyPair req_key_pair =
+      []{
+        EddsaKeyPair kp;
+        kp.FromPEM(req_key_pair_pem);
+        return kp;
+      }();
 };
 
+TEST_F(CertificateRequestTest, Construct_Empty) {
+  auto req = CertificateRequest{};
 
-TEST_F(CertificateRequestTest, Constructs) {
-  EXPECT_NO_THROW(glob_cert_req = std::make_unique<CertificateRequest>());
+  EXPECT_EQ(req.Get(), nullptr);
 }
 
-TEST_F(CertificateRequestTest, Constructs_FromKeyPair) {
-  EXPECT_NO_THROW(
-      glob_cert_req = std::make_unique<CertificateRequest>(
-          *glob_key_pair,
-          CertNameMap({{"countryName", "FO"},
-                       {"stateOrProvinceName", "ReqProvince"},
-                       {"organizationName", "ReqOrganization"},
-                       {"commonName", "ReqCN"}})));
+TEST_F(CertificateRequestTest, FromPem) {
+  auto req = CertificateRequest{};
+
+  req.FromPem(req_pem);
+  EXPECT_NE(nullptr, req.Get());
 }
 
-TEST_F(CertificateRequestTest, ToDER) {
-  EXPECT_NO_THROW(glob_cert_req_der = glob_cert_req->ToDER());
+TEST_F(CertificateRequestTest, ToPem) {
+  auto req = CertificateRequest{};
+
+  req.FromPem(req_pem);
+
+  EXPECT_EQ(req.ToPem(), req_pem);
 }
 
-TEST_F(CertificateRequestTest, FromDER) {
-  auto new_cert_req = std::make_unique<CertificateRequest>();
-  ASSERT_NO_THROW(new_cert_req->FromDER(glob_cert_req_der));
-
-  EXPECT_EQ(new_cert_req->ToDER(), glob_cert_req->ToDER());
+TEST_F(CertificateRequestTest, GetName) {
+  FAIL();
 }
 
-TEST_F(CertificateRequestTest, ToPemFile) {
-  ASSERT_NO_THROW(glob_cert_req->ToPemFile(cert_req_pem_filename));
-
-  EXPECT_TRUE(check_pem_file_contents(cert_req_pem_filename.string()));
+TEST_F(CertificateRequestTest, GetExtensions) {
+  FAIL();
 }
 
-TEST_F(CertificateRequestTest, FromPemFile) {
-  auto new_cert_req = std::make_unique<CertificateRequest>();
-  ASSERT_NO_THROW(new_cert_req->FromPemFile(cert_req_pem_filename));
+TEST_F(CertificateRequestTest, Construct) {
+  auto req = CertificateRequest{
+    req_key_pair,
+    {{"countryName", "RE"},
+     {"stateOrProvinceName", "ReqProvince"},
+     {"organizationName", "ReqOrganization"},
+     {"commonName", "ReqCN"}}
+  };
 
-  EXPECT_EQ(new_cert_req->ToDER(), glob_cert_req_der);
+  ASSERT_NE(req.Get(), nullptr);
+
+  // TODO: enable this
+  // const name = req.GetName();
+  // ASSERT_EQ(4, name.size());
+  // EXPECT_EQ(name.at("organizationName"), "ReqOrganization");
+  // EXPECT_EQ(name.at("stateOrProvinceName"), "ReqProvince");
+  // EXPECT_EQ(name.at("commonName"), "ReqCN");
+  // EXPECT_EQ(name.at("countryName"), "RE");
 }
