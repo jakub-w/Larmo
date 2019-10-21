@@ -40,6 +40,8 @@ class CertificateRequest {
   Bytes ToDER() const;
   void FromDER(const Bytes& der);
 
+  Map GetName() const;
+  Map GetExtensions() const;
 
   inline X509_REQ* Get() {
     return req_.get();

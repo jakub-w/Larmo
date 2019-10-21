@@ -20,16 +20,14 @@
 #define LRM_CERTIFICATE_H_
 
 #include <memory>
-#include <unordered_map>
 
 #include <openssl/x509.h>
 
+#include "crypto/certs/CertsUtil.h"
 #include "crypto/certs/KeyPairBase.h"
 #include "crypto/config.h"
 
 namespace lrm::crypto::certs {
-using Map = std::unordered_map<std::string, std::string>;
-
 class Certificate {
  public:
   Certificate();
@@ -60,9 +58,8 @@ class Certificate {
   Map GetExtensions() const;
   Map GetSubjectName() const;
   Map GetIssuerName() const;
- private:
-  Map name_to_map(const X509_NAME* name) const;
 
+ private:
   std::unique_ptr<X509, decltype(&X509_free)> cert_;
 };
 }

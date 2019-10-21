@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string_view>
+#include <unordered_map>
 
 #include <openssl/rsa.h>
 #include <openssl/evp.h>
@@ -34,6 +35,7 @@ int print_errors_cb(const char* str, size_t len, void* arg);
 void handle_ssl_error(std::string_view file, int line, std::string_view msg);
 std::basic_string<unsigned char> str_to_uc(std::string_view str);
 
+using Map = std::unordered_map<std::string, std::string>;
 
 using bio_ptr = std::unique_ptr<BIO, decltype(&BIO_free_all)>;
 bio_ptr make_bio(const BIO_METHOD* type = nullptr);
@@ -73,8 +75,8 @@ auto map_to_x509_name(const Map& map) {
   return name;
 }
 
-template <typename Map>
-auto map_to_x509_extension_stack(const Map& map) {
+template <typename MapT>
+auto map_to_x509_extension_stack(const MapT& map) {
   const auto deleter =
       [](STACK_OF(X509_EXTENSION)* stack) {
         sk_X509_EXTENSION_pop_free(stack, X509_EXTENSION_free);
@@ -91,5 +93,8 @@ auto map_to_x509_extension_stack(const Map& map) {
 
   return extlist;
 }
+
+Map x509_name_to_map(const X509_NAME* name);
+Map x509_ext_stack_to_map(const STACK_OF(X509_EXTENSION)* extlist);
 }
 #endif  // LRM_CERTS_H_

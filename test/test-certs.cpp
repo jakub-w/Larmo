@@ -148,13 +148,13 @@ class CertificateTest : public ::testing::Test {
 
   inline static constexpr auto good_cert_pem =
       "-----BEGIN CERTIFICATE-----\n"
-      "MIIBSjCB/QIUJmA+DtNgkD4VxtKbfoJEATsBhKQwBQYDK2VwMEMxCzAJBgNVBAYT\n"
+      "MIIBSjCB/QIUJmA+DtNgkD4VxtKbfoJEATsBhKUwBQYDK2VwMEMxCzAJBgNVBAYT\n"
       "AlBMMRIwEAYDVQQIDAlMYXJtb2xhbmQxDjAMBgNVBAoMBUxhcm1vMRAwDgYDVQQD\n"
-      "DAdMYXJtb0NOMB4XDTE5MTAyMTE1MDEyNloXDTE5MTEyMDE1MDEyNlowTTELMAkG\n"
+      "DAdMYXJtb0NOMB4XDTE5MTAyMTE3NDcwOVoXDTE5MTEyMDE3NDcwOVowTTELMAkG\n"
       "A1UEBhMCUEwxFjAUBgNVBAgMDUFsc29MYXJtb2xhbmQxETAPBgNVBAoMCE5vdExh\n"
       "cm1vMRMwEQYDVQQDDApOb3RMYXJtb0NOMCowBQYDK2VwAyEAD4uVdAmFYZzjTKfu\n"
-      "1qSqL3fkRTL0GrvTCDLJw4vdqxswBQYDK2VwA0EABfie6B8acRCZT52YHqRtc+/m\n"
-      "v0SO6JxNNcA19WIO1SfGHNkuVP/wnqEJd+v+XEuZU1Hckby0QQFXlVzZ2cuYBQ==\n"
+      "1qSqL3fkRTL0GrvTCDLJw4vdqxswBQYDK2VwA0EAmFGqzcmN4IcWseyCKgjZiAd9\n"
+      "HMP952zSDQHzGrBkMr1+P3iWTsGnQGyXrmU0RI4o78t2lX8IyrxDKxYvgOGmDQ==\n"
       "-----END CERTIFICATE-----\n";
 
   inline static const auto cert_pem_file = "test-certs_cert.pem";
@@ -288,11 +288,11 @@ class CertificateRequestTest : public ::testing::Test {
  protected:
   inline static constexpr auto req_pem =
       "-----BEGIN CERTIFICATE REQUEST-----\n"
-      "MIHNMIGAAgEAME0xCzAJBgNVBAYTAlBMMRYwFAYDVQQIDA1BbHNvTGFybW9sYW5k\n"
+      "MIHrMIGeAgEAME0xCzAJBgNVBAYTAlBMMRYwFAYDVQQIDA1BbHNvTGFybW9sYW5k\n"
       "MREwDwYDVQQKDAhOb3RMYXJtbzETMBEGA1UEAwwKTm90TGFybW9DTjAqMAUGAytl\n"
-      "cAMhAA+LlXQJhWGc40yn7takqi935EUy9Bq70wgyycOL3asboAAwBQYDK2VwA0EA\n"
-      "A1WiVIXZky6ginbf77fLhrONcS4ljE/+Us7b67QuWOC4zfg9ZfgvrY4BzUhQhpKq\n"
-      "wyVnqLf+P2tyiT/U+FWrBQ==\n"
+      "cAMhAA+LlXQJhWGc40yn7takqi935EUy9Bq70wgyycOL3asboB4wHAYJKoZIhvcN\n"
+      "AQkOMQ8wDTALBgNVHQ8EBAMCAwgwBQYDK2VwA0EAN75vvccnVJBYXn9IrwDdIXO8\n"
+      "SeYVrYlTsp4ak6HXp26oXsEtyrIo4KkQNDPcsifpI67naCHx/lbwokfVsyxlDw==\n"
       "-----END CERTIFICATE REQUEST-----\n";
 
   inline static constexpr auto req_key_pair_pem =
@@ -330,11 +330,27 @@ TEST_F(CertificateRequestTest, ToPem) {
 }
 
 TEST_F(CertificateRequestTest, GetName) {
-  FAIL();
+  auto req = CertificateRequest{};
+  req.FromPem(req_pem);
+
+  const auto name = req.GetName();
+
+  ASSERT_EQ(4, name.size());
+  EXPECT_EQ("PL", name.at("countryName"));
+  EXPECT_EQ("AlsoLarmoland", name.at("stateOrProvinceName"));
+  EXPECT_EQ("NotLarmo", name.at("organizationName"));
+  EXPECT_EQ("NotLarmoCN", name.at("commonName"));
 }
 
 TEST_F(CertificateRequestTest, GetExtensions) {
-  FAIL();
+  auto req = CertificateRequest{};
+  req.FromPem(req_pem);
+
+  const auto extensions = req.GetExtensions();
+
+  ASSERT_EQ(1, extensions.size());
+
+  EXPECT_EQ("Key Agreement", extensions.at("X509v3 Key Usage"));
 }
 
 TEST_F(CertificateRequestTest, Construct) {
@@ -348,11 +364,10 @@ TEST_F(CertificateRequestTest, Construct) {
 
   ASSERT_NE(req.Get(), nullptr);
 
-  // TODO: enable this
-  // const name = req.GetName();
-  // ASSERT_EQ(4, name.size());
-  // EXPECT_EQ(name.at("organizationName"), "ReqOrganization");
-  // EXPECT_EQ(name.at("stateOrProvinceName"), "ReqProvince");
-  // EXPECT_EQ(name.at("commonName"), "ReqCN");
-  // EXPECT_EQ(name.at("countryName"), "RE");
+  const auto name = req.GetName();
+  ASSERT_EQ(4, name.size());
+  EXPECT_EQ(name.at("organizationName"), "ReqOrganization");
+  EXPECT_EQ(name.at("stateOrProvinceName"), "ReqProvince");
+  EXPECT_EQ(name.at("commonName"), "ReqCN");
+  EXPECT_EQ(name.at("countryName"), "RE");
 }

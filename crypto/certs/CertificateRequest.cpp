@@ -127,4 +127,19 @@ void CertificateRequest::FromPemFile(const fs::path& filename) {
 
   req_.reset(req);
 }
+
+Map CertificateRequest::GetName() const {
+  assert(req_.get() != nullptr);
+
+  const X509_NAME* name = X509_REQ_get_subject_name(req_.get());
+  if (not name) int_error("Error reading name from certificate request");
+
+  return x509_name_to_map(name);
+}
+
+Map CertificateRequest::GetExtensions() const {
+  assert(req_.get() != nullptr);
+
+  return x509_ext_stack_to_map(X509_REQ_get_extensions(req_.get()));
+}
 }
