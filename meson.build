@@ -104,6 +104,7 @@ crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/certs/EddsaKeyPair.cpp',
 		  'crypto/certs/RsaKeyPair.cpp',
 		  'crypto/certs/Certificate.cpp',
+		  'crypto/certs/CertificateAuthority.cpp',
 		  'crypto/certs/CertificateRequest.cpp']
 
 
