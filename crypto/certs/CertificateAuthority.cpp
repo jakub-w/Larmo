@@ -32,6 +32,7 @@ CertificateAuthority::CertificateAuthority(
     unsigned int expiration_days)
     : key_pair_{std::move(key_pair)} {
   if (not cert_.Get()) int_error("Failed to create X509 object");
+
   if (not X509_set_version(cert_.Get(), 2L))
     int_error("Error setting certificate version");
 
@@ -41,7 +42,7 @@ CertificateAuthority::CertificateAuthority(
                           60 * 60 * 24 * expiration_days))
     int_error("Error setting ending time of the certificate");
 
-  if (not X509_set_pubkey(cert_.Get(), key_pair->Get()))
+  if (not X509_set_pubkey(cert_.Get(), key_pair_->Get()))
     int_error("Error setting public key of the certificate");
 
   auto name = map_to_x509_name(name_entries);

@@ -30,10 +30,13 @@
 namespace lrm::crypto::certs {
 class Certificate {
  public:
-  Certificate();
-  /// Construct RsaCertificate object from the PEM form present in \e pem_str.
+  /// Construct Certificate object from the PEM file \e filename.
+  static Certificate FromPemFile(std::string_view filename);
+  /// Construct Certificate object from the PEM form present in \e pem_str.
   /// \param pem_str String storing PEM form of the certificate.
-  explicit Certificate(std::string_view pem_str);
+  static Certificate FromPem(std::string_view pem_str);
+  /// Construct Certificate object from DER format stored in \e der.
+  static Certificate FromDer(const Bytes& der);
 
   Certificate(const Certificate& cert);
   Certificate& operator=(Certificate& cert);
@@ -43,23 +46,24 @@ class Certificate {
   /// \brief Verify \e another certificate with this one.
   bool Verify(const Certificate& another) const;
 
-  inline X509* Get() const {
-    return cert_.get();
-  }
-
   void ToPemFile(std::string_view filename) const;
-  void FromPemFile(std::string_view filename);
   std::string ToPem() const;
-  void FromPem(std::string_view pem_str);
-
   Bytes ToDer() const;
-  void FromDer(const Bytes& der);
 
   Map GetExtensions() const;
   Map GetSubjectName() const;
   Map GetIssuerName() const;
 
  private:
+  friend class CertificateAuthority;
+
+  Certificate();
+  Certificate(X509* cert);
+
+  inline X509* Get() const {
+    return cert_.get();
+  }
+
   std::unique_ptr<X509, decltype(&X509_free)> cert_;
 };
 }

@@ -28,12 +28,49 @@
 #include "Util.h"
 
 namespace lrm::crypto::certs {
-Certificate::Certificate() : cert_(nullptr, &X509_free) {}
+Certificate Certificate::FromPem(std::string_view pem_str) {
+  if (pem_str.empty() or (pem_str.find("-----BEGIN CERTIFICATE-----") != 0)) {
+    throw std::invalid_argument(
+        std::string(__PRETTY_FUNCTION__) +
+        "Error reading pem_str, doesn't contain a certificate");
+  }
 
-Certificate::Certificate(std::string_view pem_str)
-    : Certificate() {
-  FromPem(pem_str);
+  const auto bio = container_to_bio(pem_str);
+
+  X509* cert = PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr);
+  if (not cert) int_error("Error reading certificate from BIO");
+
+  return Certificate{cert};
 }
+
+Certificate Certificate::FromPemFile(std::string_view filename) {
+  FILE* fp = nullptr;
+  if ((not Util::file_exists(filename)) or
+      (not (fp = std::fopen(filename.data(), "r")))) {
+    std::stringstream ss;
+    ss << __PRETTY_FUNCTION__ << "Error reading certificate file: "
+       << filename;
+    throw std::invalid_argument(ss.str());
+  }
+
+  X509* cert = PEM_read_X509(fp, nullptr, nullptr, nullptr);
+  std::fclose(fp);
+  if (not cert) int_error("Error reading certificate file");
+
+  return Certificate{cert};
+}
+
+Certificate Certificate::FromDer(const Bytes& der) {
+  auto bio = container_to_bio(der);
+
+  X509* cert = d2i_X509_bio(bio.get(), nullptr);
+  if (not cert) int_error("Error reading certificate from BIO");
+
+  return Certificate{cert};
+}
+
+Certificate::Certificate() : cert_(X509_new(), &X509_free) {}
+Certificate::Certificate(X509* cert) : cert_(cert, &X509_free) {}
 
 Certificate::Certificate(const Certificate& cert)
     : cert_{X509_dup(cert.Get()), &X509_free} {}
@@ -69,22 +106,6 @@ void Certificate::ToPemFile(std::string_view filename) const {
   if (result != 1) int_error("Error while writing certificate");
 }
 
-void Certificate::FromPemFile(std::string_view filename) {
-  FILE* fp = nullptr;
-  if ((not Util::file_exists(filename)) or
-      (not (fp = std::fopen(filename.data(), "r")))) {
-    std::stringstream ss;
-    ss << __PRETTY_FUNCTION__ << "Error reading certificate file: "
-       << filename;
-    throw std::invalid_argument(ss.str());
-  }
-
-  X509* cert = PEM_read_X509(fp, nullptr, nullptr, nullptr);
-  std::fclose(fp);
-  if (not cert) int_error("Error reading certificate file");
-  cert_.reset(cert);
-}
-
 std::string Certificate::ToPem() const {
   assert(cert_.get() != nullptr);
   auto bio = make_bio(BIO_s_mem());
@@ -98,19 +119,6 @@ std::string Certificate::ToPem() const {
   return result;
 }
 
-void Certificate::FromPem(std::string_view pem_str) {
-  if (pem_str.empty() or (pem_str.find("-----BEGIN CERTIFICATE-----") != 0)) {
-    throw std::invalid_argument(
-        std::string(__PRETTY_FUNCTION__) +
-        "Error reading pem_str, doesn't contain a certificate");
-  }
-
-  const auto bio = container_to_bio(pem_str);
-
-  cert_.reset(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
-  if (not cert_) int_error("Error reading certificate from BIO");
-}
-
 Bytes Certificate::ToDer() const {
   assert(cert_.get() != nullptr);
 
@@ -120,15 +128,6 @@ Bytes Certificate::ToDer() const {
     int_error("Error writing certificate to BIO");
 
   return bio_to_container<Bytes>(bio.get());
-}
-
-void Certificate::FromDer(const Bytes& der) {
-  auto bio = container_to_bio(der);
-
-  X509* cert = d2i_X509_bio(bio.get(), nullptr);
-  if (not cert) int_error("Error reading certificate from BIO");
-
-  cert_.reset(cert);
 }
 
 Map Certificate::GetExtensions() const {

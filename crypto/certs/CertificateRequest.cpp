@@ -29,8 +29,44 @@
 #include "Util.h"
 
 namespace lrm::crypto::certs {
-CertificateRequest::CertificateRequest()
-    : req_{nullptr, &X509_REQ_free} {}
+CertificateRequest CertificateRequest::FromPem(std::string_view pem_str) {
+  auto bio = container_to_bio(pem_str);
+
+  X509_REQ* req = PEM_read_bio_X509_REQ(bio.get(), nullptr, nullptr, nullptr);
+  if (not req) int_error("Error reading certificate request from BIO");
+
+  return CertificateRequest(req);
+}
+
+CertificateRequest CertificateRequest::FromPemFile(const fs::path& filename) {
+  FILE* fp = nullptr;
+  if ((not Util::file_exists(filename.c_str())) or
+      (not (fp = std::fopen(filename.c_str(), "r")))) {
+    std::stringstream ss;
+    ss << __PRETTY_FUNCTION__ << "Error reading certificate request file: "
+       << filename;
+    throw std::invalid_argument(ss.str());
+  }
+
+  X509_REQ* req = PEM_read_X509_REQ(fp, nullptr, nullptr, nullptr);
+  std::fclose(fp);
+
+  if (not req) int_error("Error reading certificate request from file");
+
+  return CertificateRequest(req);
+}
+
+CertificateRequest CertificateRequest::FromDER(const Bytes& der) {
+  const auto bio = container_to_bio(der);
+
+  X509_REQ* req = d2i_X509_REQ_bio(bio.get(), nullptr);
+  if (not req) int_error("Error reading cert request from BIO");
+
+  return CertificateRequest(req);
+}
+
+CertificateRequest::CertificateRequest(X509_REQ* req)
+    : req_{req, &X509_REQ_free} {}
 
 CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
                                        const Map& name_entries,
@@ -66,15 +102,6 @@ std::string CertificateRequest::ToPem() const {
   return bio_to_container<std::string>(bio.get());
 }
 
-void CertificateRequest::FromPem(std::string_view pem_str) {
-  auto bio = container_to_bio(pem_str);
-
-  X509_REQ* req = PEM_read_bio_X509_REQ(bio.get(), nullptr, nullptr, nullptr);
-  if (not req) int_error("Error reading certificate request from BIO");
-
-  req_.reset(req);
-}
-
 Bytes CertificateRequest::ToDER() const {
   assert(req_ != nullptr);
   const auto bio = make_bio(BIO_s_mem());
@@ -83,15 +110,6 @@ Bytes CertificateRequest::ToDER() const {
     int_error("Error translating cert request to BIO");
 
   return bio_to_container<Bytes>(bio.get());
-}
-
-void CertificateRequest::FromDER(const Bytes& der) {
-  const auto bio = container_to_bio(der);
-
-  X509_REQ* req = d2i_X509_REQ_bio(bio.get(), nullptr);
-  if (not req) int_error("Error reading cert request from BIO");
-
-  req_.reset(req);
 }
 
 void CertificateRequest::ToPemFile(const fs::path& filename) const {
@@ -108,24 +126,6 @@ void CertificateRequest::ToPemFile(const fs::path& filename) const {
   const auto result = PEM_write_X509_REQ(fp, req_.get());
   std::fclose(fp);
   if (result != 1) int_error("Error writing certificate request to pem file");
-}
-
-void CertificateRequest::FromPemFile(const fs::path& filename) {
-  FILE* fp = nullptr;
-  if ((not Util::file_exists(filename.c_str())) or
-      (not (fp = std::fopen(filename.c_str(), "r")))) {
-    std::stringstream ss;
-    ss << __PRETTY_FUNCTION__ << "Error reading certificate request file: "
-       << filename;
-    throw std::invalid_argument(ss.str());
-  }
-
-  X509_REQ* req = PEM_read_X509_REQ(fp, nullptr, nullptr, nullptr);
-  std::fclose(fp);
-
-  if (not req) int_error("Error reading certificate request from file");
-
-  req_.reset(req);
 }
 
 Map CertificateRequest::GetName() const {

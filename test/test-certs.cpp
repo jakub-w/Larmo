@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "crypto/certs/Certificate.h"
+#include "crypto/certs/CertificateAuthority.h"
 #include "crypto/certs/CertificateRequest.h"
 #include "crypto/certs/EddsaKeyPair.h"
 #include "crypto/certs/RsaKeyPair.h"
@@ -164,54 +165,38 @@ class CertificateTest : public ::testing::Test {
   }
 };
 
-TEST_F(CertificateTest, Construct_Empty) {
-  const auto cert = Certificate{};
-
-  EXPECT_EQ(cert.Get(), nullptr);
-}
-
 TEST_F(CertificateTest, FromPem) {
-  auto cert = Certificate{};
-
-  cert.FromPem(CA_cert_pem);
-
-  EXPECT_NE(cert.Get(), nullptr);
-}
-
-TEST_F(CertificateTest, Construct_PEM) {
-  const auto cert = Certificate{CA_cert_pem};
-
-  EXPECT_NE(cert.Get(), nullptr);
+  EXPECT_NO_THROW(Certificate::FromPem(CA_cert_pem));
 }
 
 TEST_F(CertificateTest, ToPem) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   EXPECT_EQ(cert.ToPem(), CA_cert_pem);
 }
 
 TEST_F(CertificateTest, Verify_Self) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   EXPECT_TRUE(cert.Verify(cert));
 }
 
 TEST_F(CertificateTest, Verify_AnotherGood) {
-  const auto CAcert = Certificate{CA_cert_pem};
-  const auto goodCert = Certificate{good_cert_pem};
+  const auto CAcert = Certificate::FromPem(CA_cert_pem);
+  const auto goodCert = Certificate::FromPem(good_cert_pem);
 
   EXPECT_TRUE(CAcert.Verify(goodCert));
 }
 
 TEST_F(CertificateTest, Verify_AnotherBad) {
-  const auto CAcert = Certificate{good_cert_pem};
-  const auto badCert = Certificate{CA_cert_pem};
+  const auto CAcert = Certificate::FromPem(good_cert_pem);
+  const auto badCert = Certificate::FromPem(CA_cert_pem);
 
   EXPECT_FALSE(CAcert.Verify(badCert));
 }
 
 TEST_F(CertificateTest, GetExtensions) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   const auto extensions = cert.GetExtensions();
 
@@ -226,7 +211,7 @@ TEST_F(CertificateTest, GetExtensions) {
 }
 
 TEST_F(CertificateTest, GetSubjectName) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   const auto name = cert.GetSubjectName();
 
@@ -238,13 +223,13 @@ TEST_F(CertificateTest, GetSubjectName) {
 }
 
 TEST_F(CertificateTest, GetIssuerName_SelfSigned) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   EXPECT_EQ(cert.GetIssuerName(), cert.GetSubjectName());
 }
 
 TEST_F(CertificateTest, ToPemFile) {
-  const auto cert = Certificate{CA_cert_pem};
+  const auto cert = Certificate::FromPem(CA_cert_pem);
 
   cert.ToPemFile(cert_pem_file);
   ASSERT_TRUE(lrm::Util::file_exists(cert_pem_file));
@@ -252,32 +237,29 @@ TEST_F(CertificateTest, ToPemFile) {
 }
 
 TEST_F(CertificateTest, FromPemFile) {
-  Certificate{CA_cert_pem}.ToPemFile(cert_pem_file);
+  Certificate::FromPem(CA_cert_pem).ToPemFile(cert_pem_file);
 
-  auto cert = Certificate{};
-  cert.FromPemFile(cert_pem_file);
+  auto cert = Certificate::FromPemFile(cert_pem_file);
 
   EXPECT_EQ(cert.GetSubjectName().size(), 4);
 }
 
 TEST_F(CertificateTest, FromPemFile_DoesntExist) {
-  auto cert = Certificate{};
-
-  EXPECT_THROW(cert.FromPemFile(cert_pem_file), std::invalid_argument);
+  EXPECT_THROW(Certificate::FromPemFile(cert_pem_file),
+               std::invalid_argument);
 }
 
 TEST_F(CertificateTest, ToDer) {
-  auto cert = Certificate{CA_cert_pem};
+  auto cert = Certificate::FromPem(CA_cert_pem);
 
   const auto der = cert.ToDer();
   EXPECT_FALSE(der.empty());
 }
 
 TEST_F(CertificateTest, FromDer) {
-  auto cert = Certificate{};
+  const auto control = Certificate::FromPem(CA_cert_pem);
 
-  const auto control = Certificate{CA_cert_pem};
-  cert.FromDer(control.ToDer());
+  auto cert = Certificate::FromDer(control.ToDer());
 
   EXPECT_EQ(control.ToPem(), cert.ToPem());
 }
@@ -308,30 +290,20 @@ class CertificateRequestTest : public ::testing::Test {
       }();
 };
 
-TEST_F(CertificateRequestTest, Construct_Empty) {
-  auto req = CertificateRequest{};
-
-  EXPECT_EQ(req.Get(), nullptr);
-}
-
 TEST_F(CertificateRequestTest, FromPem) {
-  auto req = CertificateRequest{};
+  auto req = CertificateRequest::FromPem(req_pem);
 
-  req.FromPem(req_pem);
   EXPECT_NE(nullptr, req.Get());
 }
 
 TEST_F(CertificateRequestTest, ToPem) {
-  auto req = CertificateRequest{};
-
-  req.FromPem(req_pem);
+  auto req = CertificateRequest::FromPem(req_pem);
 
   EXPECT_EQ(req.ToPem(), req_pem);
 }
 
 TEST_F(CertificateRequestTest, GetName) {
-  auto req = CertificateRequest{};
-  req.FromPem(req_pem);
+  auto req = CertificateRequest::FromPem(req_pem);
 
   const auto name = req.GetName();
 
@@ -343,8 +315,7 @@ TEST_F(CertificateRequestTest, GetName) {
 }
 
 TEST_F(CertificateRequestTest, GetExtensions) {
-  auto req = CertificateRequest{};
-  req.FromPem(req_pem);
+  auto req = CertificateRequest::FromPem(req_pem);
 
   const auto extensions = req.GetExtensions();
 
@@ -370,4 +341,65 @@ TEST_F(CertificateRequestTest, Construct) {
   EXPECT_EQ(name.at("stateOrProvinceName"), "ReqProvince");
   EXPECT_EQ(name.at("commonName"), "ReqCN");
   EXPECT_EQ(name.at("countryName"), "RE");
+}
+
+// ------------------ CERTIFICATE AUTHORITY TESTS ------------------
+
+class CertificateAuthorityTest : public ::testing::Test {
+ protected:
+  inline static const auto CA_key_pair =
+      []{
+        auto kp = std::make_shared<EddsaKeyPair>();
+        kp->FromPEM("-----BEGIN PRIVATE KEY-----\n"
+                   "MC4CAQAwBQYDK2VwBCIEIHf8jm7hxCwO/"
+                   "3yKihJBZktmg/iA1ma/WEabZf/MDqrN\n"
+                   "-----END PRIVATE KEY-----\n");
+        return kp;
+      }();
+
+  inline static const Map CA_name = {{"organizationName", "Larmo"},
+                                     {"stateOrProvinceName", "Larmoland"},
+                                     {"commonName", "LarmoCN"},
+                                     {"countryName", "PL"}};
+
+  inline static constexpr auto good_privkey_pem =
+      "-----BEGIN PRIVATE KEY-----\n"
+      "MC4CAQAwBQYDK2VwBCIEIGb1ageNgHFPC0nJEaTFy4q3+ybg7wW2tX4V5xh7xqoN\n"
+      "-----END PRIVATE KEY-----\n";
+
+  static void SetUpTestCase() {
+
+  }
+};
+
+TEST_F(CertificateAuthorityTest, Construct) {
+  const auto CA = CertificateAuthority{CA_name, CA_key_pair};
+
+  const auto name = CA.GetRootCertificate().GetIssuerName();
+  ASSERT_FALSE(name.empty());
+  EXPECT_EQ(CA_name, name);
+  EXPECT_EQ(CA.GetRootCertificate().GetSubjectName(), name);
+
+  // TODO: enable this part of the test
+  // const auto extensions = CA.GetRootCertificate().GetExtensions();
+  // ASSERT_FALSE(extensions.empty());
+  // EXPECT_EQ("CA:TRUE", extensions.at("X509v3 Basic Constraints"));
+}
+
+TEST_F(CertificateAuthorityTest, Certify) {
+  EddsaKeyPair kp; kp.FromPEM(good_privkey_pem);
+  Map name = {{"countryName", "PL"},
+              {"stateOrProvinceName", "AlsoLarmoland"},
+              {"organizationName", "NotLarmo"},
+              {"commonName", "NotLarmoCN"}};
+
+  CertificateRequest request{kp, name};
+  auto CA = CertificateAuthority{CA_name, CA_key_pair};
+
+  Certificate cert = CA.Certify(std::move(request), 365);
+
+  auto subject_name = cert.GetSubjectName();
+  EXPECT_EQ(name, subject_name);
+  EXPECT_EQ(CA.GetRootCertificate().GetSubjectName(), cert.GetIssuerName());
+  EXPECT_TRUE(CA.GetRootCertificate().Verify(cert));
 }

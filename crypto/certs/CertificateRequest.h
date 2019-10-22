@@ -27,18 +27,21 @@
 namespace lrm::crypto::certs {
 class CertificateRequest {
  public:
-  CertificateRequest();
+  static CertificateRequest FromPem(std::string_view pem_str);
+  static CertificateRequest FromPemFile(const fs::path& filename);
+  static CertificateRequest FromDER(const Bytes& der);
+
+  CertificateRequest() = delete;
   CertificateRequest(KeyPairBase& key_pair,
                      const Map& name_entries,
                      const Map& extensions = {});
 
-  std::string ToPem() const;
-  void FromPem(std::string_view pem_str);
-  void ToPemFile(const fs::path& filename) const;
-  void FromPemFile(const fs::path& filename);
+  CertificateRequest(CertificateRequest&&) = default;
+  CertificateRequest& operator=(CertificateRequest&&) = default;
 
+  std::string ToPem() const;
+  void ToPemFile(const fs::path& filename) const;
   Bytes ToDER() const;
-  void FromDER(const Bytes& der);
 
   Map GetName() const;
   Map GetExtensions() const;
@@ -48,6 +51,8 @@ class CertificateRequest {
   }
 
  private:
+  CertificateRequest(X509_REQ* req);
+
   std::unique_ptr<X509_REQ, decltype(&X509_REQ_free)> req_;
 };
 }

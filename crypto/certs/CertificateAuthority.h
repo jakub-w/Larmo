@@ -29,6 +29,9 @@ class CertificateAuthority {
   CertificateAuthority(const Map& name,
                        std::shared_ptr<KeyPairBase>&& key_pair,
                        unsigned int expiration_days = 3650);
+  CertificateAuthority(CertificateAuthority&&) = default;
+
+  CertificateAuthority& operator=(CertificateAuthority&&) = default;
 
   /// \brief Create \ref Certificate from \ref CertificateRequest.
   ///
