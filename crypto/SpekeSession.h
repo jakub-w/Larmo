@@ -69,7 +69,7 @@ class SpekeSession {
   static constexpr int BAD_BEHAVIOR_LIMIT = 3;
 
   /// The \e Bytes param is a plain message in bytes, without HMAC signature.
-  using MessageHandler = std::function<void(Bytes&&)>;
+  using MessageHandler = std::function<void(Bytes&&, SpekeSession&)>;
 
   /// \param socket An already connected tcp socket.
   /// \param speke A pointer to an already constructed \ref SpekeInterface

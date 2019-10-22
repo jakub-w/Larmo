@@ -239,7 +239,7 @@ TEST(SpekeSessionTest, Run_InitDataIsSent) {
   auto speke = std::make_unique<FakeSpeke>();
   auto session = TestSpekeSession(std::move(sockets.first), std::move(speke));
 
-  ASSERT_NO_THROW(session.Run([](Bytes&& message){ return; }));
+  ASSERT_NO_THROW(session.Run([](auto, auto&){}));
 
   SpekeMessage peer_data =
       TestSpekeSession::TestReceiveMessage(sockets.second);
@@ -251,7 +251,7 @@ TEST(SpekeSessionTest, Run_InitDataIsSent) {
 
 TEST_F(SpekeSessionTestF, ConnectionDroppedOnIncorrectPublicKey) {
   auto session = GetSession();
-  session->Run([](auto){ return; });
+  session->Run([](auto, auto&){});
 
   SpekeMessage message;
   SpekeMessage::InitData* init_data = message.mutable_init_data();
@@ -272,7 +272,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnIncorrectPublicKey) {
 
 TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectPublicKey) {
   auto session = GetSession();
-  session->Run([](Bytes&& message){ return; });
+  session->Run([](auto, auto&){});
 
   SpekeMessage message;
   SpekeMessage::InitData* init_data = message.mutable_init_data();
@@ -293,7 +293,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectPublicKey) {
 
 TEST_F(SpekeSessionTestF, SendsKeyConfirmation) {
   auto session = GetSession();
-  session->Run([](Bytes&& message){ return; });
+  session->Run([](auto, auto&){});
 
   SendInitData();
 
@@ -313,7 +313,7 @@ TEST_F(SpekeSessionTestF, SendsKeyConfirmation) {
 
 TEST_F(SpekeSessionTestF, ConnectionDroppedOnBadKeyConfirmation) {
   auto session = GetSession();
-  session->Run([](auto){return;});
+  session->Run([](auto, auto&){});
   auto& socket = GetSocket();
 
   SendInitData();
@@ -340,7 +340,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedOnBadKeyConfirmation) {
 
 TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectKeyConfirmation) {
   auto session = GetSession();
-  session->Run([](auto){return;});
+  session->Run([](auto, auto&){});
   auto& socket = GetSocket();
 
   SendInitData();
@@ -365,7 +365,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedOnCorrectKeyConfirmation) {
 
 TEST_F(SpekeSessionTestF, ConnectionNotDroppedBadHmac) {
   auto session = GetSession();
-  session->Run([](auto){return;});
+  session->Run([](auto, auto&){});
 
   SendInitData();
 
@@ -387,7 +387,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedBadHmac) {
 
 TEST_F(SpekeSessionTestF, ConnectionDroppedMultipleBadHMACs) {
   auto session = GetSession();
-  session->Run([](auto){return;});
+  session->Run([](auto, auto&){});
 
   SendInitData();
 
@@ -412,7 +412,7 @@ TEST_F(SpekeSessionTestF, ConnectionDroppedMultipleBadHMACs) {
 
 TEST_F(SpekeSessionTestF, ConnectionNotDroppedMultipleGoodHMACs) {
   auto session = GetSession();
-  session->Run([](auto){return;});
+  session->Run([](auto, auto&){});
 
   SendInitData();
 
@@ -436,7 +436,7 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedMultipleGoodHMACs) {
 TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
   auto session = GetSession();
   std::string result;
-  session->Run([&result](Bytes&& message){
+  session->Run([&result](Bytes&& message, auto&){
                  result.resize(message.size());
                  std::memcpy(result.data(), message.data(), message.size());
                });
@@ -457,12 +457,12 @@ TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
 
 TEST_F(SpekeSessionTestF, SetMessageHandler) {
   auto session = GetSession();
-  session->Run([](auto){});
+  session->Run([](auto, auto&){});
 
   SendInitData();
 
   std::string result;
-  session->SetMessageHandler([&result](Bytes&& message){
+  session->SetMessageHandler([&result](Bytes&& message, auto&){
                  result.resize(message.size());
                  std::memcpy(result.data(), message.data(), message.size());
                });
@@ -482,7 +482,7 @@ TEST_F(SpekeSessionTestF, SetMessageHandler) {
 TEST_F(SpekeSessionTestF, SendMessage) {
   auto session = GetSession();
   std::string result;
-  session->Run([](auto){});
+  session->Run([](auto, auto&){});
 
   SendInitData();
 

@@ -153,4 +153,13 @@ Map Certificate::GetIssuerName() const {
 
   return x509_name_to_map(name);
 }
+
+Bytes Certificate::GetHash() const {
+  const auto der = ToDer();
+  Bytes result(SHA256_DIGEST_LENGTH);
+  SHA256(reinterpret_cast<const unsigned char*>(der.data()),
+         der.size(),
+         reinterpret_cast<unsigned char*>(result.data()));
+  return result;
+}
 }

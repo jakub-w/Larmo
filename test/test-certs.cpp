@@ -264,6 +264,13 @@ TEST_F(CertificateTest, FromDer) {
   EXPECT_EQ(control.ToPem(), cert.ToPem());
 }
 
+TEST_F(CertificateTest, GetHash) {
+  const auto cert_one = Certificate::FromPem(good_cert_pem);
+  const auto cert_two = Certificate::FromPem(CA_cert_pem);
+
+  EXPECT_NE(cert_one.GetHash(), cert_two.GetHash());
+}
+
 // -------------------- CERTIFICATE REQUEST TESTS --------------------
 
 class CertificateRequestTest : public ::testing::Test {

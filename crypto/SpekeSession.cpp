@@ -174,7 +174,7 @@ void SpekeSession<Protocol>::handle_message(Bytes&& message) {
   }
 
   assert(handler);
-  handler(std::move(message));
+  handler(std::move(message), *this);
 }
 
 template <typename Protocol>

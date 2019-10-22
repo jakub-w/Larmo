@@ -54,6 +54,8 @@ class Certificate {
   Map GetSubjectName() const;
   Map GetIssuerName() const;
 
+  Bytes GetHash() const;
+
  private:
   friend class CertificateAuthority;
 
