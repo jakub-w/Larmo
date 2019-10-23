@@ -20,6 +20,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <numeric>
 
 #include "spdlog/spdlog.h"
 
@@ -151,12 +152,13 @@ void Daemon::initialize_config() {
 
   Config::Require({"grpc_port", "grpc_host", "passphrase", "cert_file"});
 
-  std::string error_message{"Missing config settings: "};
   auto missing = Config::CheckMissing();
-  for(const std::string* var : missing) {
-    error_message += *var + ", ";
-  }
   if (not missing.empty()) {
+    auto error_message =
+        std::accumulate(std::begin(missing), std::end(missing),
+                        std::string("Missing config settings: "),
+                        [](const auto& result, auto* str) {
+                          return result + *str + ", "; });
     error_message.erase(error_message.length() - 2);
     throw std::logic_error(error_message);
   }
