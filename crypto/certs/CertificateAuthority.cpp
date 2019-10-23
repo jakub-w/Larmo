@@ -28,7 +28,7 @@ namespace lrm::crypto::certs {
 
 CertificateAuthority::CertificateAuthority(
     const Map& name_entries,
-    std::shared_ptr<KeyPairBase>&& key_pair,
+    KeyPair&& key_pair,
     unsigned int expiration_days)
     : key_pair_{std::move(key_pair)} {
   if (not cert_.Get()) int_error("Failed to create X509 object");
@@ -42,7 +42,7 @@ CertificateAuthority::CertificateAuthority(
                           60 * 60 * 24 * expiration_days))
     int_error("Error setting ending time of the certificate");
 
-  if (not X509_set_pubkey(cert_.Get(), key_pair_->Get()))
+  if (not X509_set_pubkey(cert_.Get(), key_pair_.Get()))
     int_error("Error setting public key of the certificate");
 
   auto name = map_to_x509_name(name_entries);
@@ -56,7 +56,7 @@ CertificateAuthority::CertificateAuthority(
   // TODO: Add extensions: basicConstraints = critical,CA:true
   //                       keyUsage = "keyCertSign, keyAgreement"
 
-  if (not X509_sign(cert_.Get(), key_pair_->Get(), key_pair_->DigestType()))
+  if (not X509_sign(cert_.Get(), key_pair_.Get(), key_pair_.DigestType()))
     int_error("Error self-signing CA certificate");
 }
 
@@ -95,7 +95,7 @@ Certificate CertificateAuthority::Certify(CertificateRequest&& request,
   // TODO: Add extension: basicConstraints: "critical,CA:false",
   //                      keyUsage: "keyAgreement"
 
-  if (not X509_sign(result.Get(), key_pair_->Get(), key_pair_->DigestType()))
+  if (not X509_sign(result.Get(), key_pair_.Get(), key_pair_.DigestType()))
     int_error("Error signing the certificate");
 
   return result;

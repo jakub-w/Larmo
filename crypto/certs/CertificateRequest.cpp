@@ -68,7 +68,7 @@ CertificateRequest CertificateRequest::FromDER(const Bytes& der) {
 CertificateRequest::CertificateRequest(X509_REQ* req)
     : req_{req, &X509_REQ_free} {}
 
-CertificateRequest::CertificateRequest(KeyPairBase& key_pair,
+CertificateRequest::CertificateRequest(KeyPair& key_pair,
                                        const Map& name_entries,
                                        const Map& extensions)
     : req_{X509_REQ_new(), &X509_REQ_free} {

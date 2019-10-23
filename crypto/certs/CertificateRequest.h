@@ -22,7 +22,9 @@
 #include <functional>
 
 #include "crypto/certs/Certificate.h"
+#include "crypto/certs/KeyPair.h"
 #include "crypto/config.h"
+#include "filesystem.h"
 
 namespace lrm::crypto::certs {
 class CertificateRequest {
@@ -32,7 +34,7 @@ class CertificateRequest {
   static CertificateRequest FromDER(const Bytes& der);
 
   CertificateRequest() = delete;
-  CertificateRequest(KeyPairBase& key_pair,
+  CertificateRequest(KeyPair& key_pair,
                      const Map& name_entries,
                      const Map& extensions = {});
 

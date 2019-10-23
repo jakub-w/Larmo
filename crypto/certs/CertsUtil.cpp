@@ -98,8 +98,9 @@ Map x509_ext_stack_to_map(const STACK_OF(X509_EXTENSION)* extlist) {
     const auto obj = X509_EXTENSION_get_object(ext);
     if (not obj) int_error("Error reading object from extension");
 
-    char key[256];
-    OBJ_obj2txt(key, 256, obj, 0);
+    int length = OBJ_obj2txt(nullptr, 0, obj, 0) + 1;
+    char key[length];
+    OBJ_obj2txt(key, length, obj, 0);
 
     X509V3_EXT_print(bio.get(), ext, 0, 0);
 
@@ -109,4 +110,16 @@ Map x509_ext_stack_to_map(const STACK_OF(X509_EXTENSION)* extlist) {
   return extensions;
 }
 
+std::unique_ptr<FILE, decltype(&std::fclose)>
+open_file(std::string_view filename, std::string_view modes) {
+  FILE* fp = nullptr;
+  if (not (fp = std::fopen(filename.data(), modes.data()))) {
+    std::stringstream ss;
+    ss << __PRETTY_FUNCTION__ << "Error opening file: "
+       << filename;
+    throw std::system_error(errno, std::system_category(), ss.str());
+  }
+
+  return std::unique_ptr<FILE, decltype(&std::fclose)>(fp, &std::fclose);
+}
 }

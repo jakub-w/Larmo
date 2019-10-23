@@ -21,13 +21,14 @@
 
 #include "crypto/certs/Certificate.h"
 #include "crypto/certs/CertificateRequest.h"
+#include "crypto/certs/KeyPair.h"
 
 namespace lrm::crypto::certs {
 class CertificateAuthority {
  public:
   CertificateAuthority() = delete;
   CertificateAuthority(const Map& name,
-                       std::shared_ptr<KeyPairBase>&& key_pair,
+                       KeyPair&& key_pair,
                        unsigned int expiration_days = 3650);
   CertificateAuthority(CertificateAuthority&&) = default;
 
@@ -44,7 +45,7 @@ class CertificateAuthority {
 
  private:
   Certificate cert_;
-  std::shared_ptr<KeyPairBase> key_pair_;
+  KeyPair key_pair_;
 
   size_t serial_ = 1;
 };

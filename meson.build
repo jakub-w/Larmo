@@ -100,9 +100,7 @@ crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/SPEKE.cpp',
 		  'crypto/SpekeSession.cpp',
 		  'crypto/certs/CertsUtil.cpp',
-		  'crypto/certs/KeyPairBase.cpp',
-		  'crypto/certs/EddsaKeyPair.cpp',
-		  'crypto/certs/RsaKeyPair.cpp',
+		  'crypto/certs/KeyPair.cpp',
 		  'crypto/certs/Certificate.cpp',
 		  'crypto/certs/CertificateAuthority.cpp',
 		  'crypto/certs/CertificateRequest.cpp']
@@ -144,10 +142,13 @@ if gtest.found()
 				  'test/test-SPEKE.cpp',
 				  'test/test-SpekeSession.cpp',
 				  'test/test-certs.cpp',
+				  'test/test-KeyPair.cpp',
 				  'Util.cpp',
 				  crypto_sources,
 				  protobuf_speke_files],
 			dependencies: [gtest, openssl_dep, protobuf_dep])
+			dependencies: [gtest, openssl_dep, protobuf_dep,
+				       spdlog_dep])
 
   test('all', test_all)
 endif

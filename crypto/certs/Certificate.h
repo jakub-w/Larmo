@@ -24,7 +24,6 @@
 #include <openssl/x509.h>
 
 #include "crypto/certs/CertsUtil.h"
-#include "crypto/certs/KeyPairBase.h"
 #include "crypto/config.h"
 
 namespace lrm::crypto::certs {

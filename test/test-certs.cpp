@@ -21,8 +21,6 @@
 #include "crypto/certs/Certificate.h"
 #include "crypto/certs/CertificateAuthority.h"
 #include "crypto/certs/CertificateRequest.h"
-#include "crypto/certs/EddsaKeyPair.h"
-#include "crypto/certs/RsaKeyPair.h"
 
 #include <openssl/pem.h>
 
@@ -30,11 +28,6 @@
 #include "Util.h"
 
 using namespace lrm::crypto::certs;
-
-const fs::path serialized_privkey_path = "/tmp/lrm-test-privkey.pem";
-const fs::path serialized_pubkey_path = "/tmp/lrm-test-pubkey.pem";
-const std::string serialized_cert_path = "/tmp/lrm-test-cert.pem";
-std::shared_ptr<EddsaKeyPair> glob_key_pair;
 
 bool check_pem_file_contents(std::string_view filename) {
   std::string line;
@@ -52,69 +45,6 @@ bool check_pem_file_contents(std::string_view filename) {
   return false;
 }
 
-template <typename T>
-class KeyPairTest : public ::testing::Test {
- public:
-  static std::unique_ptr<T> key_pair;
-};
-template <typename T>
-std::unique_ptr<T> KeyPairTest<T>::key_pair;
-
-using KeyPairTypes = ::testing::Types<RsaKeyPair, EddsaKeyPair>;
-TYPED_TEST_CASE(KeyPairTest, KeyPairTypes);
-
-TYPED_TEST(KeyPairTest, Constructs) {
-  EXPECT_NO_THROW(TestFixture::key_pair = std::make_unique<TypeParam>());
-}
-
-TYPED_TEST(KeyPairTest, Generates) {
-  EXPECT_NO_THROW(TestFixture::key_pair->Generate());
-}
-
-TYPED_TEST(KeyPairTest, SerializesPrivkeyToPemFile) {
-  fs::remove(serialized_privkey_path);
-
-  EXPECT_NO_THROW(
-      TestFixture::key_pair->ToPemFilePrivKey(serialized_privkey_path));
-  ASSERT_TRUE(lrm::Util::file_exists(serialized_privkey_path.c_str()));
-
-  EXPECT_TRUE(check_pem_file_contents(serialized_privkey_path.string()));
-}
-
-TYPED_TEST(KeyPairTest, SerializesPubkeyToPemFile) {
-  fs::remove(serialized_pubkey_path);
-
-  EXPECT_NO_THROW(
-      TestFixture::key_pair->ToPemFilePubKey(serialized_pubkey_path));
-  ASSERT_TRUE(lrm::Util::file_exists(serialized_pubkey_path.c_str()));
-
-  EXPECT_TRUE(check_pem_file_contents(serialized_pubkey_path.string()));
-}
-
-TYPED_TEST(KeyPairTest, ToPemString) {
-  std::string key_pair_str;
-  ASSERT_NO_THROW(key_pair_str = TestFixture::key_pair->ToPemPrivKey());
-  ASSERT_FALSE(key_pair_str.empty());
-
-  EXPECT_EQ(0, key_pair_str.find("-----BEGIN PRIVATE KEY-----"))
-      << "The PEM private key string should start with "
-      "-----BEGIN PRIVATE KEY-----";
-}
-
-TYPED_TEST(KeyPairTest, DeserializeFromFile) {
-  std::string key = TestFixture::key_pair->ToPemPrivKey();
-
-  TestFixture::key_pair.reset(new TypeParam);
-  ASSERT_NO_THROW(
-      TestFixture::key_pair->FromPemFile(serialized_privkey_path));
-
-  EXPECT_EQ(key, TestFixture::key_pair->ToPemPrivKey());
-}
-
-// TODO: add password encrypted (de)serialization tests
-// TODO: add tests for DER serialization
-
-
 // -------------------- CERTIFICATE TESTS --------------------
 
 class CertificateTest : public ::testing::Test {
@@ -129,11 +59,6 @@ class CertificateTest : public ::testing::Test {
       "-----END PRIVATE KEY-----\n";
 
  protected:
-  // inline static const EddsaKeyPair key_pair = []{
-  //                                               EddsaKeyPair kp;
-  //                                               kp.FromPEM(CA_privkey_pem);
-  //                                               return kp;
-  //                                             }();
   inline static constexpr auto CA_cert_pem =
       "-----BEGIN CERTIFICATE-----\n"
       "MIIBmzCCAU2gAwIBAgIUHeVgIYnpzLshMqmYEh81ltKSCY0wBQYDK2VwMEMxCzAJ\n"
@@ -289,12 +214,8 @@ class CertificateRequestTest : public ::testing::Test {
       "MC4CAQAwBQYDK2VwBCIEIGb1ageNgHFPC0nJEaTFy4q3+ybg7wW2tX4V5xh7xqoN\n"
       "-----END PRIVATE KEY-----\n";
 
-  inline static EddsaKeyPair req_key_pair =
-      []{
-        EddsaKeyPair kp;
-        kp.FromPEM(req_key_pair_pem);
-        return kp;
-      }();
+  inline static KeyPair req_key_pair = KeyPair::FromPem(KeyPair::ED25519,
+                                                        req_key_pair_pem);
 };
 
 TEST_F(CertificateRequestTest, FromPem) {
@@ -354,16 +275,6 @@ TEST_F(CertificateRequestTest, Construct) {
 
 class CertificateAuthorityTest : public ::testing::Test {
  protected:
-  inline static const auto CA_key_pair =
-      []{
-        auto kp = std::make_shared<EddsaKeyPair>();
-        kp->FromPEM("-----BEGIN PRIVATE KEY-----\n"
-                   "MC4CAQAwBQYDK2VwBCIEIHf8jm7hxCwO/"
-                   "3yKihJBZktmg/iA1ma/WEabZf/MDqrN\n"
-                   "-----END PRIVATE KEY-----\n");
-        return kp;
-      }();
-
   inline static const Map CA_name = {{"organizationName", "Larmo"},
                                      {"stateOrProvinceName", "Larmoland"},
                                      {"commonName", "LarmoCN"},
@@ -377,10 +288,18 @@ class CertificateAuthorityTest : public ::testing::Test {
   static void SetUpTestCase() {
 
   }
+
+  static KeyPair GetKeyPair() {
+    return KeyPair::FromPem(
+        KeyPair::ED25519,
+        "-----BEGIN PRIVATE KEY-----\n"
+        "MC4CAQAwBQYDK2VwBCIEIHf8jm7hxCwO/3yKihJBZktmg/iA1ma/WEabZf/MDqrN\n"
+        "-----END PRIVATE KEY-----\n");
+  }
 };
 
 TEST_F(CertificateAuthorityTest, Construct) {
-  const auto CA = CertificateAuthority{CA_name, CA_key_pair};
+  const auto CA = CertificateAuthority{CA_name, GetKeyPair()};
 
   const auto name = CA.GetRootCertificate().GetIssuerName();
   ASSERT_FALSE(name.empty());
@@ -394,14 +313,14 @@ TEST_F(CertificateAuthorityTest, Construct) {
 }
 
 TEST_F(CertificateAuthorityTest, Certify) {
-  EddsaKeyPair kp; kp.FromPEM(good_privkey_pem);
+  auto kp = KeyPair::FromPem(KeyPair::ED25519, good_privkey_pem);
   Map name = {{"countryName", "PL"},
               {"stateOrProvinceName", "AlsoLarmoland"},
               {"organizationName", "NotLarmo"},
               {"commonName", "NotLarmoCN"}};
 
   CertificateRequest request{kp, name};
-  auto CA = CertificateAuthority{CA_name, CA_key_pair};
+  auto CA = CertificateAuthority{CA_name, GetKeyPair()};
 
   Certificate cert = CA.Certify(std::move(request), 365);
 

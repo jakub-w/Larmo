@@ -96,5 +96,8 @@ auto map_to_x509_extension_stack(const MapT& map) {
 
 Map x509_name_to_map(const X509_NAME* name);
 Map x509_ext_stack_to_map(const STACK_OF(X509_EXTENSION)* extlist);
+
+std::unique_ptr<FILE, decltype(&std::fclose)>
+open_file(std::string_view filename, std::string_view modes);
 }
 #endif  // LRM_CERTS_H_
