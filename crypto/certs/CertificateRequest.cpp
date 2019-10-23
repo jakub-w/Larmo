@@ -140,6 +140,9 @@ Map CertificateRequest::GetName() const {
 Map CertificateRequest::GetExtensions() const {
   assert(req_.get() != nullptr);
 
-  return x509_ext_stack_to_map(X509_REQ_get_extensions(req_.get()));
+  auto extlist = X509_REQ_get_extensions(req_.get());
+  const auto result = x509_ext_stack_to_map(extlist);
+  sk_X509_EXTENSION_pop_free(extlist, X509_EXTENSION_free);
+  return result;
 }
 }
