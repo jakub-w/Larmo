@@ -81,7 +81,7 @@ Certificate CertificateAuthority::Certify(CertificateRequest&& request,
   if (not X509_set_issuer_name(result.Get(), CAname))
     int_error("Error setting issuer name of certificate");
 
-  const auto pubkey = X509_REQ_get_pubkey(request.Get());
+  const auto pubkey = X509_REQ_get0_pubkey(request.Get());
   if (not pubkey) int_error("Error getting public key from request");
   if (not X509_set_pubkey(result.Get(), pubkey))
     int_error("Error setting public key of the certificate");

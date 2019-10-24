@@ -171,9 +171,9 @@ std::string SPEKE::make_id(const std::string& prefix) {
 
   EVP_MD_CTX_free(ctx);
 
-  char buffer[MD5_DIGEST_LENGTH * 2];
+  std::string buffer(MD5_DIGEST_LENGTH * 2, ' ');
   for (unsigned int i = 0; i < md_len; ++i) {
-    std::sprintf(&buffer[2*i], "%02X", md_val[i]);
+    std::sprintf(buffer.data() + 2*i, "%02X", md_val[i]);
   }
 
   return std::string(prefix + '-' + buffer);

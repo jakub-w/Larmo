@@ -84,7 +84,7 @@ Certificate& Certificate::operator=(Certificate& cert) {
 
 bool Certificate::Verify(const Certificate& another) const {
   assert(cert_.get() != nullptr);
-  EVP_PKEY* this_pubkey = X509_get_pubkey(cert_.get());
+  EVP_PKEY* this_pubkey = X509_get0_pubkey(cert_.get());
   if (not this_pubkey) int_error("Error getting certificate public key");
 
   const int result = X509_verify(another.Get(), this_pubkey);
