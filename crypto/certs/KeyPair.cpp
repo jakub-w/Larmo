@@ -152,50 +152,56 @@ Bytes KeyPair::ToDerPubKey() const {
 
 /* ======================== KEY TYPES ======================== */
 
-const KeyPair::keypair_t KeyPair::ED25519{
-  []{
-    EVP_PKEY* pkey = nullptr;
-    EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
-    if (not pctx) int_error("Failed to create EVP_PKEY_CTX object");
+const KeyPair::keypair_t& KeyPair::ED25519() {
+  static keypair_t ED25519{
+    []{
+      EVP_PKEY* pkey = nullptr;
+      EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr);
+      if (not pctx) int_error("Failed to create EVP_PKEY_CTX object");
 
-    if (not EVP_PKEY_keygen_init(pctx)) {
-      EVP_PKEY_CTX_free(pctx);
-      int_error("Error initializing EVP_PKEY keygen");
-    }
-    if (not EVP_PKEY_keygen(pctx, &pkey)) {
-      EVP_PKEY_CTX_free(pctx);
-      int_error("Error generating key");
-    }
-    EVP_PKEY_CTX_free(pctx);
-
-    return pkey;
-  },
-  EVP_md_null(),
-  EVP_PKEY_ED25519
-};
-
-const KeyPair::keypair_t KeyPair::RSA{
-  []{
-    EVP_PKEY* pkey = nullptr;
-    EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-    if (not pctx) int_error("Failed to create EVP_PKEY_CTX object");
-
-    try {
-      if (EVP_PKEY_keygen_init(pctx) <= 0)
+      if (not EVP_PKEY_keygen_init(pctx)) {
+        EVP_PKEY_CTX_free(pctx);
         int_error("Error initializing EVP_PKEY keygen");
-      if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, LRM_RSA_KEY_BITS) <= 0)
-        int_error("Error setting keygen bits for RSA");
-      if (EVP_PKEY_keygen(pctx, &pkey) <= 0)
+      }
+      if (not EVP_PKEY_keygen(pctx, &pkey)) {
+        EVP_PKEY_CTX_free(pctx);
         int_error("Error generating key");
-    } catch (...) {
+      }
       EVP_PKEY_CTX_free(pctx);
-      throw;
-    }
-    EVP_PKEY_CTX_free(pctx);
 
-    return pkey;
-  },
-  LRM_RSA_KEY_SIGN_DIGEST,
-  EVP_PKEY_RSA
-};
+      return pkey;
+    },
+    EVP_md_null(),
+    EVP_PKEY_ED25519
+  };
+  return ED25519;
+}
+
+const KeyPair::keypair_t& KeyPair::RSA() {
+  static keypair_t RSA{
+    []{
+      EVP_PKEY* pkey = nullptr;
+      EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+      if (not pctx) int_error("Failed to create EVP_PKEY_CTX object");
+
+      try {
+        if (EVP_PKEY_keygen_init(pctx) <= 0)
+          int_error("Error initializing EVP_PKEY keygen");
+        if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, LRM_RSA_KEY_BITS) <= 0)
+          int_error("Error setting keygen bits for RSA");
+        if (EVP_PKEY_keygen(pctx, &pkey) <= 0)
+          int_error("Error generating key");
+      } catch (...) {
+        EVP_PKEY_CTX_free(pctx);
+        throw;
+      }
+      EVP_PKEY_CTX_free(pctx);
+
+      return pkey;
+    },
+    LRM_RSA_KEY_SIGN_DIGEST,
+    EVP_PKEY_RSA
+  };
+  return RSA;
+}
 }

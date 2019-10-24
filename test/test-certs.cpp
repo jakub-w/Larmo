@@ -214,7 +214,7 @@ class CertificateRequestTest : public ::testing::Test {
       "MC4CAQAwBQYDK2VwBCIEIGb1ageNgHFPC0nJEaTFy4q3+ybg7wW2tX4V5xh7xqoN\n"
       "-----END PRIVATE KEY-----\n";
 
-  inline static KeyPair req_key_pair = KeyPair::FromPem(KeyPair::ED25519,
+  inline static KeyPair req_key_pair = KeyPair::FromPem(KeyPair::ED25519(),
                                                         req_key_pair_pem);
 };
 
@@ -291,7 +291,7 @@ class CertificateAuthorityTest : public ::testing::Test {
 
   static KeyPair GetKeyPair() {
     return KeyPair::FromPem(
-        KeyPair::ED25519,
+        KeyPair::ED25519(),
         "-----BEGIN PRIVATE KEY-----\n"
         "MC4CAQAwBQYDK2VwBCIEIHf8jm7hxCwO/3yKihJBZktmg/iA1ma/WEabZf/MDqrN\n"
         "-----END PRIVATE KEY-----\n");
@@ -313,7 +313,7 @@ TEST_F(CertificateAuthorityTest, Construct) {
 }
 
 TEST_F(CertificateAuthorityTest, Certify) {
-  auto kp = KeyPair::FromPem(KeyPair::ED25519, good_privkey_pem);
+  auto kp = KeyPair::FromPem(KeyPair::ED25519(), good_privkey_pem);
   Map name = {{"countryName", "PL"},
               {"stateOrProvinceName", "AlsoLarmoland"},
               {"organizationName", "NotLarmo"},

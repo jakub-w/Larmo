@@ -32,14 +32,19 @@ class KeyPair {
  public:
   struct keypair_t {
     using evp_pkey_t = int;
+    keypair_t() = delete;
+    keypair_t(const keypair_t&) = delete;
+    keypair_t(keypair_t&&) = delete;
+    keypair_t& operator=(const keypair_t&) = delete;
+    keypair_t& operator=(keypair_t&&) = delete;
 
     const std::function<EVP_PKEY*(void)> generate;
     const EVP_MD* digest;
     const evp_pkey_t type;
   };
 
-  static const keypair_t ED25519;
-  static const keypair_t RSA;
+  static const keypair_t& ED25519();
+  static const keypair_t& RSA();
 
   static KeyPair FromPem(const keypair_t& type,
                          std::string_view pem_privkey,

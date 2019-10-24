@@ -59,7 +59,7 @@ class KeyPairTest
     }
   }
 
-  auto Param() {
+  const std::remove_pointer_t<ParamType>& Param() {
     return *GetParam();
   }
 
@@ -155,8 +155,8 @@ TEST_P(KeyPairTest, Generate) {
 
 INSTANTIATE_TEST_CASE_P(
     KeyPairTest, KeyPairTest,
-    testing::Values(&KeyPair::ED25519,
-                    &KeyPair::RSA),
+    testing::Values(&KeyPair::ED25519(),
+                    &KeyPair::RSA()),
     [](const testing::TestParamInfo<KeyPairTest::ParamType>& info){
       switch(info.param->type) {
         case EVP_PKEY_ED25519: return "ED25519";
