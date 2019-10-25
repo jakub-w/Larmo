@@ -88,6 +88,9 @@ protobuf_speke_files = gen_protobuf.process(
   'crypto/SPEKE.proto',
   preserve_path_from: meson.current_source_dir())
 
+protobuf_cert_files = gen_protobuf.process(
+  'cert_messages.proto')
+
 
 # spdlog
 spdlog_dep = declare_dependency(
