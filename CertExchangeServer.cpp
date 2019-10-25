@@ -30,32 +30,64 @@
 using namespace lrm::crypto::certs;
 
 namespace lrm {
-const crypto::BigNum
-CertExchangeServer::SPEKE_SAFE_PRIME(crypto::LRM_SPEKE_SAFE_PRIME);
+template class CertExchangeServer<asio::ip::tcp>;
+template class CertExchangeServer<asio::local::stream_protocol>;
 
-CertExchangeServer::CertExchangeServer(uint16_t port,
-                                       std::string_view password,
-                                       CAptr CA)
+template <typename Protocol>
+const crypto::BigNum
+CertExchangeServer<Protocol>::SPEKE_SAFE_PRIME(crypto::LRM_SPEKE_SAFE_PRIME);
+
+template <typename Protocol>
+CertExchangeServer<Protocol>::CertExchangeServer(
+    typename Protocol::endpoint endpoint,
+    std::string_view password,
+    CAptr CA)
     : password_{password},
-      endpoint_{tcp::v4(), port},
+      context_{},
+      endpoint_{std::move(endpoint)},
       acceptor_{context_, endpoint_, true},
       CA_{std::move(CA)},
       CA_hash_{CA_->GetRootCertificate().GetHash()} {}
 
-CertExchangeServer::~CertExchangeServer() {
+template <typename Protocol>
+CertExchangeServer<Protocol>::~CertExchangeServer() {
   Stop();
 }
 
-void CertExchangeServer::Start() {
+template <typename Protocol>
+void CertExchangeServer<Protocol>::Start() {
+  if (not running_) running_ = true;
+  else return;
+
+  accept();
+  context_thread_ = std::thread{[this]{ context_.run(); }};
+}
+
+template <typename Protocol>
+void CertExchangeServer<Protocol>::Stop() noexcept {
+  if (running_) running_ = false;
+  else return;
+
+  for(auto& session: sessions_) {
+    session.Close(crypto::SpekeSessionState::STOPPED);
+  }
+  context_.stop();
+  context_thread_.join();
+}
+
+template <typename Protocol>
+void CertExchangeServer<Protocol>::accept() {
   acceptor_.async_accept(
-      [this](const asio::error_code& ec, tcp::socket peer) {
-        Start();
+      [this](const asio::error_code& ec, typename Protocol::socket peer) {
+        if (not running_) return;
 
         if (ec) {
           spdlog::error("While accepting on cert server: {}", ec.message());
           return;
         }
 
+        // TODO: This is probably not necessary since we call accept() later
+        //       and not before.
         {
           std::lock_guard g{sessions_mtx_};
           sessions_.emplace_back(
@@ -68,17 +100,13 @@ void CertExchangeServer::Start() {
 
           maybe_clean_sessions();
         }
+
+        accept();
       });
 }
 
-void CertExchangeServer::Stop() {
-  for(auto& session: sessions_) {
-    session.Close(crypto::SpekeSessionState::STOPPED);
-  }
-  context_.stop();
-}
-
-void CertExchangeServer::maybe_clean_sessions() {
+template <typename Protocol>
+void CertExchangeServer<Protocol>::maybe_clean_sessions() {
   if (sessions_.size() % 5 == 0) return;
 
   sessions_.remove_if(
@@ -87,8 +115,9 @@ void CertExchangeServer::maybe_clean_sessions() {
       });
 }
 
-void CertExchangeServer::handle_speke_message(const crypto::Bytes& message,
-                                              SpekeSession& session) {
+template <typename Protocol>
+void CertExchangeServer<Protocol>::handle_speke_message(
+    const crypto::Bytes& message, SpekeSession& session) {
   CertClientMessage msg;
   msg.ParseFromArray(message.data(), message.size());
 
@@ -120,9 +149,9 @@ void CertExchangeServer::handle_speke_message(const crypto::Bytes& message,
     auto response = out.mutable_confirm_response();
     response->set_response(CA_hash_ == hash);
   } else {
-    // this should never happen
-    spdlog::error("CertClientMessage type not implemented");
-    return;
+    out.set_error_code(2);
+    // spdlog::error("CertClientMessage type not implemented");
+    // return;
   }
 
   crypto::Bytes out_bytes(out.ByteSizeLong());

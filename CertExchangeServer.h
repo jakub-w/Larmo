@@ -39,18 +39,18 @@ namespace lrm {
 ///
 /// It's necessary to call \ref Start() to start listening for connections
 /// from clients.
+template <typename Protocol>
 class CertExchangeServer {
   static const crypto::BigNum SPEKE_SAFE_PRIME;
 
-  using SpekeSession = crypto::SpekeSession<asio::ip::tcp>;
-  using tcp = asio::ip::tcp;
+  using SpekeSession = crypto::SpekeSession<Protocol>;
   using CAptr = std::shared_ptr<crypto::certs::CertificateAuthority>;
  public:
-  /// \param port Port to listen on.
+  /// \param endpoint Endpoint to listen on for incoming connections.
   /// \param password Password for client authorization.
   /// \param CA \ref CertificateAuthority to use for distributing
   /// certificates.
-  explicit CertExchangeServer(uint16_t port,
+  explicit CertExchangeServer(typename Protocol::endpoint endpoint,
                               std::string_view password,
                               CAptr CA);
   ~CertExchangeServer();
@@ -58,22 +58,24 @@ class CertExchangeServer {
   /// \brief Asynchronously listen for connections.
   void Start();
   /// \brief Stop listening and close all active sessions.
-  void Stop();
+  void Stop() noexcept;
 
  private:
   // This is not thread-safe, run with sessions_mtx_ locked.
+  void accept();
   void maybe_clean_sessions();
   void handle_speke_message(const crypto::Bytes& message,
                             SpekeSession& session);
 
+  std::atomic_bool running_ = false;
   std::string password_;
 
   asio::io_context context_;
-  tcp::endpoint endpoint_;
-  tcp::acceptor acceptor_;
+  std::thread context_thread_;
+  typename Protocol::endpoint endpoint_;
+  typename Protocol::acceptor acceptor_;
 
   std::list<SpekeSession> sessions_;
-  // std::vector<SpekeSession> sessions_;
   std::mutex sessions_mtx_;
 
   CAptr CA_;
