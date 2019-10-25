@@ -156,7 +156,7 @@ class SPEKE : public SpekeInterface {
   const BigNum pubkey_;
 
   const std::string id_;
-  const std::string id_numbered_;
+  std::string id_numbered_;
 
   std::string remote_id_numbered_;
 
