@@ -126,43 +126,49 @@ class SPEKE : public SpekeInterface {
   /// \param prefix The resulting ID will be prepended with this value.
   ///
   /// \return Newly generated id.
-  std::string make_id(const std::string& prefix = "");
-  void ensure_keying_material();
-  void ensure_encryption_key();
-  Bytes gen_kcd(std::string_view first_id, std::string_view second_id,
-                const BigNum& first_pubkey, const BigNum& second_pubkey);
-
-  EVP_MD_CTX* mdctx_;
-
-  std::string id_;
-  std::string id_numbered_;
-
-  std::string remote_id_numbered_;
-
-  BigNum p_;   // safe prime
-  BigNum q_;   // (p_ - 1) / 2
-  BigNum gen_; // H(password)^2 mod p_
-
-  // random value in [1; q_ - 1]
-  BigNum privkey_;
-
-  // (gen_ ^ privkey_) mod p_
-  BigNum pubkey_;
-
-  // public key of the remote party
-  BigNum remote_pubkey_;
+  BigNum make_generator(std::string_view password, const BigNum& mod);
+  std::string make_id(const BigNum& pubkey,
+                      const std::string_view prefix = "");
 
   // H(min(id_numbered_, remote_id_numbered_),
   //   max(id_numbered_, remote_id_numbered_),
   //   min(pubkey_, remote_pubkey_),
   //   max(pubkey_, remote_pubkey_),
   //   (remote_pubkey_ ^ privkey_) mod p_)
-  Bytes keying_material_;
+  Bytes make_keying_material(const std::string& peer_id,
+                             const BigNum& peer_pubkey);
+  Bytes make_encryption_key(const Bytes& keying_material,
+                            const BigNum& peer_pubkey);
+  Bytes gen_kcd(std::string_view first_id, std::string_view second_id,
+                const BigNum& first_pubkey, const BigNum& second_pubkey);
+  void check_initialized(const std::string_view function);
 
-  // a uniform key derived from keying_material_ with HKDF
+  EVP_MD_CTX* mdctx_;
+
+  const BigNum p_;   // safe prime
+  const BigNum q_;   // (p_ - 1) / 2
+  const BigNum gen_; // H(password)^2 mod p_
+
+  // random value in [1; q_ - 1]
+  const BigNum privkey_;
+
+  // (gen_ ^ privkey_) mod p_
+  const BigNum pubkey_;
+
+  const std::string id_;
+  const std::string id_numbered_;
+
+  std::string remote_id_numbered_;
+
+  // public key of the remote party
+  BigNum remote_pubkey_;
+
+  // a uniform key derived from keying material with HKDF
   Bytes encryption_key_;
 
   Bytes key_confirmation_data_;
+
+  bool initialized_ = false;
 };
 }
 

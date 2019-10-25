@@ -30,6 +30,8 @@
 
 #include "crypto/config.h"
 
+#define check_init() check_initialized(__FUNCTION__)
+
 namespace lrm::crypto {
 std::unordered_map<std::string, int> SPEKE::id_counts;
 
@@ -37,34 +39,17 @@ SPEKE::SPEKE(std::string_view id,
              std::string_view password,
              BigNum safe_prime)
     : mdctx_{EVP_MD_CTX_new()},
-      p_{std::move(safe_prime)},
-      q_{(p_ - 1) / 2} {
-  if (not p_.IsOdd()) {
-    throw std::runtime_error(
-        "In SPEKE::SPEKE(): safe_prime is not an odd number");
-  }
-
-  // Create a hash of the password: H(s)
-  EVP_DigestInit_ex(mdctx_, LRM_SPEKE_HASHFUNC, nullptr);
-  EVP_DigestUpdate(mdctx_, password.data(), password.length());
-
-  unsigned char md_value[EVP_MAX_MD_SIZE];
-  unsigned int md_len;
-  EVP_DigestFinal_ex(mdctx_, md_value, &md_len);
-
-  EVP_MD_CTX_reset(mdctx_);
-
-  // g = H(s)^2 mod p
-  gen_ = BigNum(md_value, md_len);
-  gen_ = gen_.ModExp(2, p_);
-
-  // x
-  privkey_ = RandomInRange(1, q_);
-  // g^x mod p
-  pubkey_ = gen_.ModExp(privkey_, p_);
-
-  id_ = make_id(id.data());
-}
+      p_{[&safe_prime]{
+           if (not safe_prime.IsOdd()) {
+             throw std::runtime_error(
+                 "In SPEKE::SPEKE(): safe_prime is not an odd number");
+           }
+           return std::move(safe_prime);}()},
+      q_{(p_ - 1) / 2},
+      gen_{make_generator(password, p_)},
+      privkey_{RandomInRange(1, q_)},
+      pubkey_{gen_.ModExp(privkey_, p_)},
+      id_{make_id(pubkey_, id.data())} {}
 
 SPEKE::~SPEKE() {
   EVP_MD_CTX_free(mdctx_);
@@ -79,7 +64,6 @@ Bytes SPEKE::GetPublicKey() const {
   return pubkey_.to_bytes();
 }
 
-// TODO: This should return an error code in a second argument
 void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
                                          const std::string& remote_id) {
   if (not (0 == remote_pubkey_ and remote_id_numbered_.empty())) {
@@ -100,33 +84,35 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
   const std::string id_num = std::to_string(++id_counts[remote_id]);
   id_numbered_ = id_ + "-" + id_num;
   remote_id_numbered_ = remote_id + "-" + id_num;
+
+  encryption_key_ = make_encryption_key(
+      make_keying_material(remote_id_numbered_, remote_pubkey_),
+      remote_pubkey_);
+
+  key_confirmation_data_ =
+      gen_kcd(id_numbered_, remote_id_numbered_, pubkey_, remote_pubkey_);
+
+  initialized_ = true;
 }
 
 const Bytes& SPEKE::GetEncryptionKey() {
-  if (encryption_key_.empty()) {
-    ensure_encryption_key();
-  }
-
+  check_init();
   return encryption_key_;
 }
 
 const Bytes& SPEKE::GetKeyConfirmationData() {
-  if (key_confirmation_data_.empty()) {
-    key_confirmation_data_ =
-        gen_kcd(id_numbered_, remote_id_numbered_,
-                pubkey_, remote_pubkey_);
-  }
-
+  check_init();
   return key_confirmation_data_;
 }
 
 bool SPEKE::ConfirmKey(const Bytes& remote_kcd) {
+  check_init();
   return remote_kcd == gen_kcd(remote_id_numbered_, id_numbered_,
                                remote_pubkey_, pubkey_);
 }
 
 Bytes SPEKE::HmacSign(const Bytes& message) {
-  ensure_encryption_key();
+  check_init();
 
   HMAC_CTX* ctx = HMAC_CTX_new();
 
@@ -149,15 +135,32 @@ Bytes SPEKE::HmacSign(const Bytes& message) {
 
 bool SPEKE::ConfirmHmacSignature(const Bytes& hmac_signature,
                                  const Bytes& message) {
+  check_init();
   return hmac_signature == HmacSign(message);
 }
 
-std::string SPEKE::make_id(const std::string& prefix) {
+BigNum SPEKE::make_generator(std::string_view password, const BigNum& mod) {
+  // Create a hash of the password: H(s)
+  EVP_DigestInit_ex(mdctx_, LRM_SPEKE_HASHFUNC, nullptr);
+  EVP_DigestUpdate(mdctx_, password.data(), password.length());
+
+  unsigned char md_value[EVP_MAX_MD_SIZE];
+  unsigned int md_len;
+  EVP_DigestFinal_ex(mdctx_, md_value, &md_len);
+
+  EVP_MD_CTX_reset(mdctx_);
+
+  // g = H(s)^2 mod p
+  return BigNum(md_value, md_len).ModExp(2, mod);
+}
+
+std::string SPEKE::make_id(const BigNum& pubkey,
+                    const std::string_view prefix) {
   EVP_MD_CTX* ctx = EVP_MD_CTX_new();
 
   EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
 
-  const Bytes pkey = this->GetPublicKey();
+  const Bytes pkey = pubkey.to_bytes();
   assert(not pkey.empty());
   EVP_DigestUpdate(ctx, pkey.data(), pkey.size());
 
@@ -176,64 +179,52 @@ std::string SPEKE::make_id(const std::string& prefix) {
     std::sprintf(buffer.data() + 2*i, "%02X", md_val[i]);
   }
 
-  return std::string(prefix + '-' + buffer);
+  return std::string(prefix)  + '-' + buffer;
 }
 
-void SPEKE::ensure_keying_material() {
-  if (0 == privkey_) {
-    throw std::logic_error("SPEKE uninitialized: Can't get the private key");
-  }
-  if (0 == remote_pubkey_) {
-    throw std::logic_error("SPEKE: Remote public key is not set");
-  }
-  if (not keying_material_.empty()) {
-    return;
-  }
-
-  keying_material_ = remote_pubkey_.ModExp(privkey_, p_).to_bytes();
+Bytes SPEKE::make_keying_material(const std::string& peer_id,
+                                  const BigNum& peer_pubkey) {
+  Bytes keying_material = peer_pubkey.ModExp(privkey_, p_).to_bytes();
 
   EVP_DigestInit_ex(mdctx_, LRM_SPEKE_HASHFUNC, nullptr);
 
   const std::string& first_id =
-      std::min(id_numbered_, remote_id_numbered_);
+      std::min(id_numbered_, peer_id);
   const std::string& second_id =
-      std::max(id_numbered_, remote_id_numbered_);
+      std::max(id_numbered_, peer_id);
   EVP_DigestUpdate(mdctx_, first_id.c_str(), first_id.length());
   EVP_DigestUpdate(mdctx_, second_id.c_str(), second_id.length());
 
-  const Bytes first_pubkey = std::min(pubkey_, remote_pubkey_).to_bytes();
-  const Bytes second_pubkey = std::max(pubkey_, remote_pubkey_).to_bytes();
+  const Bytes first_pubkey = std::min(pubkey_, peer_pubkey).to_bytes();
+  const Bytes second_pubkey = std::max(pubkey_, peer_pubkey).to_bytes();
   EVP_DigestUpdate(mdctx_, first_pubkey.data(), first_pubkey.size());
   EVP_DigestUpdate(mdctx_, second_pubkey.data(), second_pubkey.size());
 
-  EVP_DigestUpdate(mdctx_, keying_material_.data(), keying_material_.size());
+  EVP_DigestUpdate(mdctx_, keying_material.data(), keying_material.size());
 
-  keying_material_.clear();
-  keying_material_.resize(EVP_MAX_MD_SIZE);
+  keying_material.clear();
+  keying_material.resize(EVP_MAX_MD_SIZE);
   unsigned int md_len;
   EVP_DigestFinal_ex(
       mdctx_,
-      reinterpret_cast<unsigned char*>(keying_material_.data()),
+      reinterpret_cast<unsigned char*>(keying_material.data()),
       &md_len);
-  keying_material_.resize(md_len);
+  keying_material.resize(md_len);
 
   EVP_MD_CTX_reset(mdctx_);
+
+  return keying_material;
 }
 
-void SPEKE::ensure_encryption_key() {
-  if (not encryption_key_.empty()) {
-    return;
-  }
-
-  ensure_keying_material();
-
+Bytes SPEKE::make_encryption_key(const Bytes& keying_material,
+                                 const BigNum& peer_pubkey) {
   EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
 
   EVP_PKEY_derive_init(pctx);
   EVP_PKEY_CTX_set_hkdf_md(pctx, LRM_SPEKE_HASHFUNC);
 
   // generate salt from public keys
-  const auto keys = std::minmax(pubkey_, remote_pubkey_);
+  const auto keys = std::minmax(pubkey_, peer_pubkey);
   Bytes key = keys.first.to_bytes();
   Bytes salt;
   salt.insert(salt.end(), key.begin(), key.end());
@@ -243,28 +234,28 @@ void SPEKE::ensure_encryption_key() {
   EVP_PKEY_CTX_set1_hkdf_salt(pctx, salt.data(), salt.size());
 
   EVP_PKEY_CTX_set1_hkdf_key(pctx,
-                             keying_material_.data(),
-                             keying_material_.size());
+                             keying_material.data(),
+                             keying_material.size());
 
   constexpr char info[] = "Larmo_SPEKE_HKDF";
   // 'sizeof - 1' to drop the last null byte
   EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info) - 1);
 
   size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
-  encryption_key_.resize(key_len);
+  Bytes encryption_key(key_len);
   EVP_PKEY_derive(pctx,
-                  reinterpret_cast<unsigned char*>(encryption_key_.data()),
+                  reinterpret_cast<unsigned char*>(encryption_key.data()),
                   &key_len);
 
   EVP_PKEY_CTX_free(pctx);
+
+  return encryption_key;
 }
 
 Bytes SPEKE::gen_kcd(std::string_view first_id,
                      std::string_view second_id,
                      const BigNum& first_pubkey,
                      const BigNum& second_pubkey) {
-  ensure_encryption_key();
-
   HMAC_CTX* hmac_ctx = HMAC_CTX_new();
 
   // HMAC(K, "KC_1_U"|A|B|M|N) -- M and N are pubkeys for A and B respectively
@@ -301,5 +292,11 @@ Bytes SPEKE::gen_kcd(std::string_view first_id,
   HMAC_CTX_free(hmac_ctx);
 
   return md_value;
+}
+
+void SPEKE::check_initialized(const std::string_view function) {
+  if (not initialized_) throw std::logic_error(
+          std::string("Called '") + function.data() +
+          "()' before peer initialization");
 }
 }
