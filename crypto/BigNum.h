@@ -62,11 +62,11 @@ class BigNum {
   friend bool operator<(const BigNum& lhs, const BigNum& rhs) noexcept;
   friend bool operator<=(const BigNum& lhs, const BigNum& rhs) noexcept;
 
-  BigNum ModAdd(const BigNum& other, const BigNum& mod) noexcept;
-  BigNum ModSub(const BigNum& other, const BigNum& mod) noexcept;
-  BigNum ModMul(const BigNum& other, const BigNum& mod) noexcept;
-  BigNum ModSqr(const BigNum& mod) noexcept;
-  BigNum ModExp(const BigNum& power, const BigNum& mod);
+  BigNum ModAdd(const BigNum& other, const BigNum& mod) const noexcept;
+  BigNum ModSub(const BigNum& other, const BigNum& mod) const noexcept;
+  BigNum ModMul(const BigNum& other, const BigNum& mod) const noexcept;
+  BigNum ModSqr(const BigNum& mod) const noexcept;
+  BigNum ModExp(const BigNum& power, const BigNum& mod) const;
 
   inline const BIGNUM* get() const noexcept {
     return bignum_;

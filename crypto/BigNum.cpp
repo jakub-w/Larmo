@@ -169,31 +169,31 @@ std::ostream& operator<<(std::ostream& stream, const BigNum& num) {
   return stream;
 }
 
-BigNum BigNum::ModAdd(const BigNum& other, const BigNum& mod) noexcept {
+BigNum BigNum::ModAdd(const BigNum& other, const BigNum& mod) const noexcept {
   BigNum result;
   BN_mod_add(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
-BigNum BigNum::ModSub(const BigNum& other, const BigNum& mod) noexcept {
+BigNum BigNum::ModSub(const BigNum& other, const BigNum& mod) const noexcept {
   BigNum result;
   BN_mod_sub(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
-BigNum BigNum::ModMul(const BigNum& other, const BigNum& mod) noexcept {
+BigNum BigNum::ModMul(const BigNum& other, const BigNum& mod) const noexcept {
   BigNum result;
   BN_mod_mul(result.bignum_, bignum_, other.bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
-BigNum BigNum::ModSqr(const BigNum& mod) noexcept {
+BigNum BigNum::ModSqr(const BigNum& mod) const noexcept {
   BigNum result;
   BN_mod_sqr(result.bignum_, bignum_, mod.bignum_, ctx_.ctx);
   return result;
 }
 
-BigNum BigNum::ModExp(const BigNum& power, const BigNum& mod) {
+BigNum BigNum::ModExp(const BigNum& power, const BigNum& mod) const {
   if (not BN_is_odd(mod.bignum_)) {
     throw std::runtime_error(
         "In BigNum::ModExp(): mod must be an odd number");
