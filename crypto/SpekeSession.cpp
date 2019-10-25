@@ -308,7 +308,7 @@ void SpekeSession<Protocol>::SendMessage(
   const size_t size = message.ByteSizeLong();
 
   std::vector<std::byte> buffer(sizeof(size) + size);
-  std::memcpy(buffer.data(), &size, sizeof(size));
+  Util::safe_memcpy(buffer.data(), &size, sizeof(size));
   message.SerializeToArray(buffer.data() + sizeof(size), size);
 
   asio::async_write(socket, asio::buffer(buffer),

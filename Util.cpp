@@ -91,7 +91,7 @@ void check_port(std::string_view port_str) {
 
 std::vector<std::byte> str_to_bytes(std::string_view str) {
   auto result = std::vector<std::byte>(str.size());
-  std::memcpy(result.data(), str.data(), str.size());
+  safe_memcpy(result.data(), str.data(), str.size());
   return result;
 }
 }

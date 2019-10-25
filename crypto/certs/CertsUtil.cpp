@@ -26,6 +26,8 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 
+#include "Util.h"
+
 namespace lrm::crypto::certs {
 int print_errors_cb(const char* str, size_t len, void* arg) {
   std::stringstream* ss = static_cast<std::stringstream*>(arg);
@@ -45,7 +47,7 @@ void handle_ssl_error(std::string_view file, int line, std::string_view msg) {
 
 std::basic_string<unsigned char> str_to_uc(std::string_view str) {
   std::basic_string<unsigned char> result(str.size(), ' ');
-  std::memcpy(result.data(), str.data(), str.size());
+  Util::safe_memcpy(result.data(), str.data(), str.size());
 
   return result;
 }

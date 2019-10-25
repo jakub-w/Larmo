@@ -25,6 +25,7 @@
 
 #include "crypto/SPEKE.h"
 #include "crypto/config.h"
+#include "Util.h"
 
 using namespace lrm::crypto;
 
@@ -263,7 +264,7 @@ TEST(SpekeTest, HmacSign) {
 
   const unsigned char msg[] = "message";
   Bytes msg_bytes(sizeof(msg) - 1);
-  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
+  lrm::Util::safe_memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
   auto peer2_msg_hmac = peer2.HmacSign(msg_bytes);
@@ -283,7 +284,7 @@ TEST(SpekeTest, HmacSign_WrongPassword) {
 
   const unsigned char msg[] = "message";
   Bytes msg_bytes(sizeof(msg) - 1);
-  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
+  lrm::Util::safe_memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
   auto peer2_msg_hmac = peer2.HmacSign(msg_bytes);
@@ -303,7 +304,7 @@ TEST(SpekeTest, ConfirmHmacSignature) {
 
   const unsigned char msg[] = "message";
   Bytes msg_bytes(sizeof(msg) - 1);
-  std::memcpy(msg_bytes.data(), msg, msg_bytes.size());
+  lrm::Util::safe_memcpy(msg_bytes.data(), msg, msg_bytes.size());
 
   auto peer1_msg_hmac = peer1.HmacSign(msg_bytes);
 

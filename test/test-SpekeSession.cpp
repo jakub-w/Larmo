@@ -436,10 +436,11 @@ TEST_F(SpekeSessionTestF, ConnectionNotDroppedMultipleGoodHMACs) {
 TEST_F(SpekeSessionTestF, MessageHandlerCalledOnHMACmessage) {
   auto session = GetSession();
   std::string result;
-  session->Run([&result](Bytes&& message, auto&){
-                 result.resize(message.size());
-                 std::memcpy(result.data(), message.data(), message.size());
-               });
+  session->Run(
+      [&result](Bytes&& message, auto&){
+        result.resize(message.size());
+        lrm::Util::safe_memcpy(result.data(), message.data(), message.size());
+      });
 
   SendInitData();
 
@@ -462,10 +463,11 @@ TEST_F(SpekeSessionTestF, SetMessageHandler) {
   SendInitData();
 
   std::string result;
-  session->SetMessageHandler([&result](Bytes&& message, auto&){
-                 result.resize(message.size());
-                 std::memcpy(result.data(), message.data(), message.size());
-               });
+  session->SetMessageHandler(
+      [&result](Bytes&& message, auto&){
+        result.resize(message.size());
+        lrm::Util::safe_memcpy(result.data(), message.data(), message.size());
+      });
 
   SpekeMessage message;
   SpekeMessage::SignedData* sd = message.mutable_signed_data();

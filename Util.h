@@ -19,6 +19,7 @@
 #ifndef LRM_UTIL_H
 #define LRM_UTIL_H
 
+#include <cstring>
 #include <condition_variable>
 #include <fstream>
 #include <functional>
@@ -92,6 +93,11 @@ bool wait_predicate(Predicate&& pred,
 void check_port(std::string_view port_str);
 
 std::vector<std::byte> str_to_bytes(std::string_view str);
+
+inline void safe_memcpy(void* dest, const void* src, size_t size) {
+  if (dest == nullptr or src == nullptr or size == 0) return;
+  std::memcpy(dest, src, size);
+}
 }
 
 #endif // LRM_UTIL_H
