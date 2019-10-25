@@ -118,7 +118,7 @@ TEST(BigNumTest, MoveConstruct) {
 
   auto num1 = BigNum(bn);
   const void* num1_p = num1.get();
-  auto num2 = BigNum(std::move(num1));
+  auto num2 = std::move(num1);
 
   EXPECT_NE(nullptr, num2.get());
   EXPECT_EQ(nullptr, num1.get()) <<
