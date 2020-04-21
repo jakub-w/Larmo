@@ -142,6 +142,8 @@ TEST_F(SpekeTestStatic, DISABLED_GetEncryptionKey) {
   EXPECT_TRUE(encryption_key == control);
 }
 
+// TODO: Test for GetNonce()
+
 // This test case was disabled because the key confirmation data relies on
 // the ids.
 // Since the id depends on the time of its creation it is unique every time

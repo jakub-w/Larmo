@@ -94,6 +94,13 @@ class SPEKE : public SpekeInterface {
   /// key length used with \ref LRM_SPEKE_CIPHER_TYPE.
   const Bytes& GetEncryptionKey() final;
 
+  /// Return a nonce (number used only once), known also as an initialization
+  /// vector (iv).
+  ///
+  /// The length of the nonce depends on the cipher type. It's hardcoded
+  /// and specified in \ref LRM_SPEKE_CIPHER_TYPE constant.
+  const Bytes& GetNonce() final;
+
   /// Return the key confirmation data that can be used by the remote party
   /// to confirm that the encryption keys and ids are the same.
   ///
@@ -137,8 +144,9 @@ class SPEKE : public SpekeInterface {
   //   (remote_pubkey_ ^ privkey_) mod p_)
   Bytes make_keying_material(const std::string& peer_id,
                              const BigNum& peer_pubkey);
-  Bytes make_encryption_key(const Bytes& keying_material,
-                            const BigNum& peer_pubkey);
+  /// \brief Make a pair of \e Bytes - encryption key and nonce in that order.
+  std::pair<Bytes, Bytes> make_encryption_key(const Bytes& keying_material,
+                                              const BigNum& peer_pubkey);
   Bytes gen_kcd(std::string_view first_id, std::string_view second_id,
                 const BigNum& first_pubkey, const BigNum& second_pubkey);
   void check_initialized(const std::string_view function);
@@ -165,6 +173,7 @@ class SPEKE : public SpekeInterface {
 
   // a uniform key derived from keying material with HKDF
   Bytes encryption_key_;
+  Bytes nonce_;
 
   Bytes key_confirmation_data_;
 

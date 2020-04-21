@@ -85,9 +85,11 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
   id_numbered_ = id_ + "-" + id_num;
   remote_id_numbered_ = remote_id + "-" + id_num;
 
-  encryption_key_ = make_encryption_key(
+  auto [key, nonce] = make_encryption_key(
       make_keying_material(remote_id_numbered_, remote_pubkey_),
       remote_pubkey_);
+  encryption_key_ = std::move(key);
+  nonce_ = std::move(nonce);
 
   key_confirmation_data_ =
       gen_kcd(id_numbered_, remote_id_numbered_, pubkey_, remote_pubkey_);
@@ -98,6 +100,11 @@ void SPEKE::ProvideRemotePublicKeyIdPair(const Bytes& remote_pubkey,
 const Bytes& SPEKE::GetEncryptionKey() {
   check_init();
   return encryption_key_;
+}
+
+const Bytes& SPEKE::GetNonce() {
+  check_init();
+  return nonce_;
 }
 
 const Bytes& SPEKE::GetKeyConfirmationData() {
@@ -216,8 +223,9 @@ Bytes SPEKE::make_keying_material(const std::string& peer_id,
   return keying_material;
 }
 
-Bytes SPEKE::make_encryption_key(const Bytes& keying_material,
-                                 const BigNum& peer_pubkey) {
+std::pair<Bytes, Bytes>
+SPEKE::make_encryption_key(const Bytes& keying_material,
+                           const BigNum& peer_pubkey) {
   EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr);
 
   EVP_PKEY_derive_init(pctx);
@@ -241,15 +249,21 @@ Bytes SPEKE::make_encryption_key(const Bytes& keying_material,
   // 'sizeof - 1' to drop the last null byte
   EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info) - 1);
 
-  size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
-  Bytes encryption_key(key_len);
+  const size_t key_len = EVP_CIPHER_key_length(LRM_SPEKE_CIPHER_TYPE);
+  const size_t nonce_len = EVP_CIPHER_iv_length(LRM_SPEKE_CIPHER_TYPE);
+  size_t full_length = key_len + nonce_len;
+  Bytes key_and_nonce(full_length);
   EVP_PKEY_derive(pctx,
-                  reinterpret_cast<unsigned char*>(encryption_key.data()),
-                  &key_len);
+                  reinterpret_cast<unsigned char*>(key_and_nonce.data()),
+                  &full_length);
 
   EVP_PKEY_CTX_free(pctx);
 
-  return encryption_key;
+  Bytes nonce(std::begin(key_and_nonce) + key_len, std::end(key_and_nonce));
+  // remove nonce from the key_and_nonce, it becomes an encryption key
+  key_and_nonce.resize(key_len);
+
+  return {key_and_nonce, nonce};
 }
 
 Bytes SPEKE::gen_kcd(std::string_view first_id,

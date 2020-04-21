@@ -58,6 +58,7 @@ class FakeSpeke : public SpekeInterface {
   Bytes pkey_ = lrm::Util::str_to_bytes("pkey");
   std::string id_{"id"};
   Bytes enc_key_ = lrm::Util::str_to_bytes("enckey");
+  Bytes nonce_ = lrm::Util::str_to_bytes("nonce");
   Bytes kcd_ = lrm::Util::str_to_bytes("kcd");
 
   Bytes bad_bytes_ = lrm::Util::str_to_bytes("bad");
@@ -93,6 +94,10 @@ class FakeSpeke : public SpekeInterface {
 
   virtual const Bytes& GetEncryptionKey() override {
     return enc_key_;
+  }
+
+  virtual const Bytes& GetNonce() override {
+    return nonce_;
   }
 
   virtual const Bytes& GetKeyConfirmationData() override {

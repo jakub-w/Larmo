@@ -42,6 +42,8 @@ class SpekeInterface {
 
   virtual const Bytes& GetEncryptionKey() = 0;
 
+  virtual const Bytes& GetNonce() = 0;
+
   virtual const Bytes& GetKeyConfirmationData() = 0;
 
   virtual bool ConfirmKey(const Bytes& remote_kcd) = 0;
