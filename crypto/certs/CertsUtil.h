@@ -19,6 +19,7 @@
 #ifndef LRM_CERTS_H_
 #define LRM_CERTS_H_
 
+#include <cstdio>
 #include <memory>
 #include <string_view>
 #include <unordered_map>

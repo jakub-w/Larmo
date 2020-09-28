@@ -26,7 +26,17 @@ if get_option('buildtype').startswith('debug')
 			#       generating a lot of those warnings
 			'-Wno-unused-parameter',
 			'-ggdb3',
-			language : 'cpp')
+			'-Og',
+			'-fsanitize=address',
+			# '-fsanitize=leak',
+			# '-fsanitize=undefined',
+ 			language : 'cpp')
+  add_project_link_arguments(
+    '-lasan',
+    # '-ltsan',
+    # '-lubsan',
+    language : 'cpp')
+
 elif get_option('buildtype') == 'release'
   add_project_arguments('-DNDEBUG', '-O3', '-s',
   			language : 'cpp')
@@ -52,7 +62,12 @@ endif
 
 # Dependencies
 mpv_dep = dependency('mpv')
-boost_dep = dependency('boost', modules: ['asio'])
+# boost_dep = dependency('boost', modules: ['asio'])
+if cpp_compiler.has_header('asio.hpp', required: true)
+  boost_dep = dependency('boost')
+endif
+# boost_dep = [cpp_compiler.find_library('boost_system'),
+	     # ]
 openssl_dep = dependency('openssl')
 
 
@@ -121,7 +136,7 @@ executable('remote-control',
 		     'Util.cpp',
 		     protobuf_files,
 		     protobuf_daemon_files],
-	   link_args: ['-lstdc++fs', '-lgpr'],
+	   link_args: ['-lstdc++fs', '-lgpr', '-lpthread'],
 	   dependencies: [grpc_dep, protobuf_dep, boost_dep, spdlog_dep])
 
 executable('remote-player',
@@ -132,7 +147,7 @@ executable('remote-player',
 		     'PlayerServiceImpl.cpp',
 		     'Util.cpp',
 		     protobuf_files],
-	   link_args: '-lstdc++fs',
+	   link_args: ['-lstdc++fs', '-lpthread'],
 	   dependencies: [mpv_dep, grpc_dep, protobuf_dep, spdlog_dep])
 
 
@@ -145,13 +160,16 @@ if gtest.found()
 				  'test/test-SPEKE.cpp',
 				  'test/test-SpekeSession.cpp',
 				  'test/test-certs.cpp',
+				  'CertExchangeServer.cpp',
+				  'test/test-CertExchangeServer.cpp',
 				  'test/test-KeyPair.cpp',
 				  'Util.cpp',
 				  crypto_sources,
-				  protobuf_speke_files],
-			dependencies: [gtest, openssl_dep, protobuf_dep])
+				  protobuf_speke_files,
+				  protobuf_cert_files],
+			link_args: ['-lpthread'],
 			dependencies: [gtest, openssl_dep, protobuf_dep,
-				       spdlog_dep])
+				       boost_dep, spdlog_dep])
 
   test('all', test_all)
 endif
