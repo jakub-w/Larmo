@@ -257,7 +257,8 @@ void Daemon::authenticate() {
     return;
   }
 
-  log_->error("Authentication unsuccessful");
+  // log_->error("Authentication unsuccessful");
+  throw std::logic_error("Authentification unsuccessful");
 }
 
 void Daemon::start_accept() {

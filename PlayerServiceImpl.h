@@ -35,7 +35,6 @@ namespace lrm {
 class PlayerServiceImpl : public PlayerService::Service {
   Player player;
 
-  bool check_passphrase(const ServerContext* context) const;
   bool check_auth(const ServerContext* context) const;
 
  public:
@@ -74,8 +73,10 @@ class PlayerServiceImpl : public PlayerService::Service {
                       ServerReaderWriter<AuthData, AuthData>* stream);
 
  private:
-  crypto::ShaHash password_hash =
-      crypto::encode_SHA512(Config::Get("password"));
+  const std::string password_hash = []{
+    auto hash = crypto::encode_SHA512(Config::Get("passphrase"));
+    return std::string{hash.begin(), hash.end()};
+  }();
 
   // TODO: Make sure the old keys are being deleted after the client has
   //       disconnected.

@@ -17,6 +17,8 @@
 // <https://www.gnu.org/licenses/>.
 
 #include "PlayerServiceImpl.h"
+
+#include <algorithm>
 #include <mutex>
 
 #ifndef INCLUDE_GRPCPLUSPLUS
@@ -35,11 +37,6 @@
 #include "PlaybackState.h"
 #include "Util.h"
 
-#define CHECK_PASSPHRASE(context)                                       \
-  if(not check_passphrase(context)) {                                  \
-    return Status(StatusCode::PERMISSION_DENIED, "Wrong passphrase.");  \
-  }
-
 #define CHECK_AUTH(context)                                            \
   if(not check_auth(context)) {                                        \
     return Status(StatusCode::UNAUTHENTICATED, "Wrong passphrase.");   \
@@ -48,15 +45,6 @@
 using namespace grpc;
 
 namespace lrm {
-bool
-PlayerServiceImpl::check_passphrase(const ServerContext* context) const {
-  const auto pass = context->client_metadata().find("x-custom-passphrase");
-  if(context->client_metadata().end() == pass) {
-    return false;
-  }
-  return pass->second == Config::Get("passphrase");
-}
-
 bool PlayerServiceImpl::check_auth(const ServerContext* context) const {
   const auto metadata_key = context->client_metadata().find("x-session-key");
   if(context->client_metadata().end() == metadata_key) {
@@ -315,11 +303,14 @@ Status PlayerServiceImpl::Authenticate(
   //       HMAC it with the hashed password.
   //       Or use Schnorr NIZK proof with a generator being P x [H(password)].
 
-  if (not std::equal(data.data().begin(), data.data().end(),
-                     password_hash.begin(), password_hash.end())) {
+  if (password_hash != data.data()) {
     data.clear_data();
     data.set_denied(true);
     stream->Write(data);
+
+    spdlog::info(
+        "Client at {} wanted to authenticated but had wrong password",
+        context->peer());
 
     return Status::OK;
   }

@@ -212,6 +212,8 @@ bool PlayerClient::Authenticate() {
   stream->Write(data);
   stream->WritesDone();
 
+  data.Clear();
+
   stream->Read(&data);
 
   const auto status = stream->Finish();
@@ -228,6 +230,7 @@ bool PlayerClient::Authenticate() {
     return false;
   }
 
+  std::cout << data.data().size() << '\n';
   assert(data.data().size() == session_key_.size());
   std::copy(data.data().begin(), data.data().end(), session_key_.begin());
 
