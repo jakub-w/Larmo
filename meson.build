@@ -134,21 +134,25 @@ executable('remote-control',
 		     'PlaybackSynchronizer.cpp',
 		     'PlayerClient.cpp',
 		     'Util.cpp',
+		     'crypto/CryptoUtil.cpp',
 		     protobuf_files,
 		     protobuf_daemon_files],
 	   link_args: ['-lstdc++fs', '-lgpr', '-lpthread'],
-	   dependencies: [grpc_dep, protobuf_dep, boost_dep, spdlog_dep])
+	   dependencies: [grpc_dep, protobuf_dep, boost_dep, spdlog_dep,
+			  openssl_dep])
 
 executable('remote-player',
 	   sources: ['remote-player.cpp',
 		     'Config.cpp',
 		     'PlaybackState.cpp',
 		     'Player.cpp',
+		     'crypto/CryptoUtil.cpp',
 		     'PlayerServiceImpl.cpp',
 		     'Util.cpp',
 		     protobuf_files],
 	   link_args: ['-lstdc++fs', '-lpthread'],
-	   dependencies: [mpv_dep, grpc_dep, protobuf_dep, spdlog_dep])
+	   dependencies: [mpv_dep, grpc_dep, protobuf_dep, spdlog_dep,
+			  openssl_dep])
 
 
 # Tests

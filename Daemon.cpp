@@ -18,6 +18,7 @@
 
 #include "Daemon.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <numeric>
@@ -111,6 +112,9 @@ void Daemon::Initialize() {
       initialize_grpc_client();
       break;
     case GRPC_CLIENT_INITIALIZED:
+      authenticate();
+      break;
+    case AUTHENTICATED:
       break;
     default:
       throw std::logic_error("Unknown daemon state. This should never"
@@ -247,7 +251,19 @@ void Daemon::initialize_grpc_client() {
 
   state_ = GRPC_CLIENT_INITIALIZED;
 
+
+
   log_->info("gRPC client initialized");
+}
+
+void Daemon::authenticate() {
+  if (remote_->Authenticate()) {
+    state_ = AUTHENTICATED;
+    log_->info("Authentication completed");
+    return;
+  }
+
+  log_->error("Authentication unsuccessful");
 }
 
 void Daemon::start_accept() {
@@ -292,6 +308,10 @@ void Daemon::connection_handler(
       response.set_response("Daemon uninitialized. Use 'daemon' command.");
       break;
     case State::GRPC_CLIENT_INITIALIZED:
+      response.set_exit_status(EXIT_FAILURE);
+      response.set_response("Daemon not authenticated with the server.");
+      break;
+    case State::AUTHENTICATED:
       try {
         int result = 0;
         if (args.command() == "play") {

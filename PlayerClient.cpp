@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
@@ -30,7 +31,15 @@
 
 #include "spdlog/spdlog.h"
 
+#include "Config.h"
+#include "crypto/CryptoUtil.h"
+
 namespace lrm {
+PlayerClient::AuthenticatedContext::AuthenticatedContext(
+    const std::string& session_key) {
+  AddMetadata("x-session-key", session_key);
+}
+
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
   std::ifstream ifs(filename.data(), std::ios::binary | std::ios::in);
   if (not ifs.is_open()) {
@@ -191,6 +200,47 @@ unsigned short PlayerClient::set_port(unsigned short port) {
   return port;
 }
 
+bool PlayerClient::Authenticate() {
+  UnauthenticatedContext context;
+
+  std::shared_ptr<grpc::ClientReaderWriter<AuthData, AuthData>> stream{
+    stub_->Authenticate(&context)};
+
+  AuthData data;
+  const auto hash = crypto::encode_SHA512(Config::Get("passphrase"));
+  data.set_data(hash.data(), hash.size());
+  stream->Write(data);
+  stream->WritesDone();
+
+  stream->Read(&data);
+
+  const auto status = stream->Finish();
+  if (status.ok()) {
+    spdlog::debug("Authentification stream has closed");
+  } else {
+    spdlog::error("Authentification stream has closed with an error: {}",
+                  status.error_message());
+  }
+
+  if (data.data().empty()) {
+    spdlog::error("Authentication ended successfully but no session key "
+                  "received");
+    return false;
+  }
+
+  assert(data.data().size() == session_key_.size());
+  std::copy(data.data().begin(), data.data().end(), session_key_.begin());
+
+  if (data.denied()) {
+    spdlog::error("Authentication unsuccessful. Wrong password?");
+  } else {
+    spdlog::info("Authentication successful");
+  }
+
+  return not data.denied();
+}
+
+
 int PlayerClient::Play(std::string_view filename)
 {
   log_->debug("PlayerClient::Play(\"{}\")", filename);
@@ -205,7 +255,7 @@ int PlayerClient::Play(std::string_view filename)
     return -101;
   }
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   MpvResponse response;
   const grpc::Status status = stub_->PlayFrom(&context, port_, &response);
 
@@ -219,7 +269,7 @@ int PlayerClient::Play(std::string_view filename)
 int PlayerClient::Stop() {
   log_->debug("PlayerClient::Stop()");
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   MpvResponse response;
 
   const grpc::Status status = stub_->Stop(&context, Empty(), &response);
@@ -233,7 +283,7 @@ int PlayerClient::Stop() {
 int PlayerClient::TogglePause() {
   log_->debug("PlayerClient::TogglePause()");
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   MpvResponse response;
 
   const grpc::Status status = stub_->TogglePause(&context, Empty(),
@@ -248,7 +298,7 @@ int PlayerClient::TogglePause() {
 int PlayerClient::Volume(std::string_view volume) {
   log_->debug("PlayerClient::Volume(\"{}\")", volume);
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   MpvResponse response;
 
   VolumeMessage vol_msg;
@@ -265,7 +315,7 @@ int PlayerClient::Volume(std::string_view volume) {
 int PlayerClient::Seek(std::string_view seconds) {
   log_->debug("PlayerClient::Seek()");
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   MpvResponse response;
 
   SeekMessage seek_msg;
@@ -289,7 +339,7 @@ PlaybackSynchronizer::PlaybackInfo PlayerClient::GetPlaybackInfo() {
 bool PlayerClient::Ping() {
   log_->debug("PlayerClient::Ping()");
 
-  ClientContext context;
+  AuthenticatedContext context(session_key_);
   Empty empty;
 
   const grpc::Status status = stub_->Ping(&context, empty, &empty);

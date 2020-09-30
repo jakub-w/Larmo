@@ -62,6 +62,11 @@ message TimeInfo {
   PlaybackState playback_state = 6;
 }
 
+message AuthData {
+  bytes data = 1;
+  bool denied = 2;
+}
+
 message Empty {}
 
 service PlayerService {
@@ -72,4 +77,5 @@ service PlayerService {
   rpc Seek(SeekMessage) returns (MpvResponse) {}
   rpc Ping(Empty) returns (Empty) {}
   rpc TimeInfoStream(stream TimeInterval) returns (stream TimeInfo) {}
+  rpc Authenticate(stream AuthData) returns (stream AuthData) {}
 }

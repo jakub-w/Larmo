@@ -50,7 +50,8 @@ class Daemon {
   enum State {
     UNINITIALIZED,
     CONFIG_INITIALIZED,
-    GRPC_CLIENT_INITIALIZED
+    GRPC_CLIENT_INITIALIZED,
+    AUTHENTICATED
   };
 
   Daemon() = delete;
@@ -65,6 +66,7 @@ class Daemon {
  private:
   void initialize_config();
   void initialize_grpc_client();
+  void authenticate();
   void start_accept();
   void connection_handler(std::unique_ptr<stream_protocol::socket>&& socket);
 

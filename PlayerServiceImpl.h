@@ -21,8 +21,13 @@
 
 #include "player_service.grpc.pb.h"
 
+#include <array>
+#include <set>
+
+#include "Config.h"
 #include "Player.h"
 #include "Util.h"
+#include "crypto/CryptoUtil.h"
 
 using namespace grpc;
 
@@ -30,7 +35,8 @@ namespace lrm {
 class PlayerServiceImpl : public PlayerService::Service {
   Player player;
 
-  bool check_passphrase_(const ServerContext* context) const;
+  bool check_passphrase(const ServerContext* context) const;
+  bool check_auth(const ServerContext* context) const;
 
  public:
   PlayerServiceImpl();
@@ -61,10 +67,24 @@ class PlayerServiceImpl : public PlayerService::Service {
               Empty*);
 
   Status TimeInfoStream(ServerContext* context,
-                            ServerReaderWriter<TimeInfo, TimeInterval>*
-                            stream);
+                        ServerReaderWriter<TimeInfo, TimeInterval>*
+                        stream);
+
+  Status Authenticate(ServerContext* context,
+                      ServerReaderWriter<AuthData, AuthData>* stream);
 
  private:
+  crypto::ShaHash password_hash =
+      crypto::encode_SHA512(Config::Get("password"));
+
+  // TODO: Make sure the old keys are being deleted after the client has
+  //       disconnected.
+  //       Maybe every time a request is issued from the client the timestamp
+  //       for the key is updated and the keys are released periodically if
+  //       the timestamp hasn't been touched in a while.
+  std::set<crypto::SessionKey> authenticated_sessions_;
+  std::mutex sessions_mtx_;
+
   // Variables for TimeInfoBidiStream
   PlaybackState::State playback_state_ = PlaybackState::UNDEFINED;
   std::mutex playback_state_mtx_;

@@ -32,12 +32,21 @@
 #include "spdlog/spdlog.h"
 
 #include "PlaybackSynchronizer.h"
+#include "crypto/CryptoUtil.h"
 
 using namespace grpc;
 using namespace asio::ip;
 
 namespace lrm {
 class PlayerClient {
+  using UnauthenticatedContext = ClientContext;
+
+  /// ClientContext with \e x-session-id metadata.
+  class AuthenticatedContext : public ClientContext {
+   public:
+    explicit AuthenticatedContext(const std::string& session_key);
+  };
+
   std::vector<char> read_file(std::string_view filename);
 
   /// Start streaming asynchronously.
@@ -64,6 +73,8 @@ class PlayerClient {
   explicit PlayerClient(const std::string& streaming_port,
                         std::shared_ptr<grpc::Channel> channel) noexcept;
   virtual ~PlayerClient();
+
+  bool Authenticate();
 
   int Play(std::string_view filename);
   int Stop();
@@ -98,6 +109,8 @@ class PlayerClient {
 
   SongFinishedCallback song_finished_callback_;
   std::mutex song_finished_mtx_;
+
+  std::string session_key_{32};
 };
 }
 

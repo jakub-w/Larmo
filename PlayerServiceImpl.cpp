@@ -17,6 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 
 #include "PlayerServiceImpl.h"
+#include <mutex>
 
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/security/credentials.h"
@@ -26,6 +27,7 @@
 #include "grpc++/server.h"
 #endif  // INCLUDE_GRPCPLUSPLUS
 
+#include "openssl/rand.h"
 
 #include "spdlog/spdlog.h"
 
@@ -34,20 +36,39 @@
 #include "Util.h"
 
 #define CHECK_PASSPHRASE(context)                                       \
-  if(not check_passphrase_(context)) {                                  \
+  if(not check_passphrase(context)) {                                  \
     return Status(StatusCode::PERMISSION_DENIED, "Wrong passphrase.");  \
+  }
+
+#define CHECK_AUTH(context)                                            \
+  if(not check_auth(context)) {                                        \
+    return Status(StatusCode::UNAUTHENTICATED, "Wrong passphrase.");   \
   }
 
 using namespace grpc;
 
 namespace lrm {
 bool
-PlayerServiceImpl::check_passphrase_(const ServerContext* context) const {
+PlayerServiceImpl::check_passphrase(const ServerContext* context) const {
   const auto pass = context->client_metadata().find("x-custom-passphrase");
   if(context->client_metadata().end() == pass) {
     return false;
   }
   return pass->second == Config::Get("passphrase");
+}
+
+bool PlayerServiceImpl::check_auth(const ServerContext* context) const {
+  const auto metadata_key = context->client_metadata().find("x-session-key");
+  if(context->client_metadata().end() == metadata_key) {
+    return false;
+  }
+
+  crypto::SessionKey key;
+  assert(key.size() == metadata_key->second.size());
+  std::copy(metadata_key->second.begin(), metadata_key->second.end(),
+            key.begin());
+
+  return authenticated_sessions_.find(key) != authenticated_sessions_.end();
 }
 
 PlayerServiceImpl::PlayerServiceImpl() : PlayerService::Service() {
@@ -68,7 +89,7 @@ Status
 PlayerServiceImpl::PlayFrom(ServerContext* context,
                             const StreamingPort* port,
                             MpvResponse* response) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   spdlog::debug("Peer: {}", context->peer());
   const std::vector<std::string> peer = Util::tokenize(context->peer(), ":");
@@ -90,7 +111,7 @@ Status
 PlayerServiceImpl::Stop(ServerContext* context,
                         const Empty*,
                         MpvResponse* response) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   response->set_response(player.Stop());
 
@@ -101,7 +122,7 @@ Status
 PlayerServiceImpl::TogglePause(ServerContext* context,
                                const Empty*,
                                MpvResponse* response) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   response->set_response(player.TogglePause());
 
@@ -112,7 +133,7 @@ Status
 PlayerServiceImpl::Volume(ServerContext* context,
                           const VolumeMessage* volume,
                           MpvResponse* response) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   response->set_response(player.Volume(volume->volume()));
   // We want to update clients whenever volume changes
@@ -125,7 +146,7 @@ Status
 PlayerServiceImpl::Seek(ServerContext* context,
                         const SeekMessage* seek,
                         MpvResponse* response) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   response->set_response(player.Seek(seek->seconds()));
 
@@ -136,7 +157,7 @@ Status
 PlayerServiceImpl::Ping(ServerContext* context,
                         const Empty*,
                         Empty*) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   return Status::OK;
 }
@@ -144,7 +165,7 @@ PlayerServiceImpl::Ping(ServerContext* context,
 Status PlayerServiceImpl::TimeInfoStream(
     ServerContext* context,
     ServerReaderWriter<TimeInfo, TimeInterval>* stream) {
-  CHECK_PASSPHRASE(context);
+  CHECK_AUTH(context);
 
   TimeInterval time_interval;
   if (not stream->Read(&time_interval)) {
@@ -283,5 +304,46 @@ Status PlayerServiceImpl::TimeInfoStream(
     reader.join();
 
     return Status::OK;
+}
+
+Status PlayerServiceImpl::Authenticate(
+    ServerContext* context,
+    ServerReaderWriter<AuthData, AuthData>* stream) {
+  AuthData data;
+  stream->Read(&data); // SHA512 of the password
+  // TODO: Generate random bytes as a challenge and expect the client to
+  //       HMAC it with the hashed password.
+  //       Or use Schnorr NIZK proof with a generator being P x [H(password)].
+
+  if (not std::equal(data.data().begin(), data.data().end(),
+                     password_hash.begin(), password_hash.end())) {
+    data.clear_data();
+    data.set_denied(true);
+    stream->Write(data);
+
+    return Status::OK;
+  }
+
+  crypto::SessionKey key;
+  for (;;) {
+    RAND_priv_bytes(key.data(), key.size());
+
+    std::lock_guard lck{sessions_mtx_};
+    if (authenticated_sessions_.find(key) == authenticated_sessions_.end()) {
+      break;
+    }
+  }
+
+  data.set_data(key.data(), key.size());
+
+  {
+    std::lock_guard lck{sessions_mtx_};
+    authenticated_sessions_.insert(std::move(key));
+  }
+
+  data.clear_denied();
+  stream->Write(data);
+
+  return Status::OK;
 }
 }
