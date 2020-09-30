@@ -38,7 +38,6 @@
 
 #include "filesystem.h"
 #include "Config.h"
-#include "GrpcCallAuthenticator.h"
 #include "PlayerClient.h"
 #include "Util.h"
 
@@ -205,29 +204,24 @@ void Daemon::initialize_grpc_client() {
 
   log_->info("Connecting to gRPC remote at: {}", grpc_address);
 
-  std::shared_ptr<grpc::ChannelCredentials> creds;
-  {
-    const auto call_creds = grpc::MetadataCredentialsFromPlugin(
-        std::make_unique<GrpcCallAuthenticator>(Config::Get("passphrase")));
+
+  const auto creds = grpc::SslCredentials([this](){
     grpc::SslCredentialsOptions options;
 
-    const std::string ssl_cert = Util::file_to_str(Config::Get("cert_file"));
-    // log_->debug("Certificate:\n{}", ssl_cert);
-    if (ssl_cert.empty()) {
+    options.pem_root_certs = Util::file_to_str(Config::Get("cert_file"));
+
+    if (options.pem_root_certs.empty()) {
       const std::string error_message{
         "Certificate file '" + Config::Get("cert_file") + "' is empty"};
       log_->error(error_message);
       throw std::logic_error(error_message);
     }
 
-    options.pem_root_certs = std::move(ssl_cert);
-    const auto channel_creds = grpc::SslCredentials(options);
-
-    creds = grpc::CompositeChannelCredentials(channel_creds, call_creds);
-  }
+    return options;
+  }());
 
   {
-    auto channel = grpc::CreateChannel(grpc_address, creds);
+    const auto channel = grpc::CreateChannel(grpc_address, creds);
 
     // Trace the channel state
     grpc_channel_state_thread_ =
