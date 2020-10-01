@@ -51,12 +51,24 @@ bool PlayerServiceImpl::check_auth(const ServerContext* context) const {
     return false;
   }
 
-  crypto::SessionKey key;
-  assert(key.size() == metadata_key->second.size());
-  std::copy(metadata_key->second.begin(), metadata_key->second.end(),
-            key.begin());
+  const auto key = std::string(metadata_key->second.begin(),
+                               metadata_key->second.end());
 
   return authenticated_sessions_.find(key) != authenticated_sessions_.end();
+}
+
+std::string PlayerServiceImpl::generate_session_key() {
+  std::array<unsigned char, 32> rnd;
+  for (;;) {
+    RAND_priv_bytes(rnd.data(), rnd.size());
+    std::string key_str = crypto::to_hex(rnd);
+
+    std::lock_guard lck{sessions_mtx_};
+    if (authenticated_sessions_.find(key_str) ==
+        authenticated_sessions_.end()) {
+      return key_str;
+    }
+  }
 }
 
 PlayerServiceImpl::PlayerServiceImpl() : PlayerService::Service() {
@@ -302,6 +314,9 @@ Status PlayerServiceImpl::Authenticate(
   // TODO: Generate random bytes as a challenge and expect the client to
   //       HMAC it with the hashed password.
   //       Or use Schnorr NIZK proof with a generator being P x [H(password)].
+  // FIXME: The current authentication method is very insecure because it
+  //        could leak the password to an unknown attacker if the client
+  //        doesn't verify the server's certificate.
 
   if (password_hash != data.data()) {
     data.clear_data();
@@ -315,16 +330,7 @@ Status PlayerServiceImpl::Authenticate(
     return Status::OK;
   }
 
-  crypto::SessionKey key;
-  for (;;) {
-    RAND_priv_bytes(key.data(), key.size());
-
-    std::lock_guard lck{sessions_mtx_};
-    if (authenticated_sessions_.find(key) == authenticated_sessions_.end()) {
-      break;
-    }
-  }
-
+  const auto key = generate_session_key();
   data.set_data(key.data(), key.size());
 
   {

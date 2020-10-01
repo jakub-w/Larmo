@@ -18,6 +18,8 @@
 
 #include "CryptoUtil.h"
 
+#include <openssl/evp.h>
+
 namespace lrm::crypto {
 ShaHash encode_SHA512(std::string_view data) {
   static std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx{

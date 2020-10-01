@@ -16,18 +16,39 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
+#ifndef LRM_CRYPTOUTIL_H_
+#define LRM_CRYPTOUTIL_H_
+
 #include <array>
 #include <cassert>
+#include <cstdio>
 #include <memory>
+#include <string>
 #include <string_view>
 
-#include <openssl/evp.h>
 #include <openssl/sha.h>
 
 namespace lrm::crypto {
 using ShaHash = std::array<unsigned char, SHA512_DIGEST_LENGTH>;
-using SessionKey = std::array<unsigned char, 32>;
-/* using SessionKey = std::string; */
+static const auto LRM_SESSION_KEY_SIZE = 64;
 
 ShaHash encode_SHA512(std::string_view data);
+
+template<typename Container>
+std::string to_hex(Container c) {
+  const unsigned char* buf =
+      reinterpret_cast<const unsigned char*>(std::data(c));
+  const auto size = std::size(c);
+  const auto value_size = sizeof(typename decltype(c)::value_type);
+
+  auto output = std::string(size * value_size * 2, ' ');
+
+  for (size_t i = 0; i < size; ++i) {
+    std::snprintf(output.data() + (i * value_size * 2), 3, "%02x", buf[i]);
+  }
+
+  return output;
 }
+}
+
+#endif  // LRM_CRYPTOUTIL_H_

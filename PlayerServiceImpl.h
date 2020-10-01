@@ -37,6 +37,8 @@ class PlayerServiceImpl : public PlayerService::Service {
 
   bool check_auth(const ServerContext* context) const;
 
+  std::string generate_session_key();
+
  public:
   PlayerServiceImpl();
   virtual ~PlayerServiceImpl();
@@ -83,7 +85,7 @@ class PlayerServiceImpl : public PlayerService::Service {
   //       Maybe every time a request is issued from the client the timestamp
   //       for the key is updated and the keys are released periodically if
   //       the timestamp hasn't been touched in a while.
-  std::set<crypto::SessionKey> authenticated_sessions_;
+  std::set<std::string> authenticated_sessions_;
   std::mutex sessions_mtx_;
 
   // Variables for TimeInfoBidiStream

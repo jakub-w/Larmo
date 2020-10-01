@@ -110,7 +110,7 @@ class PlayerClient {
   SongFinishedCallback song_finished_callback_;
   std::mutex song_finished_mtx_;
 
-  std::string session_key_ = std::string(32, ' ');
+  std::string session_key_ = std::string(crypto::LRM_SESSION_KEY_SIZE, ' ');
 };
 }
 
