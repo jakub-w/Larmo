@@ -109,13 +109,48 @@ void init_logging(const fs::path& log_file) {
   gpr_set_log_function(gpr_log_function);
 }
 
-pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo) {
+void config_init(const lrm::Daemon::daemon_info* dinfo) {
   if (dinfo->config_file.empty()) {
     Config::Load();
   } else {
     Config::Load(dinfo->config_file.string());
   }
   assert(Config::GetState() == Config::LOADED);
+}
+
+void log_init(lrm::Daemon::daemon_info* dinfo) {
+  fs::path log_file{Config::Get("log_file")};
+  // TODO: Change the default logging location to something better
+  if (log_file.empty()) {
+    log_file = fs::temp_directory_path().append("lrm/daemon.log");
+  }
+  std::cout << "log_file = " << log_file.string() << '\n';
+
+  try {
+    init_logging(log_file);
+  } catch (const spdlog::spdlog_ex& ex) {
+    std::cerr << "Log initialization failed: " << ex.what();
+    throw;
+  }
+
+  std::cout << "Logging initialized\n";
+
+  dinfo->log_file = log_file.string();
+}
+
+void start_daemon_foreground(
+    std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo) {
+  config_init(dinfo.get());
+  log_init(dinfo.get());
+
+  lrm::Daemon daemon(std::move(dinfo));
+  daemon.Initialize();
+  daemon.Run();
+}
+
+pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo,
+                   bool foreground = false) {
+  config_init(dinfo.get());
 
   int fds[2];
   if (pipe(fds)) {
@@ -137,23 +172,7 @@ pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo) {
             // Initialize a daemon process
             umask(0);
 
-            fs::path log_file{Config::Get("log_file")};
-            // TODO: Change the default logging location to something better
-            if (log_file.empty()) {
-              log_file = fs::temp_directory_path().append("lrm/daemon.log");
-            }
-            std::cout << "log_file = " << log_file.string() << '\n';
-
-            try {
-              init_logging(log_file);
-            } catch (const spdlog::spdlog_ex& ex) {
-              std::cerr << "Log initialization failed: " << ex.what();
-              throw;
-            }
-
-            std::cout << "Logging initialized\n";
-
-            dinfo->log_file = log_file.string();
+            log_init(dinfo.get());
 
             // if ((setsid() < 0) or
                 // (chdir("/") < 0)) {
@@ -241,7 +260,12 @@ int main(int argc, char** argv) {
         dinfo->passphrase = args.passphrase;
         dinfo->cert_file = args.cert_file;
 
-        start_daemon(std::move(dinfo));
+        if (args.foreground) {
+          start_daemon_foreground(std::move(dinfo));
+        } else {
+          start_daemon(std::move(dinfo));
+        }
+        // start_daemon(std::move(dinfo), args.foreground);
 
         // Try for DAEMON_TIMEOUT seconds to connect to a daemon
         int count = 0;

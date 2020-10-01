@@ -39,6 +39,7 @@ struct arguments {
   std::string cert_port;
   std::string passphrase;
   std::string cert_file;
+  bool foreground = false;
 };
 
 // bool value is true if the command requires an argument
@@ -62,6 +63,7 @@ static argp_option daemon_options[] = {
   {"streaming-port", 's', "NUM", 0, "Port for streaming music", 0},
   {"cert-port", 'r', "NUM", 0, "Port for the certificate exchange", 0},
   {"pass", 'P', "PASSPHRASE", 0, "Passphrase for queries to the server", 0},
+  {"foreground", 'F', nullptr, 0, "Run daemon in the foreground", 0},
   {0, 0, 0, 0, 0, 0}
 };
 
@@ -100,6 +102,9 @@ static error_t daemon_parse_opt(int key, char* arg, argp_state* state) {
       break;
     case 'P':
       args->passphrase = arg;
+      break;
+    case 'F':
+      args->foreground = true;
       break;
     default:
       return ARGP_ERR_UNKNOWN;
