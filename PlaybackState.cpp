@@ -17,6 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 
 #include "PlaybackState.h"
+#include "spdlog/spdlog.h"
 
 namespace lrm {
 const std::map<PlaybackState::State, std::string>
@@ -31,6 +32,7 @@ PlaybackState::PlaybackState(State state) : state_(state) {}
 PlaybackState::PlaybackState() : PlaybackState(UNDEFINED) {}
 
 void PlaybackState::SetState(State new_state) {
+  spdlog::debug("Setting playback state to: {}", state_names_.at(new_state));
   if (FINISHED == state_ or FINISHED_ERROR == state_) {
     state_ = STOPPED;
   }

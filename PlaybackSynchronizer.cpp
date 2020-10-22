@@ -20,6 +20,7 @@
 
 #include <thread>
 
+#include "ClientContexts.h"
 #include "Util.h"
 
 namespace lrm {
@@ -99,7 +100,6 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
                                         update_interval) {
   is_updating_ = true;
 
-  grpc::ClientContext context;
   std::shared_ptr<grpc::ClientReaderWriter<TimeInterval, TimeInfo>> stream(
       stub_->TimeInfoStream(&context));
 
@@ -156,6 +156,7 @@ void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
                     base_playback_info.info.total_time.count(),
                     base_playback_info.info.elapsed_time.count(),
                     base_playback_info.info.remaining_time.count());
+    AuthenticatedContext context{session_key_};
     }
 
     // This must be run after base_playback_info has been updated because it

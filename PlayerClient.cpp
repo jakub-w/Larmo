@@ -32,15 +32,11 @@
 
 #include "spdlog/spdlog.h"
 
+#include "ClientContexts.h"
 #include "Config.h"
 #include "crypto/CryptoUtil.h"
 
 namespace lrm {
-PlayerClient::AuthenticatedContext::AuthenticatedContext(
-    const std::string& session_key) {
-  AddMetadata("x-session-key", session_key);
-}
-
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
   std::ifstream ifs(filename.data(), std::ios::binary | std::ios::in);
   if (not ifs.is_open()) {
@@ -60,6 +56,11 @@ std::vector<char> PlayerClient::read_file(std::string_view filename) {
 }
 
 void PlayerClient::start_updating_info() {
+  assert(std::any_of(std::begin(session_key_), std::end(session_key_),
+                     [](char c){ return c != ' '; })
+         && "Session key is not initialized! Use Authenticate() before "
+         "StreamInfoStart().");
+
   spdlog::info("Starting song info stream...");
   try {
     synchronizer_.Start();
@@ -73,7 +74,7 @@ void PlayerClient::stop_updating_info() {
 
 PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel) noexcept
     : stub_(PlayerService::NewStub(channel)),
-      synchronizer_(stub_.get()),
+      synchronizer_(stub_.get(), session_key_),
       log_(spdlog::get("PlayerClient")) {
   try {
     synchronizer_.SetCallbackOnStatusChange(

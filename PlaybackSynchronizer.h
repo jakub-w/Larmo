@@ -49,8 +49,9 @@ class PlaybackSynchronizer {
     PlaybackState::State playback_state = PlaybackState::UNDEFINED;
   };
 
-  explicit PlaybackSynchronizer(PlayerService::Stub* stub) noexcept
-      : stub_(stub), base_playback_info() {}
+  explicit PlaybackSynchronizer(PlayerService::Stub* stub,
+                                const std::string& session_key) noexcept
+      : stub_(stub), session_key_{session_key}, base_playback_info() {}
 
   virtual ~PlaybackSynchronizer();
 
@@ -71,6 +72,7 @@ class PlaybackSynchronizer {
   void continuous_update(std::chrono::milliseconds update_interval);
 
   PlayerService::Stub* stub_;
+  const std::string& session_key_;
 
   std::condition_variable is_updating_cv_;
   std::mutex is_updating_mtx_;

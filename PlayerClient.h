@@ -36,14 +36,6 @@ using namespace grpc;
 
 namespace lrm {
 class PlayerClient {
-  using UnauthenticatedContext = ClientContext;
-
-  /// ClientContext with \e x-session-id metadata.
-  class AuthenticatedContext : public ClientContext {
-   public:
-    explicit AuthenticatedContext(const std::string& session_key);
-  };
-
   std::vector<char> read_file(std::string_view filename);
 
   /// Start a thread that will continuously update song_info_, taking
