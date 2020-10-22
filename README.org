@@ -17,7 +17,10 @@ First command on the client's system should be:
 #+BEGIN_SRC sh
   remote-control daemon
 #+END_SRC
-It will create a daemon in the background that will work as a proxy between the server and the command line utility.
+It will create a daemon that will work as a proxy between the server and the command line utility. It works in the background. For the foreground mode use:
+#+BEGIN_SRC sh
+  remote-control daemon --foreground
+#+END_SRC
 
 When the daemon is running you can, for example, use:
 #+BEGIN_SRC sh
@@ -38,15 +41,15 @@ Both the server and the client can read all necessary settings from the configur
   cert_file = /path/to/server.crt
 #+END_SRC
 
-For now, by default it searches the working directory for the configuration file: ~lrm.conf~, although it can be selected by:
+For now, by default it searches the working directory for the configuration file: ~lrm.conf~, although it can be manually selected by:
 #+BEGIN_SRC sh
   remote-player --config=/path/to/my_lrm_config.conf
 #+END_SRC
 ** Certificate and private key
-The certificate needs to be generated in place with the CN being the hostname that client will use to connect to the server.
+The certificate needs to be generated in place with the CN being the hostname that the client will use to connect to the server.
 
 # TODO: Revise this after adding more options to remote-player command
-The server needs to have a private key that signed the certificate. It will expect to have the key file in the working dir, named ~server.key~. For now there is no option to configure it.
+The server needs to have access to the private key that signed the certificate. It will expect to find it in the working dir, named ~server.key~. For now there is no option to configure its path.
 
 * Dependencies
 - mpv
@@ -69,8 +72,8 @@ The server needs to have a private key that signed the certificate. It will expe
 
 #+BEGIN_SRC sh
   git clone --recurse-submodules \
-      https://github.com/jakub-w/lelo-remote-music.git && \
-  cd lelo-remote-music
+      https://github.com/jakub-w/Larmo.git && \
+  cd Larmo
 #+END_SRC
 
 #+BEGIN_SRC sh
