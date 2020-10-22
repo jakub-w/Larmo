@@ -19,8 +19,6 @@
 #ifndef LRM_PLAYERCLIENT_H
 #define LRM_PLAYERCLIENT_H
 
-#include <asio.hpp>
-
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
 #else
@@ -35,7 +33,6 @@
 #include "crypto/CryptoUtil.h"
 
 using namespace grpc;
-using namespace asio::ip;
 
 namespace lrm {
 class PlayerClient {
@@ -49,29 +46,18 @@ class PlayerClient {
 
   std::vector<char> read_file(std::string_view filename);
 
-  /// Start streaming asynchronously.
-  /// Return port (it's randomized if port arg is 0)
-  int start_streaming(const std::string& filename, unsigned short port);
-
   /// Start a thread that will continuously update song_info_, taking
   /// information from the remote server.
   void start_updating_info();
   /// Stop the thread started by start_updating_info()
   void stop_updating_info();
 
-  unsigned short set_port(unsigned short port);
-
   std::string info_get(
       std::string_view token,
       const PlaybackSynchronizer::PlaybackInfo* playback_info);
 
-  explicit PlayerClient(std::shared_ptr<grpc::Channel> channel);
-
  public:
-  explicit PlayerClient(unsigned short streaming_port,
-                        std::shared_ptr<grpc::Channel> channel) noexcept;
-  explicit PlayerClient(const std::string& streaming_port,
-                        std::shared_ptr<grpc::Channel> channel) noexcept;
+  explicit PlayerClient(std::shared_ptr<grpc::Channel> channel) noexcept;
   virtual ~PlayerClient();
 
   bool Authenticate();
@@ -94,14 +80,8 @@ class PlayerClient {
 
  private:
   std::unique_ptr<PlayerService::Stub> stub_;
-  StreamingPort port_;
 
-  asio::io_context context_;
-  std::thread context_thread_; // just running context_.run()
   std::vector<char> streaming_file_;
-  tcp::acceptor streaming_acceptor_;
-  tcp::endpoint streaming_endpoint_;
-  tcp::socket streaming_socket_;
 
   PlaybackSynchronizer synchronizer_;
 

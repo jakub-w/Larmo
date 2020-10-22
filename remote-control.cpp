@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <memory>
 #include <tuple>
 #include <string_view>
 #include <thread>
@@ -260,7 +261,6 @@ int main(int argc, char** argv) {
         dinfo->config_file = args.config_file;
         dinfo->grpc_host = args.grpc_host;
         dinfo->grpc_port = args.grpc_port;
-        dinfo->streaming_port = args.streaming_port;
         dinfo->cert_port = args.cert_port;
         dinfo->passphrase = args.passphrase;
         dinfo->cert_file = args.cert_file;
@@ -290,7 +290,6 @@ int main(int argc, char** argv) {
                   << "\tconfig_file: " << Config::Get("config_file") << '\n'
                   << "\tgrpc_host: " << Config::Get("grpc_host") << '\n'
                   << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
-                  << "\tstreaming_port: " << Config::Get("streaming_port")
                   << "\tcert_port: " << Config::Get("cert_port")
                   << '\n'
                   << "\tpassphrase: " << Config::Get("passphrase") << '\n'

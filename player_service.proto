@@ -18,10 +18,6 @@
 
 syntax = "proto3";
 
-message StreamingPort {
-  int32 port = 1;
-}
-
 message VolumeMessage {
   string volume = 1;
 }
@@ -67,10 +63,13 @@ message AuthData {
   bool denied = 2;
 }
 
+message AudioData {
+  bytes data = 1;
+}
+
 message Empty {}
 
 service PlayerService {
-  rpc PlayFrom(StreamingPort) returns (MpvResponse) {}
   rpc Stop(Empty) returns (MpvResponse) {}
   rpc TogglePause(Empty) returns (MpvResponse) {}
   rpc Volume(VolumeMessage) returns (MpvResponse) {}
@@ -78,4 +77,5 @@ service PlayerService {
   rpc Ping(Empty) returns (Empty) {}
   rpc TimeInfoStream(stream TimeInterval) returns (stream TimeInfo) {}
   rpc Authenticate(stream AuthData) returns (stream AuthData) {}
+  rpc AudioStream(stream AudioData) returns (MpvResponse) {}
 }

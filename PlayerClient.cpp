@@ -22,6 +22,7 @@
 #include <fstream>
 #include <sstream>
 #include <string_view>
+#include <netinet/in.h>
 
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
@@ -58,49 +59,6 @@ std::vector<char> PlayerClient::read_file(std::string_view filename) {
   return output;
 }
 
-int PlayerClient::start_streaming(const std::string& filename,
-                                  unsigned short port) {
-  streaming_acceptor_.close();
-  streaming_socket_.close();
-
-  streaming_endpoint_.port(port);
-  streaming_acceptor_ = tcp::acceptor(context_, streaming_endpoint_, true);
-
-  port = streaming_acceptor_.local_endpoint().port();
-  log_->debug("Opening port {}", port);
-
-  log_->debug("Reading the file to a vector...");
-  streaming_file_ = read_file(filename);
-
-  log_->debug("Waiting for the server...");
-
-  streaming_acceptor_.async_accept(
-      streaming_socket_,
-      [this](const asio::error_code& ec){
-        try {
-          if (!ec) {
-            log_->info("Sending the file on port {}...",
-                       streaming_socket_.local_endpoint().port());
-            size_t sent = asio::write(
-                streaming_socket_,
-                asio::buffer(streaming_file_));
-            log_->debug("File uploaded. Bytes sent: {}", sent);
-            streaming_socket_.close();
-          } else {
-            throw asio::system_error(ec);
-          }
-        } catch (const asio::system_error& e) {
-          if (e.code().value() != EBADF) {
-            log_->error("ASIO error while uploading the file: {}",
-                       e.what());
-          }
-        }
-        log_->debug("Streaming thread exited");
-      });
-
-  return port;
-}
-
 void PlayerClient::start_updating_info() {
   spdlog::info("Starting song info stream...");
   try {
@@ -113,10 +71,8 @@ void PlayerClient::stop_updating_info() {
   synchronizer_.Stop();
 }
 
-PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
+PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel) noexcept
     : stub_(PlayerService::NewStub(channel)),
-      streaming_acceptor_(context_),
-      streaming_socket_(context_),
       synchronizer_(stub_.get()),
       log_(spdlog::get("PlayerClient")) {
   try {
@@ -139,65 +95,16 @@ PlayerClient::PlayerClient(std::shared_ptr<grpc::Channel> channel)
           spdlog::debug("Received playback state change from server: {}",
                         PlaybackState::StateName(state));
         });
-    context_thread_ = std::thread(
-        [this](){
-          auto context_guard = asio::make_work_guard(context_);
-          context_.run();
-        });
   } catch (const std::system_error& e) {
     spdlog::error("Couldn't register the state change callback: {}",
                   e.what());
   }
 }
 
-PlayerClient::PlayerClient(unsigned short streaming_port,
-                           std::shared_ptr<grpc::Channel> channel) noexcept
-    : PlayerClient(channel) {
-  set_port(streaming_port);
-}
-
-PlayerClient::PlayerClient(const std::string& streaming_port,
-                           std::shared_ptr<grpc::Channel> channel) noexcept
-    : PlayerClient(channel) {
-  int port;
-
-  try {
-    port = std::stoi(streaming_port.data());
-    if (port > USHRT_MAX) throw;
-  } catch (...) {
-    port = 0;
-  }
-  port_.set_port(port);
-}
-
 PlayerClient::~PlayerClient() {
   try {
-    log_->debug("Stopping the ASIO context...");
-    try {
-      if (streaming_socket_.is_open()) {
-        streaming_socket_.shutdown(tcp::socket::shutdown_both);
-      }
-      streaming_socket_.close();
-      streaming_acceptor_.close();
-    } catch (const asio::system_error& e) {
-      log_->error("When closing the sockets: {}", e.what());
-    }
-    log_->debug("Sockets closed");
-
-    context_.stop();
-    context_thread_.join();
-    log_->debug("ASIO context stopped");
-
     log_->flush();
   } catch (...) {}
-}
-
-unsigned short PlayerClient::set_port(unsigned short port) {
-  if (not (port <= IPPORT_USERRESERVED and port != 0)) {
-    port = 0;
-  }
-  port_.set_port(port);
-  return port;
 }
 
 bool PlayerClient::Authenticate() {
@@ -243,24 +150,35 @@ bool PlayerClient::Authenticate() {
   return not data.denied();
 }
 
-
-int PlayerClient::Play(std::string_view filename)
-{
+int PlayerClient::Play(std::string_view filename) {
   log_->debug("PlayerClient::Play(\"{}\")", filename);
-
-  try {
-    const unsigned short port =
-        start_streaming(filename.data(), port_.port());
-    port_.set_port(port);
-  } catch (const std::exception& e) {
-    // TODO: Rethrow
-    log_->error("Error while trying to open a stream: {}", e.what());
-    return -101;
-  }
 
   AuthenticatedContext context(session_key_);
   MpvResponse response;
-  const grpc::Status status = stub_->PlayFrom(&context, port_, &response);
+
+  auto writer = stub_->AudioStream(&context, &response);
+
+  AudioData data;
+  size_t written = 0;
+  streaming_file_ = read_file(filename);
+
+  constexpr size_t PACKAGE_BYTES = 1024;
+
+  while (written < streaming_file_.size()) {
+    const size_t to_send = std::min(PACKAGE_BYTES,
+                                    streaming_file_.size() - written);
+    data.set_data(streaming_file_.data() + written,
+                  to_send);
+
+    if (not writer->Write(data)) {
+      break;
+    }
+
+    written += to_send;
+  }
+
+  writer->WritesDone();
+  auto status = writer->Finish();
 
   if (status.ok()) {
     return response.response();

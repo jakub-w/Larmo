@@ -19,7 +19,9 @@
 #include "PlayerServiceImpl.h"
 
 #include <algorithm>
+#include <grpcpp/impl/codegen/status.h>
 #include <mutex>
+#include <unistd.h>
 
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/security/credentials.h"
@@ -86,24 +88,46 @@ PlayerServiceImpl::~PlayerServiceImpl() {
 }
 
 Status
-PlayerServiceImpl::PlayFrom(ServerContext* context,
-                            const StreamingPort* port,
-                            MpvResponse* response) {
+PlayerServiceImpl::AudioStream(ServerContext* context,
+                               ServerReader<AudioData>* reader,
+                               MpvResponse *response) {
   CHECK_AUTH(context);
 
-  spdlog::debug("Peer: {}", context->peer());
-  const std::vector<std::string> peer = Util::tokenize(context->peer(), ":");
+  AudioData data;
 
-  if (peer.size() != 3 or not Util::is_ipv4(peer[1])) {
-    spdlog::error("Couldn't retrieve IPv4 client address from '{}'",
-                  context->peer());
-    return Status(StatusCode::ABORTED,
-                  "Couldn't retrieve client's address '" + peer[1] + "'.");
+  int pipefd[2];
+  if (-1 == pipe(pipefd)) {
+    return Status{
+      StatusCode::ABORTED,
+      fmt::format("Audio stream pipe: {}", strerror(errno))};
   }
 
-  response->set_response(
-      player.PlayFrom(peer[1], std::to_string(port->port())));
+  const auto result = player.PlayFromPipe(pipefd[0]);
+  response->set_response(result);
 
+  if (MPV_ERROR_SUCCESS != result) {
+    return Status{StatusCode::ABORTED, "Couldn't play from pipe"};
+  }
+
+  while (reader->Read(&data)) {
+    size_t written = 0;
+    while (written < data.data().size()) {
+      const auto write_result = write(pipefd[1],
+                                      data.data().data() + written,
+                                      data.data().size() - written);
+      if (-1 == write_result) {
+        close(pipefd[1]);
+        return Status{
+          StatusCode::ABORTED,
+          fmt::format("Couldn't write to audio stream pipe: {}",
+                      strerror(errno))
+        };
+      }
+      written += write_result;
+    }
+  }
+
+  close(pipefd[1]);
   return Status::OK;
 }
 

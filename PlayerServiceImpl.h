@@ -43,9 +43,9 @@ class PlayerServiceImpl : public PlayerService::Service {
   PlayerServiceImpl();
   virtual ~PlayerServiceImpl();
 
-  Status PlayFrom(ServerContext* context,
-                  const StreamingPort* port,
-                  MpvResponse* response);
+  Status AudioStream(ServerContext* context,
+                     ServerReader<AudioData>* reader,
+                     MpvResponse *response);
 
   Status Stop(ServerContext* context,
               const Empty*,

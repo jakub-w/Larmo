@@ -52,19 +52,6 @@ Player::Player() : ctx_(mpv_create(), &mpv_terminate_destroy),
 Player::~Player() {
   stop_event_loop();
 
-  asio::error_code ec;
-  if (tcp_sock_.is_open()) {
-    tcp_sock_.shutdown(asio::socket_base::shutdown_both, ec);
-    if (ec) {
-      spdlog::warn("Trying to shutdown socket in Player: {}", ec.message());
-      ec.clear();
-    }
-  }
-  tcp_sock_.close(ec);
-  if (ec) {
-    spdlog::warn("Trying to close socket in Player: {}", ec.message());
-    ec.clear();
-  }
   if (event_loop_thread_.joinable()) {
     try {
       event_loop_thread_.join();
@@ -142,54 +129,13 @@ int Player::Seek(int32_t seconds) {
   return send_command_({"seek", std::to_string(seconds)});
 }
 
-int Player::PlayFrom(std::string_view host, std::string_view port) {
-  try {
-  tcp_sock_.close();
+int Player::PlayFromPipe(int fd) {
+  spdlog::info("Playing audio from pipe");
+  spdlog::debug("Sockfd: {}", fd);
 
-  // Resolve the address from 'host' argument
-  endpoint_.address(address());
-  endpoint_.port(0);
-  spdlog::debug("Trying to resolve address: {}:{}...",
-                host.data(), port.data());
-  const auto endpoints = tcp_resolver_.resolve(host.data(), port.data());
-
-  for (auto it = endpoints.begin(); it != endpoints.end(); ++it) {
-      if (it->endpoint().protocol() == tcp::v4()) {
-        endpoint_ = it->endpoint();
-        break;
-      }
-  }
-  spdlog::info("Playing from: {}:{}",
-               endpoint_.address().to_string(), endpoint_.port());
-
-  asio::error_code ec;
-  const int timer = 1000; // wait for max 1 second
-  for (int i = 0; i < timer/250; ++i) {
-    tcp_sock_.connect(endpoint_, ec);
-    if (ec) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
-    } else {
-      break;
-    }
-  }
-  if (ec) {
-    spdlog::error("Couldn't connect to a client's streaming port: {}",
-                  ec.message());
-    return -1;
-  }
-
-  spdlog::debug("Connected");
-
-  spdlog::debug("Sockfd: {}", tcp_sock_.native_handle());
-
-  Input("fd://" + std::to_string(tcp_sock_.native_handle()));
+  Input("fdclose://" + std::to_string(fd));
 
   return Play();
-  } catch (const std::exception& e) {
-    // TODO: proper error handling
-    spdlog::error(e.what());
-    return -1;
-  }
 }
 
 int64_t Player::get_property_int64_(const std::string_view prop_name) const {

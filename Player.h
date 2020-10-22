@@ -24,8 +24,6 @@
 
 #include "mpv/client.h"
 
-#include "asio.hpp"
-
 #include "PlaybackState.h"
 
 namespace lrm {
@@ -43,7 +41,6 @@ class MpvException : public std::runtime_error {
   const std::string details_;
 };
 
-using namespace asio::ip;
 class Player {
   inline int check_result(int result) {
     if (0 != result) {
@@ -80,7 +77,7 @@ class Player {
   }
 
   int Seek(int32_t seconds);
-  int PlayFrom(std::string_view host, std::string_view port);
+  int PlayFromPipe(int fd);
 
   inline double TimePosition() const {
     return get_property_double_("time-pos");
@@ -106,11 +103,6 @@ class Player {
  private:
   std::string input_;
   std::unique_ptr<mpv_handle, decltype(&mpv_terminate_destroy)> ctx_;
-
-  asio::io_context io_context_;
-  tcp::socket tcp_sock_ = tcp::socket(io_context_);
-  tcp::endpoint endpoint_;
-  tcp::resolver tcp_resolver_ = tcp::resolver(io_context_);
 
   PlaybackState playback_state_;
 

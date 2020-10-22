@@ -42,7 +42,6 @@ class Daemon {
     fs::path log_file;
     std::string grpc_host;
     std::string grpc_port;
-    std::string streaming_port;
     std::string cert_port;
     std::string passphrase;
   };

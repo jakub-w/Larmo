@@ -140,7 +140,6 @@ void Daemon::initialize_config() {
   // So it will overwrite only values that are set in dinfo_.
   Config::Set("grpc_port", dinfo_->grpc_port);
   Config::Set("grpc_host", dinfo_->grpc_host);
-  Config::Set("streaming_port", dinfo_->streaming_port);
   Config::Set("cert_port", dinfo_->cert_port);
   Config::Set("passphrase", dinfo_->passphrase);
   Config::Set("cert_file", dinfo_->cert_file.string());
@@ -168,13 +167,6 @@ void Daemon::initialize_config() {
 
   const auto grpc_port = Config::Get("grpc_port");
   Util::check_port(grpc_port);
-
-  auto streaming_port = Config::Get("streaming_port");
-  if (streaming_port.empty()) {
-    streaming_port = "0";
-    Config::Set("streaming_port", "0");
-  }
-  Util::check_port(streaming_port);
 
   auto cert_port = Config::Get("cert_port");
   if (cert_port.empty()) {
@@ -238,9 +230,7 @@ void Daemon::initialize_grpc_client() {
                               "Connecting to a server");
     }
 
-    remote_ = std::make_unique<PlayerClient>(
-        Config::Get("streaming_port"),
-        channel);
+    remote_ = std::make_unique<PlayerClient>(channel);
   }
 
   state_ = GRPC_CLIENT_INITIALIZED;
