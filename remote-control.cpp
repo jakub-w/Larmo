@@ -37,6 +37,7 @@
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "filesystem.h"
 #include "Config.h"
@@ -71,19 +72,23 @@ void gpr_log_function(gpr_log_func_args* args) {
 void init_logging(const fs::path& log_file) {
   fs::create_directories(log_file.parent_path());
 
-  auto file_sink =
-      std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file.string(),
-                                                          true);
+  std::vector<spdlog::sink_ptr> sinks;
+  sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+  sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+      log_file.string(), true));
 
   auto daemon_logger =
-      std::make_shared<spdlog::logger>("Daemon", file_sink);
+      std::make_shared<spdlog::logger>(
+          "Daemon", std::begin(sinks), std::end(sinks));
   spdlog::register_logger(daemon_logger);
 
   auto playerclient_logger =
-      std::make_shared<spdlog::logger>("PlayerClient", file_sink);
+      std::make_shared<spdlog::logger>(
+          "PlayerClient", std::begin(sinks), std::end(sinks));
   spdlog::register_logger(playerclient_logger);
 
-  auto grpc_logger = std::make_shared<spdlog::logger>("gRPC", file_sink);
+  auto grpc_logger = std::make_shared<spdlog::logger>(
+      "gRPC", std::begin(sinks), std::end(sinks));
   spdlog::register_logger(grpc_logger);
 
   // Global settings
