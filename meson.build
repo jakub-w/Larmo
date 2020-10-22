@@ -38,7 +38,7 @@ if get_option('buildtype').startswith('debug')
     language : 'cpp')
 
 elif get_option('buildtype') == 'release'
-  add_project_arguments('-DNDEBUG', '-O3', '-s',
+  add_project_arguments('-DNDEBUG', '-O2',
   			language : 'cpp')
 endif
 
