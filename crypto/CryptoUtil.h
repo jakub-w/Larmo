@@ -26,6 +26,9 @@
 #include <string>
 #include <string_view>
 
+#include <openssl/bn.h>
+#include <openssl/ec.h>
+#include <openssl/obj_mac.h>
 #include <openssl/sha.h>
 
 namespace lrm::crypto {
@@ -39,7 +42,7 @@ std::string to_hex(Container c) {
   const unsigned char* buf =
       reinterpret_cast<const unsigned char*>(std::data(c));
   const auto size = std::size(c);
-  const auto value_size = sizeof(typename decltype(c)::value_type);
+  constexpr auto value_size = sizeof(typename decltype(c)::value_type);
 
   auto output = std::string(size * value_size * 2, ' ');
 
@@ -49,6 +52,27 @@ std::string to_hex(Container c) {
 
   return output;
 }
+
+// TODO: Schnorr NIZK
+// TODO: For error handling use handle_ssl_error() and int_error() from
+//       CertsUtil.{h,cpp}
+using EcPoint = std::unique_ptr<EC_POINT, decltype(&EC_POINT_free)>;
+inline static const EC_GROUP* Ed25519() {
+  static const std::unique_ptr<EC_GROUP, decltype(&EC_GROUP_free)> group{
+    EC_GROUP_new_by_curve_name(NID_ED25519), &EC_GROUP_free};
+
+  return group.get();
+}
+
+inline EcPoint make_point() {
+  auto result = EcPoint{EC_POINT_new(Ed25519()), &EC_POINT_free};
+  if (nullptr == result.get()) {
+    // TODO: Error
+  }
+  return result;
+}
+
+EcPoint make_generator(std::string_view password);
 }
 
 #endif  // LRM_CRYPTOUTIL_H_

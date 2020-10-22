@@ -43,4 +43,36 @@ ShaHash encode_SHA512(std::string_view data) {
 
   return hash;
 }
+
+EcPoint make_generator(std::string_view password) {
+  const auto hash = encode_SHA512(password);
+  std::unique_ptr<BIGNUM, decltype(&BN_free)> num{
+    BN_bin2bn(hash.data(), hash.size(), nullptr),
+    &BN_free};
+
+  if (nullptr == num.get()) {
+    // TODO: Report an error
+  }
+
+  static thread_local std::unique_ptr<BN_CTX, decltype(&BN_CTX_free)> bnctx{
+    BN_CTX_secure_new(), &BN_CTX_free};
+  if (nullptr == bnctx.get()) {
+    // TODO: Error
+  }
+
+  auto result = make_point();
+  if (not EC_POINT_mul(Ed25519(), result.get(), nullptr,
+                       EC_GROUP_get0_generator(Ed25519()), num.get(),
+                       bnctx.get())) {
+    // TODO: Report an error
+  }
+
+  if (EC_POINT_is_at_infinity(Ed25519(), result.get())) {
+    return make_generator(std::string_view{
+        reinterpret_cast<const char*>(hash.data()),
+        hash.size()});
+  }
+
+  return result;
+}
 }
