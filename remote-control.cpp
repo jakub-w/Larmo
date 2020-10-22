@@ -269,31 +269,29 @@ int main(int argc, char** argv) {
           start_daemon_foreground(std::move(dinfo));
         } else {
           start_daemon(std::move(dinfo));
-        }
-        // start_daemon(std::move(dinfo), args.foreground);
 
-        // Try for DAEMON_TIMEOUT seconds to connect to a daemon
-        int count = 0;
-        for(;; ++count) {
-          try {
-            socket.connect(endpoint);
-            break;
-          } catch (const asio::system_error&) {
-            if (count > DAEMON_TIMEOUT) {
-              throw std::runtime_error(
-                  "Timeout reached. Couldn't connect to a daemon");
+          // Try for DAEMON_TIMEOUT seconds to connect to a daemon
+          int count = 0;
+          for(;; ++count) {
+            try {
+              socket.connect(endpoint);
+              break;
+            } catch (const asio::system_error&) {
+              if (count > DAEMON_TIMEOUT) {
+                throw std::runtime_error(
+                    "Timeout reached. Couldn't connect to a daemon");
+              }
+              std::this_thread::sleep_for(std::chrono::seconds(1));
             }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
           }
+
+          std::cout << "Daemon started with settings:\n"
+                    << "\tconfig_file: " << Config::Get("config_file") << '\n'
+                    << "\tgrpc_host: " << Config::Get("grpc_host") << '\n'
+                    << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
+                    << "\tpassphrase: " << Config::Get("passphrase") << '\n'
+                    << "\tcert_file: " << Config::Get("cert_file") << "\n";
         }
-        std::cout << "Daemon started with settings:\n"
-                  << "\tconfig_file: " << Config::Get("config_file") << '\n'
-                  << "\tgrpc_host: " << Config::Get("grpc_host") << '\n'
-                  << "\tgrpc_port: " << Config::Get("grpc_port") << '\n'
-                  << "\tcert_port: " << Config::Get("cert_port")
-                  << '\n'
-                  << "\tpassphrase: " << Config::Get("passphrase") << '\n'
-                  << "\tcert_file: " << Config::Get("cert_file") << "\n";
 
         return EXIT_SUCCESS;
       } catch (const lrm::daemon_init_error&) {

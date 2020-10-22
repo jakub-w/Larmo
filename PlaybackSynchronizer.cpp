@@ -47,8 +47,8 @@ void PlaybackSynchronizer::Start(std::chrono::milliseconds update_interval) {
   }
 
   updating_thread_ = std::thread(&PlaybackSynchronizer::continuous_update,
-                        this,
-                        std::move(update_interval));
+                                 this,
+                                 std::move(update_interval));
 }
 
 void PlaybackSynchronizer::Stop() noexcept {
@@ -97,82 +97,86 @@ PlaybackSynchronizer::GetPlaybackInfo() const {
 }
 
 void PlaybackSynchronizer::continuous_update(std::chrono::milliseconds
-                                        update_interval) {
-  is_updating_ = true;
+                                             update_interval) {
+  try {
+    is_updating_ = true;
 
-  std::shared_ptr<grpc::ClientReaderWriter<TimeInterval, TimeInfo>> stream(
-      stub_->TimeInfoStream(&context));
-
-  TimeInterval interval;
-  interval.set_milliseconds(update_interval.count());
-
-  spdlog::debug("Setting the info stream interval to {}s",
-                update_interval.count() / (float) 1000);
-  stream->Write(interval);
-
-  // Writer will just wait until SongInfoUpdater::Stop() is called (it's
-  // called by the destructor).
-  std::thread writer(
-      [this, stream]{
-        {
-          std::unique_lock<std::mutex> lck(is_updating_mtx_);
-          is_updating_cv_.wait(lck, [&]{return !is_updating_;});
-        }
-
-        stream->WritesDone();
-        spdlog::debug(
-            "Requesting info stream cancellation...");
-      });
-
-  TimeInfo time_info;
-  PlaybackState::State current_state = PlaybackState::UNDEFINED;
-  bool state_changed = false;
-
-  while (stream->Read(&time_info)) {
-    if (time_info.playback_state() != TimeInfo::NOT_CHANGED) {
-      state_changed = true;
-      current_state = time_info_playback_state_translation_map
-                      .at(time_info.playback_state());
-    } else {
-      state_changed = false;
-    }
-
-    {
-      std::lock_guard lck(base_playback_info.mtx);
-      base_playback_info.last_update = std::chrono::steady_clock::now();
-
-      base_playback_info.info.playback_state = current_state;
-
-      base_playback_info.info.volume = time_info.volume();
-
-      base_playback_info.info.total_time =
-          std::chrono::duration<double>(time_info.total_time());
-      base_playback_info.info.elapsed_time =
-          std::chrono::duration<double>(time_info.current_time());
-      base_playback_info.info.remaining_time =
-          std::chrono::duration<double>(time_info.remaining_time());
-
-      spdlog::debug("total_time: {}, elapsed_time: {}, remaining_time: {}",
-                    base_playback_info.info.total_time.count(),
-                    base_playback_info.info.elapsed_time.count(),
-                    base_playback_info.info.remaining_time.count());
     AuthenticatedContext context{session_key_};
+    std::shared_ptr<grpc::ClientReaderWriter<TimeInterval, TimeInfo>> stream(
+        stub_->TimeInfoStream(&context));
+
+    TimeInterval interval;
+    interval.set_milliseconds(update_interval.count());
+
+    spdlog::debug("Setting the info stream interval to {}s",
+                  update_interval.count() / (float) 1000);
+    stream->Write(interval);
+
+    // Writer will just wait until SongInfoUpdater::Stop() is called (it's
+    // called by the destructor).
+    std::thread writer(
+        [this, stream]{
+          {
+            std::unique_lock<std::mutex> lck(is_updating_mtx_);
+            is_updating_cv_.wait(lck, [&]{return !is_updating_;});
+          }
+
+          stream->WritesDone();
+          spdlog::debug(
+              "Requesting info stream cancellation...");
+        });
+
+    TimeInfo time_info;
+    PlaybackState::State current_state = PlaybackState::UNDEFINED;
+    bool state_changed = false;
+
+    while (stream->Read(&time_info)) {
+      if (time_info.playback_state() != TimeInfo::NOT_CHANGED) {
+        state_changed = true;
+        current_state = time_info_playback_state_translation_map
+                        .at(time_info.playback_state());
+      } else {
+        state_changed = false;
+      }
+
+      {
+        std::lock_guard lck(base_playback_info.mtx);
+        base_playback_info.last_update = std::chrono::steady_clock::now();
+
+        base_playback_info.info.playback_state = current_state;
+
+        base_playback_info.info.volume = time_info.volume();
+
+        base_playback_info.info.total_time =
+            std::chrono::duration<double>(time_info.total_time());
+        base_playback_info.info.elapsed_time =
+            std::chrono::duration<double>(time_info.current_time());
+        base_playback_info.info.remaining_time =
+            std::chrono::duration<double>(time_info.remaining_time());
+
+        spdlog::debug("total_time: {}, elapsed_time: {}, remaining_time: {}",
+                      base_playback_info.info.total_time.count(),
+                      base_playback_info.info.elapsed_time.count(),
+                      base_playback_info.info.remaining_time.count());
+      }
+
+      // This must be run after base_playback_info has been updated because it
+      // calls the callback.
+      if (state_changed) {
+        playback_state_.SetState(current_state);
+      }
     }
 
-    // This must be run after base_playback_info has been updated because it
-    // calls the callback.
-    if (state_changed) {
-      playback_state_.SetState(current_state);
+    writer.join();
+    const auto status = stream->Finish();
+    if (status.ok()) {
+      spdlog::debug("The info stream has closed");
+    } else {
+      spdlog::error("The info stream has closed with an error: {}",
+                    status.error_message());
     }
-  }
-
-  writer.join();
-  const auto status = stream->Finish();
-  if (status.ok()) {
-    spdlog::debug("The info stream has closed");
-  } else {
-    spdlog::error("The info stream has closed with an error: {}",
-                  status.error_message());
+  } catch (const std::exception& e) {
+    spdlog::error("Info stream closed with an error: {}", e.what());
   }
 }
 }
