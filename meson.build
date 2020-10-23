@@ -24,12 +24,12 @@ if get_option('buildtype').startswith('debug')
   add_project_arguments('-Wall', '-Wextra', '-Werror', '-DFORTIFY_SOURCE=1',
 			'-ggdb3',
 			'-Og',
-			'-fsanitize=address',
+			# '-fsanitize=address',
 			# '-fsanitize=leak',
 			# '-fsanitize=undefined',
  			language : 'cpp')
   add_project_link_arguments(
-    '-lasan',
+    # '-lasan',
     # '-ltsan',
     # '-lubsan',
     language : 'cpp')
@@ -59,12 +59,10 @@ endif
 
 # Dependencies
 mpv_dep = dependency('mpv')
-# boost_dep = dependency('boost', modules: ['asio'])
 if cpp_compiler.has_header('asio.hpp', required: true)
   boost_dep = dependency('boost')
 endif
-# boost_dep = [cpp_compiler.find_library('boost_system'),
-	     # ]
+
 openssl_dep = dependency('openssl')
 
 
