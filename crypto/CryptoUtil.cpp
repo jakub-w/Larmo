@@ -236,7 +236,10 @@ bool check_zkp(const zkp& zkp,
   if (not is_valid_point(zkp.V.get())) {
     return false;
   }
-  if(zkp.user_id == local_id) {
+  if (zkp.user_id == local_id) {
+    return false;
+  }
+  if (zkp.user_id.empty()) {
     return false;
   }
 
@@ -283,12 +286,14 @@ std::vector<unsigned char> zkp::serialize() {
     address += sizeof(r_size);
     BN_bn2bin(r.get(), address);
 
-    assert(address + sizeof(r_size) == result.data() + result.size());
+    assert(address + r_size == result.data() + result.size());
 
     return result;
   }
 
 zkp zkp::deserialize(const std::vector<unsigned char>& data) {
+  const std::range_error err("Invalid access");
+
   const unsigned char* address = data.data();
   const unsigned char* const address_limit = data.data() + data.size();
 
@@ -296,6 +301,9 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
   safe_copy(address, sizeof(user_id_size), address_limit,
             &user_id_size, &user_id_size + sizeof(user_id_size));
   address += sizeof(user_id_size);
+  if (user_id_size > data.size() - std::distance(data.data(), address)) {
+    throw err;
+  }
 
   const unsigned char* const user_id_ptr = address;
   address += user_id_size;
@@ -304,6 +312,9 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
   safe_copy(address, sizeof(V_size), address_limit,
             &V_size, &V_size + sizeof(V_size));
   address += sizeof(V_size);
+  if (V_size > data.size() - std::distance(data.data(), address)) {
+    throw err;
+  }
 
   const unsigned char* const V_ptr = address;
   address += V_size;
@@ -312,12 +323,15 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
   safe_copy(address, sizeof(r_size), address_limit,
             &r_size, &r_size + sizeof(r_size));
   address += sizeof(r_size);
+  if (r_size > data.size() - std::distance(data.data(), address)) {
+    throw err;
+  }
 
   const unsigned char* const r_ptr = address;
   address += r_size;
 
   if (address > address_limit) {
-    throw std::range_error("Invalid access");
+    throw err;
   }
 
   assert(address == data.data() + data.size());
