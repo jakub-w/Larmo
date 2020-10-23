@@ -154,8 +154,7 @@ void start_daemon_foreground(
   daemon.Run();
 }
 
-pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo,
-                   bool foreground = false) {
+pid_t start_daemon(std::unique_ptr<lrm::Daemon::daemon_info>&& dinfo) {
   config_init(dinfo.get());
 
   int fds[2];

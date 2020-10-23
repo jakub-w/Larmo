@@ -33,12 +33,13 @@ using namespace lrm::crypto;
 class SpekeTestStatic : public ::testing::Test {
  protected:
   static void test_rand_cleanup() {}
-  static int test_rand_add(const void *buf, int num, double add_entropy) {
+  static int test_rand_add(const void*, int, double) {
+
     return 1;
   }
   static int test_rand_status() { return 1; }
 
-  static int test_rand_seed(const void *buf, int num) {
+  static int test_rand_seed(const void*, int) {
     return 1;
   }
 

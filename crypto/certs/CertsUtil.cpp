@@ -38,7 +38,7 @@ int print_errors_cb(const char* str, size_t len, void* arg) {
 
 void handle_ssl_error(std::string_view file, int line, std::string_view msg) {
   std::stringstream ss;
-  ss << msg << '\n';
+  ss << file << ':' << line << ' ' << msg << '\n';
 
   ERR_print_errors_cb(&print_errors_cb, static_cast<void*>(&ss));
 

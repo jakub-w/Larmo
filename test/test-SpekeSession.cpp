@@ -108,13 +108,13 @@ class FakeSpeke : public SpekeInterface {
     return remote_kcd != bad_bytes_;
   }
 
-  virtual Bytes HmacSign(const Bytes& message) override {
+  virtual Bytes HmacSign(const Bytes&) override {
     return lrm::Util::str_to_bytes("hmac");
   }
 
   virtual bool ConfirmHmacSignature(
       const Bytes& hmac_signature,
-      const Bytes& message) override {
+      const Bytes&) override {
     return hmac_signature != bad_bytes_;
   }
 };

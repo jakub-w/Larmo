@@ -88,7 +88,8 @@ void Daemon::Run() {
   signals.async_wait([this](const asio::error_code& error,
                             int signal_number) {
                        if (not error) {
-                         log_->info("Exiting on interrupt...");
+                         log_->info("Exiting on {}...",
+                                    strsignal(signal_number));
                          context_.stop();
                        } else {
                          log_->error(error.message());

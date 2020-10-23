@@ -22,9 +22,6 @@ project('lelo-remote-music', 'cpp',
 # Build types
 if get_option('buildtype').startswith('debug')
   add_project_arguments('-Wall', '-Wextra', '-Werror', '-DFORTIFY_SOURCE=1',
-			# TODO: this should be temporary, protobuff is
-			#       generating a lot of those warnings
-			'-Wno-unused-parameter',
 			'-ggdb3',
 			'-Og',
 			'-fsanitize=address',
