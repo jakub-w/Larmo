@@ -1,4 +1,4 @@
-# Copyright (C) 2019 by Jakub Wojciech
+# Copyright (C) 2019-2020 by Jakub Wojciech
 
 # This file is part of Lelo Remote Music Player.
 
@@ -112,6 +112,7 @@ spdlog_dep = declare_dependency(
 crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/SPEKE.cpp',
 		  'crypto/SpekeSession.cpp',
+		  'crypto/CryptoUtil.cpp',
 		  'crypto/SslUtil.cpp',
 		  'crypto/certs/CertsUtil.cpp',
 		  'crypto/certs/KeyPair.cpp',
@@ -130,6 +131,7 @@ executable('remote-control',
 		     'PlayerClient.cpp',
 		     'Util.cpp',
 		     'crypto/CryptoUtil.cpp',
+		     'crypto/SslUtil.cpp',
 		     protobuf_files,
 		     protobuf_daemon_files],
 	   link_args: ['-lstdc++fs', '-lgpr', '-lpthread'],
@@ -142,6 +144,7 @@ executable('remote-player',
 		     'PlaybackState.cpp',
 		     'Player.cpp',
 		     'crypto/CryptoUtil.cpp',
+		     'crypto/SslUtil.cpp',
 		     'PlayerServiceImpl.cpp',
 		     'Util.cpp',
 		     protobuf_files],
@@ -162,6 +165,7 @@ if gtest.found()
 				  'CertExchangeServer.cpp',
 				  'test/test-CertExchangeServer.cpp',
 				  'test/test-KeyPair.cpp',
+				  'test/test-CryptoUtil.cpp',
 				  'Util.cpp',
 				  crypto_sources,
 				  protobuf_speke_files,
@@ -171,6 +175,9 @@ if gtest.found()
 				       boost_dep, spdlog_dep])
 
   test('all', test_all)
+  test('repeat', test_all,
+       args: ['--gtest_repeat=1000',
+	      '--gtest_filter=REPEAT_*'])
 endif
 # cppcheck = find_program('cppcheck', required: false)
 # if cppcheck.found()
