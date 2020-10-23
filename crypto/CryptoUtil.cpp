@@ -104,7 +104,7 @@ EcScalar generate_private_key() {
 
   // order
   EcScalar order_minus_two =
-      make_scalar(BN_dup(Curve_group_order()));
+      make_scalar(BN_dup(CurveGroupOrder()));
   // order - 2
   BN_sub_word(order_minus_two.get(), 2);
 
@@ -114,6 +114,16 @@ EcScalar generate_private_key() {
   BN_add_word(result.get(), 1);
 
   return result;
+}
+
+std::pair<EcScalar, EcPoint> generate_key_pair(const EC_POINT* generator) {
+  EcScalar privkey = generate_private_key();
+  EcPoint pubkey = make_point();
+
+  EC_POINT_mul(CurveGroup(), pubkey.get(), nullptr,
+               generator, privkey.get(), get_bnctx());
+
+  return {std::move(privkey), std::move(pubkey)};
 }
 
 std::vector<unsigned char> EcPointToBytes(const EC_POINT* p,
@@ -172,7 +182,7 @@ EcScalar make_zkp_challenge(const EC_POINT* V,
   assert(not BN_is_negative(result.get()));
 
   // BN_mod(result.get(), result.get(),
-  //        Curve_group_order(), get_bnctx());
+  //        CurveGroupOrder(), get_bnctx());
 
   return result;
 }
@@ -182,12 +192,8 @@ zkp make_zkp(std::string_view user_id,
              const EC_POINT* public_key,
              const EC_POINT* generator) {
 
-  // random number
-  EcScalar v = generate_private_key();
-
-  // V = G x [v]
-  EcPoint V = make_point();
-  EC_POINT_mul(CurveGroup(), V.get(), nullptr, generator, v.get(), get_bnctx());
+  // random v and V = G x [v]
+  auto [v, V] = generate_key_pair(generator);
 
   // challenge: H(gen || V || pubkey || user_id)
   EcScalar c = make_zkp_challenge(V.get(), public_key, user_id, generator);
@@ -196,9 +202,9 @@ zkp make_zkp(std::string_view user_id,
   // privkey * c
   EcScalar r = make_scalar();
   BN_mod_mul(r.get(), private_key, c.get(),
-             Curve_group_order(), get_bnctx());
+             CurveGroupOrder(), get_bnctx());
   // v - (privkey * c)
-  BN_mod_sub(r.get(), v.get(), r.get(), Curve_group_order(), get_bnctx());
+  BN_mod_sub(r.get(), v.get(), r.get(), CurveGroupOrder(), get_bnctx());
 
   return zkp{user_id.data(), std::move(V), std::move(r)};
 }

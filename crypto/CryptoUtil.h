@@ -99,20 +99,22 @@ inline static const EC_GROUP* CurveGroup() {
   return group.get();
 }
 
-inline static const BIGNUM* Curve_group_order() {
-  // static const std::unique_ptr<BIGNUM, decltype(&BN_free)> order{
-  //   []{
-  //     BIGNUM* num = BN_new();
-  //     const int result = EC_GROUP_get_order(CurveGroup(), num, get_bnctx());
-  //     assert(result != 0 && "Group NIST P-256 not initialized?");
-  //     return num;
-  //   }(),
-  //   &BN_free
-  // };
+inline static const BIGNUM* CurveGroupOrder() {
   static const std::unique_ptr<BIGNUM, decltype(&BN_free)> order{
-    BN_dup(EC_GROUP_get0_order(CurveGroup())), &BN_free};
+    []{
+      BIGNUM* num = BN_new();
+      const int result = EC_GROUP_get_order(CurveGroup(), num, get_bnctx());
+      assert(result != 0 && "Group for the curve not initialized?");
+      return num;
+    }(),
+    &BN_free
+  };
 
   return order.get();
+}
+
+inline static const EC_POINT* CurveGenerator() {
+  return EC_GROUP_get0_generator(CurveGroup());
 }
 
 inline EcPoint make_point() {
@@ -138,6 +140,8 @@ inline EcScalar make_scalar() {
 EcPoint make_generator(std::string_view password);
 
 EcScalar generate_private_key();
+
+std::pair<EcScalar, EcPoint> generate_key_pair(const EC_POINT* generator);
 
 std::vector<unsigned char> EcPointToBytes(
     const EC_POINT* p,
