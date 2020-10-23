@@ -51,20 +51,20 @@ EcPoint make_generator(std::string_view password) {
     &BN_free};
 
   if (nullptr == num.get()) {
-    // TODO: Report an error
+    int_error("Failed to create BIGNUM object");
   }
 
   static thread_local std::unique_ptr<BN_CTX, decltype(&BN_CTX_free)> bnctx{
     BN_CTX_secure_new(), &BN_CTX_free};
   if (nullptr == bnctx.get()) {
-    // TODO: Error
+    int_error("Failed to create BN_CTX object");
   }
 
   auto result = make_point();
   if (not EC_POINT_mul(Ed25519(), result.get(), nullptr,
                        EC_GROUP_get0_generator(Ed25519()), num.get(),
                        bnctx.get())) {
-    // TODO: Report an error
+    int_error("Failed to perform scalar multiplication on EC");
   }
 
   if (EC_POINT_is_at_infinity(Ed25519(), result.get())) {

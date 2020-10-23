@@ -56,8 +56,6 @@ std::string to_hex(Container c) {
 }
 
 // TODO: Schnorr NIZK
-// TODO: For error handling use handle_ssl_error() and int_error() from
-//       CertsUtil.{h,cpp}
 using EcPoint = std::unique_ptr<EC_POINT, decltype(&EC_POINT_free)>;
 inline static const EC_GROUP* Ed25519() {
   static const std::unique_ptr<EC_GROUP, decltype(&EC_GROUP_free)> group{
@@ -69,7 +67,7 @@ inline static const EC_GROUP* Ed25519() {
 inline EcPoint make_point() {
   auto result = EcPoint{EC_POINT_new(Ed25519()), &EC_POINT_free};
   if (nullptr == result.get()) {
-    // TODO: Error
+    int_error("Failed to create EC_POINT object");
   }
   return result;
 }
