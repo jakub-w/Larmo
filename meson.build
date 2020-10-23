@@ -114,6 +114,7 @@ spdlog_dep = declare_dependency(
 crypto_sources = ['crypto/BigNum.cpp',
 		  'crypto/SPEKE.cpp',
 		  'crypto/SpekeSession.cpp',
+		  'crypto/SslUtil.cpp',
 		  'crypto/certs/CertsUtil.cpp',
 		  'crypto/certs/KeyPair.cpp',
 		  'crypto/certs/Certificate.cpp',

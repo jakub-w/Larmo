@@ -31,6 +31,8 @@
 #include <openssl/obj_mac.h>
 #include <openssl/sha.h>
 
+#include "crypto/SslUtil.h"
+
 namespace lrm::crypto {
 using ShaHash = std::array<unsigned char, SHA512_DIGEST_LENGTH>;
 static const auto LRM_SESSION_KEY_SIZE = 64;

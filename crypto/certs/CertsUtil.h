@@ -29,34 +29,12 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
-namespace lrm::crypto::certs {
-#define int_error(msg) handle_ssl_error(__FILE__, __LINE__, (msg))
+#include "crypto/SslUtil.h"
 
-int print_errors_cb(const char* str, size_t len, void* arg);
-void handle_ssl_error(std::string_view file, int line, std::string_view msg);
+namespace lrm::crypto::certs {
 std::basic_string<unsigned char> str_to_uc(std::string_view str);
 
 using Map = std::unordered_map<std::string, std::string>;
-
-using bio_ptr = std::unique_ptr<BIO, decltype(&BIO_free_all)>;
-bio_ptr make_bio(const BIO_METHOD* type = nullptr);
-
-template <typename Container>
-Container bio_to_container(BIO* bio) noexcept {
-  Container result;
-  result.resize(BIO_pending(bio));
-  BIO_read(bio, result.data(), result.size());
-  return result;
-}
-
-template <typename Container>
-bio_ptr container_to_bio(const Container& container) {
-  auto bio = make_bio(BIO_s_mem());
-  if (not bio) int_error("Failed to create BIO object");
-
-  BIO_write(bio.get(), container.data(), container.size());
-  return bio;
-}
 
 template <typename Map>
 auto map_to_x509_name(const Map& map) {
@@ -78,7 +56,7 @@ auto map_to_x509_name(const Map& map) {
 
 template <typename MapT>
 auto map_to_x509_extension_stack(const MapT& map) {
-  const auto deleter =
+  constexpr auto deleter =
       [](STACK_OF(X509_EXTENSION)* stack) {
         sk_X509_EXTENSION_pop_free(stack, X509_EXTENSION_free);
       };
