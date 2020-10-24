@@ -53,6 +53,7 @@ class Player {
 
   int64_t get_property_int64_(const std::string_view prop_name) const;
   double get_property_double_(const std::string_view prop_name) const;
+  bool get_property_bool_(const std::string_view prop_name) const;
 
   void start_event_loop();
   void stop_event_loop() noexcept;

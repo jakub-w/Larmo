@@ -18,11 +18,14 @@
 
 #include "Player.h"
 
+#include <cstring>
 #include <iostream>
 
 #include "mpv/client.h"
 
 #include "spdlog/spdlog.h"
+
+#include "PlaybackState.h"
 
 namespace lrm {
 int Player::send_command_(const std::vector<std::string>&& args) {
@@ -63,7 +66,16 @@ Player::~Player() {
 }
 
 int Player::Play() {
-  return send_command_({"loadfile", input_});
+  const int result = send_command_({"loadfile", input_});
+  if (MPV_ERROR_SUCCESS != result) {
+    return result;
+  }
+
+  if (get_property_bool_("pause")){
+    return TogglePause();
+  }
+
+  return result;
 }
 
 int Player::TogglePause() {
@@ -75,11 +87,6 @@ int Player::TogglePause() {
 
   int result =  check_result(
       mpv_set_property(ctx_.get(), "pause", MPV_FORMAT_FLAG, &pause_flag));
-
-  if (MPV_ERROR_SUCCESS == result) {
-    playback_state_.SetState(
-        pause_flag == 1 ? PlaybackState::PAUSED : PlaybackState::PLAYING);
-  }
 
   return result;
 }
@@ -160,6 +167,17 @@ double Player::get_property_double_(const std::string_view prop_name) const {
   return prop_value;
 }
 
+bool Player::get_property_bool_(const std::string_view prop_name) const {
+  int prop_value = 0;
+  const int result = mpv_get_property(ctx_.get(), prop_name.data(),
+                                      MPV_FORMAT_FLAG, &prop_value);
+  if (MPV_ERROR_SUCCESS != result) {
+    throw lrm::MpvException((mpv_error)result, prop_name.data());
+  }
+
+  return prop_value == 1;
+}
+
 void Player::start_event_loop() {
   if (event_loop_running_) {
     spdlog::error("Tried to start mpv event loop while it's already running");
@@ -182,6 +200,10 @@ void Player::stop_event_loop() noexcept {
 
 void Player::mpv_event_loop() {
   spdlog::debug("Starting mpv event loop...");
+
+  bool initial_state = true;
+  mpv_observe_property(ctx_.get(), 0, "pause", MPV_FORMAT_FLAG);
+
   while (event_loop_running_) {
     const mpv_event* event =  mpv_wait_event(ctx_.get(), 1);
 
@@ -202,13 +224,11 @@ void Player::mpv_event_loop() {
 
           switch (end_file_data->reason) {
             case MPV_END_FILE_REASON_EOF:
-              // playback_state_.SetState(PlaybackState::FINISHED);
               playback_state_.SetState(PlaybackState::STOPPED);
               break;
             case MPV_END_FILE_REASON_ERROR:
               spdlog::error("mpv file ended: {}",
                             mpv_error_string(end_file_data->error));
-              // playback_state_.SetState(PlaybackState::FINISHED_ERROR);
               playback_state_.SetState(PlaybackState::STOPPED);
               break;
             case MPV_END_FILE_REASON_STOP: case MPV_END_FILE_REASON_QUIT:
@@ -224,8 +244,31 @@ void Player::mpv_event_loop() {
         }
         break;
       case MPV_EVENT_FILE_LOADED:
+        if (get_property_bool_("pause")) {
+          break;
+        }
         playback_state_.SetState(PlaybackState::PLAYING);
         break;
+      case MPV_EVENT_PROPERTY_CHANGE: {
+        mpv_event_property* property =
+            static_cast<mpv_event_property*>(event->data);
+
+        if (0 == std::strcmp(property->name, "pause")) {
+          const int is_paused = *(static_cast<int*>(property->data));
+          if (is_paused) {
+            playback_state_.SetState(PlaybackState::PAUSED);
+          } else if ((not get_property_bool_("idle-active")) and
+                     (not initial_state)) {
+            playback_state_.SetState(PlaybackState::PLAYING);
+          } else {
+            playback_state_.SetState(PlaybackState::STOPPED);
+          }
+        }
+
+        initial_state = false;
+
+        break;
+      }
       default:
         continue;
     }
