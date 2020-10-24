@@ -47,7 +47,7 @@ namespace lrm {
 const fs::path Daemon::socket_path =
     fs::temp_directory_path().append("lrm/socket");
 
-Daemon::Daemon(std::unique_ptr<daemon_info>&& dinfo) noexcept(Util::NDEBUG)
+Daemon::Daemon(std::unique_ptr<daemon_info>&& dinfo) noexcept
     : dinfo_(std::move(dinfo)), endpoint_(socket_path), acceptor_(context_),
       log_(spdlog::get("Daemon")) {
   assert(socket_path.is_absolute());

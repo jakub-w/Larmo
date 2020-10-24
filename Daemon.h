@@ -54,8 +54,7 @@ class Daemon {
   };
 
   Daemon() = delete;
-  explicit Daemon(std::unique_ptr<daemon_info>&& dinfo)
-      noexcept(Util::NDEBUG);
+  explicit Daemon(std::unique_ptr<daemon_info>&& dinfo) noexcept;
 
   virtual ~Daemon();
 
