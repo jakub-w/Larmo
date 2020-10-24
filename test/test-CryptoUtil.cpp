@@ -64,7 +64,7 @@ TEST(CryptoUtil, zkp_serialization) {
 
   auto zkp = make_zkp("id", k.get(), K.get(), CurveGenerator());
   auto data = zkp.serialize();
-  auto deserialized_zkp = zkp::deserialize(data);
+  auto deserialized_zkp = zkp::deserialize(data.data(), data.size());
 
   EXPECT_EQ(zkp.user_id, deserialized_zkp.user_id);
   EXPECT_EQ(0, BN_cmp(zkp.r.get(), deserialized_zkp.r.get()));
@@ -83,30 +83,30 @@ TEST(CryptoUtil, zkp_bad_serialization) {
   *s1 = *s2 = *s3 = 0;
 
   *s1 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Buffer over-read by setting the size of user_id to reach outside "
       "of the buffer.\nSECURITY ISSUE!";
   *s1 = 1;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Buffer over-read by setting the size of user_id to value inside "
       "the buffer, but buffer is too short to contain that data.\n"
       "SECURITY ISSUE!";
 
   *s1 = 0;
   *s2 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Buffer over-read by setting the size of r.\nSECURITY ISSUE!";
 
   *s2 = 0;
   *s3 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Buffer over-read by setting the size of V.\nSECURITY ISSUE!";
 
   *s3 = 0;
   *s1 = -1 - 1000;
   EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) + *s1)
       << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Integer overflow on pointer by manipulating the size of user_id.\n"
       "SECURITY ISSUE!";
 
@@ -114,7 +114,7 @@ TEST(CryptoUtil, zkp_bad_serialization) {
   *s2 = -1 - 1000;
   EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) * 2 + *s2)
       << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Integer overflow on pointer by manipulating the size of r.\n"
       "SECURITY ISSUE!";
 
@@ -122,12 +122,21 @@ TEST(CryptoUtil, zkp_bad_serialization) {
   *s3 = -1 - 1000;
   EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) * 3 + *s3)
       << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Integer overflow on pointer by manipulating the size of V.\n"
       "SECURITY ISSUE!";
 
   *s3 = -1;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer))
+  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
       << "Very big value set as a size to the point of integer overflow on "
       "a pointer, but inside the buffer.\nSECURITY ISSUE!";
+}
+
+TEST(CryptoUtil, EcPoint_conversions) {
+  const auto [_, p] = generate_key_pair(CurveGenerator());
+  const auto bytes = EcPointToBytes(p.get());
+
+  const EcPoint p1 = BytesToEcPoint(bytes.data(), bytes.size());
+
+  EXPECT_EQ(0, EC_POINT_cmp(CurveGroup(), p.get(), p1.get(), get_bnctx()));
 }

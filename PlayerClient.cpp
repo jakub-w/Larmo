@@ -24,6 +24,8 @@
 #include <string_view>
 #include <netinet/in.h>
 
+#include <openssl/ec.h>
+
 #ifndef INCLUDE_GRPCPLUSPLUS
 #include "grpcpp/channel.h"
 #else
@@ -115,8 +117,19 @@ bool PlayerClient::Authenticate() {
     stub_->Authenticate(&context)};
 
   AuthData data;
-  const auto hash = crypto::encode_SHA512(Config::Get("passphrase"));
-  data.set_data(hash.data(), hash.size());
+
+  const auto generator = crypto::make_generator(Config::Get("passphrase"));
+  const auto [privkey, pubkey] = crypto::generate_key_pair(generator.get());
+
+  const auto pubkey_vect =
+      crypto::EcPointToBytes(pubkey.get(), POINT_CONVERSION_COMPRESSED);
+
+  const auto zkp = crypto::make_zkp("client-id", privkey.get(),
+                                    pubkey.get(), generator.get())
+                   .serialize();
+
+  data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
+  data.set_data(zkp.data(), zkp.size());
   stream->Write(data);
   stream->WritesDone();
 

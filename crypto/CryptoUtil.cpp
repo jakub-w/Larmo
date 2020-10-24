@@ -126,8 +126,9 @@ std::pair<EcScalar, EcPoint> generate_key_pair(const EC_POINT* generator) {
   return {std::move(privkey), std::move(pubkey)};
 }
 
-std::vector<unsigned char> EcPointToBytes(const EC_POINT* p,
-                                          point_conversion_form_t form) {
+std::vector<unsigned char> EcPointToBytes(
+    const EC_POINT* p,
+    point_conversion_form_t form) {
   std::size_t oct_size = EC_POINT_point2oct(CurveGroup(), p, form,
                                             nullptr, 0, get_bnctx());
   if (0 == oct_size) {
@@ -142,6 +143,18 @@ std::vector<unsigned char> EcPointToBytes(const EC_POINT* p,
   }
 
   return result;
+}
+
+EcPoint BytesToEcPoint(const unsigned char* data, std::size_t size) {
+  assert(data != nullptr);
+
+  EcPoint point = make_point();
+  if (not EC_POINT_oct2point(CurveGroup(), point.get(),
+                             data, size, get_bnctx())) {
+    int_error("Failed to convert data to EC_POINT");
+  }
+
+  return point;
 }
 
 EcScalar make_zkp_challenge(const EC_POINT* V,
@@ -253,7 +266,7 @@ bool check_zkp(const zkp& zkp,
   return 0 == EC_POINT_cmp(CurveGroup(), V.get(), zkp.V.get(), get_bnctx());
 }
 
-std::vector<unsigned char> zkp::serialize() {
+std::vector<unsigned char> zkp::serialize() const {
     unsigned char* V_buffer = nullptr;
     const std::size_t V_size = EC_POINT_point2buf(CurveGroup(), V.get(),
                                                   POINT_CONVERSION_COMPRESSED,
@@ -291,17 +304,17 @@ std::vector<unsigned char> zkp::serialize() {
     return result;
   }
 
-zkp zkp::deserialize(const std::vector<unsigned char>& data) {
+zkp zkp::deserialize(const unsigned char* data, std::size_t size) {
   const std::range_error err("Invalid access");
 
-  const unsigned char* address = data.data();
-  const unsigned char* const address_limit = data.data() + data.size();
+  const unsigned char* address = data;
+  const unsigned char* const address_limit = data + size;
 
   std::size_t user_id_size = 0;
   safe_copy(address, sizeof(user_id_size), address_limit,
             &user_id_size, &user_id_size + sizeof(user_id_size));
   address += sizeof(user_id_size);
-  if (user_id_size > data.size() - std::distance(data.data(), address)) {
+  if (user_id_size > size - std::distance(data, address)) {
     throw err;
   }
 
@@ -312,7 +325,7 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
   safe_copy(address, sizeof(V_size), address_limit,
             &V_size, &V_size + sizeof(V_size));
   address += sizeof(V_size);
-  if (V_size > data.size() - std::distance(data.data(), address)) {
+  if (V_size > size - std::distance(data, address)) {
     throw err;
   }
 
@@ -323,7 +336,7 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
   safe_copy(address, sizeof(r_size), address_limit,
             &r_size, &r_size + sizeof(r_size));
   address += sizeof(r_size);
-  if (r_size > data.size() - std::distance(data.data(), address)) {
+  if (r_size > size - std::distance(data, address)) {
     throw err;
   }
 
@@ -334,7 +347,7 @@ zkp zkp::deserialize(const std::vector<unsigned char>& data) {
     throw err;
   }
 
-  assert(address == data.data() + data.size());
+  assert(address == data + size);
 
   auto result = zkp{
     std::string{user_id_ptr, user_id_ptr + user_id_size},

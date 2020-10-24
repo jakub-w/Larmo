@@ -56,8 +56,8 @@ struct zkp {
   // r = v - privkey * c, where c = H(gen || V || pubkey || user_id)
   EcScalar r;
 
-  std::vector<unsigned char> serialize();
-  static zkp deserialize(const std::vector<unsigned char>& data);
+  std::vector<unsigned char> serialize() const;
+  static zkp deserialize(const unsigned char* data, std::size_t size);
 };
 
 ShaHash encode_SHA512(std::string_view data);
@@ -141,11 +141,15 @@ EcPoint make_generator(std::string_view password);
 
 EcScalar generate_private_key();
 
+/// \return Pair of keys, the first being a private key, and the
+/// second - public.
 std::pair<EcScalar, EcPoint> generate_key_pair(const EC_POINT* generator);
 
 std::vector<unsigned char> EcPointToBytes(
     const EC_POINT* p,
     point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED);
+
+EcPoint BytesToEcPoint(const unsigned char* data, std::size_t size);
 
 EcScalar make_zkp_challenge(const EC_POINT* V,
                             const EC_POINT* public_key,

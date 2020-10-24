@@ -75,10 +75,11 @@ class PlayerServiceImpl : public PlayerService::Service {
                       ServerReaderWriter<AuthData, AuthData>* stream);
 
  private:
-  const std::string password_hash = []{
-    auto hash = crypto::encode_SHA512(Config::Get("passphrase"));
-    return std::string{hash.begin(), hash.end()};
-  }();
+  // TODO: Would be cool if it could be static, but the config isn't being
+  //       initialized at static time, so it could return empty passphrase.
+  const crypto::EcPoint secret =
+      crypto::make_generator(Config::Get("passphrase"));
+
 
   // TODO: Make sure the old keys are being deleted after the client has
   //       disconnected.

@@ -17,6 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 
 #include "PlayerServiceImpl.h"
+#include "crypto/CryptoUtil.h"
 
 #include <algorithm>
 #include <grpcpp/impl/codegen/status.h>
@@ -334,16 +335,28 @@ Status PlayerServiceImpl::Authenticate(
     ServerContext* context,
     ServerReaderWriter<AuthData, AuthData>* stream) {
   AuthData data;
-  stream->Read(&data); // SHA512 of the password
-  // TODO: Generate random bytes as a challenge and expect the client to
-  //       HMAC it with the hashed password.
-  //       Or use Schnorr NIZK proof with a generator being P x [H(password)].
-  // FIXME: The current authentication method is very insecure because it
-  //        could leak the password to an unknown attacker if the client
-  //        doesn't verify the server's certificate.
+  stream->Read(&data); // zkp for the password
 
-  if (password_hash != data.data()) {
-    data.clear_data();
+  // Check if data.data().data() pointer can be converted to
+  // const unsigned char*
+  static_assert(
+      sizeof(std::remove_reference_t<decltype(data.data())>::value_type)
+      == sizeof(unsigned char));
+  static_assert(
+      alignof(std::remove_reference_t<decltype(data.data())>::value_type)
+      == alignof(unsigned char));
+
+  auto zkp = crypto::zkp::deserialize(
+      reinterpret_cast<const unsigned char*>(data.data().data()),
+      data.data().size());
+
+  auto peer_pubkey = crypto::BytesToEcPoint(
+      reinterpret_cast<const unsigned char*>(data.public_key().data()),
+      data.public_key().size());
+
+  if (not crypto::check_zkp(zkp, peer_pubkey.get(),
+                            "server-id", secret.get())) {
+    data.Clear();
     data.set_denied(true);
     stream->Write(data);
 
@@ -354,15 +367,25 @@ Status PlayerServiceImpl::Authenticate(
     return Status::OK;
   }
 
+  data.Clear();
+
   const auto key = generate_session_key();
   data.set_data(key.data(), key.size());
+
+  // TODO: Authenticate the server with the client.
+  // const auto [privkey, pubkey] = crypto::generate_key_pair(secret.get());
+  // const auto pubkey_vect = crypto::EcPointToBytes(pubkey.get());
+  // data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
+
+  // const auto my_zkp = crypto::make_zkp("server-id", privkey.get(),
+  //                                      pubkey.get(), secret.get())
+  //                     .serialize();
 
   {
     std::lock_guard lck{sessions_mtx_};
     authenticated_sessions_.insert(std::move(key));
   }
 
-  data.clear_denied();
   stream->Write(data);
 
   return Status::OK;

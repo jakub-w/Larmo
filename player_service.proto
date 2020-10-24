@@ -60,6 +60,7 @@ message TimeInfo {
 
 message AuthData {
   bytes data = 1;
+  bytes public_key = 3;
   bool denied = 2;
 }
 
