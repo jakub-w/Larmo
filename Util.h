@@ -32,6 +32,12 @@
 #include <netinet/in.h>
 
 namespace lrm::Util {
+#ifdef NDEBUG
+constexpr bool NDEBUG = true;
+#else
+constexpr bool NDEBUG = false;
+#endif // NDEBUG
+
 class InterruptableSleeper {
  public:
   template<class Rep, class Period>
