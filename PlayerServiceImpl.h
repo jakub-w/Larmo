@@ -80,6 +80,8 @@ class PlayerServiceImpl : public PlayerService::Service {
   const crypto::EcPoint secret =
       crypto::make_generator(Config::Get("passphrase"));
 
+  const std::string server_id =
+      "LRM_SERVER-" + crypto::generate_random_hex(6);
 
   // TODO: Make sure the old keys are being deleted after the client has
   //       disconnected.

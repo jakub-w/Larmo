@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -31,6 +32,7 @@
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/obj_mac.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 
 #include "crypto/SslUtil.h"
@@ -140,6 +142,8 @@ inline EcScalar make_scalar() {
 EcPoint make_generator(std::string_view password);
 
 EcScalar generate_private_key();
+
+std::string generate_random_hex(std::size_t length);
 
 /// \return Pair of keys, the first being a private key, and the
 /// second - public.

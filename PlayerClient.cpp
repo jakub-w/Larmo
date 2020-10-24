@@ -124,7 +124,8 @@ bool PlayerClient::Authenticate() {
   const auto pubkey_vect =
       crypto::EcPointToBytes(pubkey.get(), POINT_CONVERSION_COMPRESSED);
 
-  const auto zkp = crypto::make_zkp("client-id", privkey.get(),
+  const auto zkp = crypto::make_zkp(crypto::generate_random_hex(16),
+                                    privkey.get(),
                                     pubkey.get(), generator.get())
                    .serialize();
 
@@ -145,23 +146,21 @@ bool PlayerClient::Authenticate() {
                   status.error_message());
   }
 
-  if (data.data().empty()) {
+  if (data.denied()) {
+    spdlog::error("Authentication unsuccessful. Wrong password?");
+    return false;
+  } else if (data.data().empty()) {
     spdlog::error("Authentication ended successfully but no session key "
                   "received");
     return false;
   }
 
-  std::cout << data.data().size() << '\n';
   assert(data.data().size() == session_key_.size());
   std::copy(data.data().begin(), data.data().end(), session_key_.begin());
 
-  if (data.denied()) {
-    spdlog::error("Authentication unsuccessful. Wrong password?");
-  } else {
-    spdlog::info("Authentication successful");
-  }
+  spdlog::info("Authentication successful");
 
-  return not data.denied();
+  return true;
 }
 
 int PlayerClient::Play(std::string_view filename) {

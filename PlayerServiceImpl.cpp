@@ -355,13 +355,13 @@ Status PlayerServiceImpl::Authenticate(
       data.public_key().size());
 
   if (not crypto::check_zkp(zkp, peer_pubkey.get(),
-                            "server-id", secret.get())) {
+                            server_id, secret.get())) {
     data.Clear();
     data.set_denied(true);
     stream->Write(data);
 
     spdlog::info(
-        "Client at {} wanted to authenticated but had wrong password",
+        "Client at {} wanted to authenticate but had wrong password",
         context->peer());
 
     return Status::OK;
@@ -377,7 +377,7 @@ Status PlayerServiceImpl::Authenticate(
   // const auto pubkey_vect = crypto::EcPointToBytes(pubkey.get());
   // data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
 
-  // const auto my_zkp = crypto::make_zkp("server-id", privkey.get(),
+  // const auto my_zkp = crypto::make_zkp(server_id, privkey.get(),
   //                                      pubkey.get(), secret.get())
   //                     .serialize();
 

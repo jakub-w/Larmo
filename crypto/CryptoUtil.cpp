@@ -116,6 +116,18 @@ EcScalar generate_private_key() {
   return result;
 }
 
+std::string generate_random_hex(std::size_t length) {
+  std::vector<unsigned char> temp(std::ceil(length / 2.0));
+
+  if (1 < RAND_bytes(temp.data(), temp.size())) {
+    int_error("Failed generating random bytes");
+  }
+
+  std::string result = crypto::to_hex(temp);
+  result.resize(length);
+  return result;
+}
+
 std::pair<EcScalar, EcPoint> generate_key_pair(const EC_POINT* generator) {
   EcScalar privkey = generate_private_key();
   EcPoint pubkey = make_point();

@@ -16,6 +16,8 @@
 // along with Lelo Remote Music Player. If not, see
 // <https://www.gnu.org/licenses/>.
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 #include <openssl/bn.h>
@@ -24,6 +26,12 @@
 #include "crypto/CryptoUtil.h"
 
 using namespace lrm::crypto;
+
+static auto is_all_zeros =
+    [](const auto& container){
+      return not std::any_of(std::begin(container), std::end(container),
+                             [](unsigned char b){ return b != 0; });
+    };
 
 TEST(REPEAT_CryptoUtil, ZKP) {
   auto gen_keypair = []() -> std::pair<EcScalar, EcPoint> {
@@ -139,4 +147,10 @@ TEST(CryptoUtil, EcPoint_conversions) {
   const EcPoint p1 = BytesToEcPoint(bytes.data(), bytes.size());
 
   EXPECT_EQ(0, EC_POINT_cmp(CurveGroup(), p.get(), p1.get(), get_bnctx()));
+}
+
+TEST(REPEAT_CryptoUtil, generate_random_hex) {
+  const auto hex = generate_random_hex(15);
+
+  EXPECT_TRUE(std::all_of(hex.begin(), hex.end(), ::isxdigit));
 }
