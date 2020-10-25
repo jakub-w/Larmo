@@ -94,8 +94,6 @@ protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 
 protobuf_daemon_files = gen_protobuf.process('daemon_arguments.proto')
 
-protobuf_cert_files = gen_protobuf.process('cert_messages.proto')
-
 
 # spdlog
 spdlog_dep = declare_dependency(
@@ -156,8 +154,7 @@ if gtest.found()
 				  'test/test-KeyPair.cpp',
 				  'test/test-CryptoUtil.cpp',
 				  'Util.cpp',
-				  crypto_sources,
-				  protobuf_cert_files],
+				  crypto_sources],
 			link_args: ['-lpthread'],
 			dependencies: [gtest, openssl_dep, protobuf_dep,
 				       boost_dep, spdlog_dep])
