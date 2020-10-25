@@ -20,7 +20,6 @@
 
 #include <gtest/gtest.h>
 
-#include "crypto/SPEKE.h"
 #include "crypto/BigNum.h"
 
 using namespace lrm::crypto;

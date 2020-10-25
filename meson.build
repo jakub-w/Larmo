@@ -94,12 +94,7 @@ protobuf_files = [gen_protobuf_grpc.process('player_service.proto'),
 
 protobuf_daemon_files = gen_protobuf.process('daemon_arguments.proto')
 
-protobuf_speke_files = gen_protobuf.process(
-  'crypto/SPEKE.proto',
-  preserve_path_from: meson.current_source_dir())
-
-protobuf_cert_files = gen_protobuf.process(
-  'cert_messages.proto')
+protobuf_cert_files = gen_protobuf.process('cert_messages.proto')
 
 
 # spdlog
@@ -110,8 +105,6 @@ spdlog_dep = declare_dependency(
 
 
 crypto_sources = ['crypto/BigNum.cpp',
-		  'crypto/SPEKE.cpp',
-		  'crypto/SpekeSession.cpp',
 		  'crypto/CryptoUtil.cpp',
 		  'crypto/SslUtil.cpp',
 		  'crypto/certs/CertsUtil.cpp',
@@ -159,16 +152,11 @@ if gtest.found()
   test_all = executable('test_all',
 			sources: ['test/main.cpp',
 				  'test/test-BigNum.cpp',
-				  'test/test-SPEKE.cpp',
-				  'test/test-SpekeSession.cpp',
 				  'test/test-certs.cpp',
-				  'CertExchangeServer.cpp',
-				  'test/test-CertExchangeServer.cpp',
 				  'test/test-KeyPair.cpp',
 				  'test/test-CryptoUtil.cpp',
 				  'Util.cpp',
 				  crypto_sources,
-				  protobuf_speke_files,
 				  protobuf_cert_files],
 			link_args: ['-lpthread'],
 			dependencies: [gtest, openssl_dep, protobuf_dep,
