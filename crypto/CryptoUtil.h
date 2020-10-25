@@ -105,7 +105,10 @@ inline static const BIGNUM* CurveGroupOrder() {
   static const std::unique_ptr<BIGNUM, decltype(&BN_free)> order{
     []{
       BIGNUM* num = BN_new();
-      const int result = EC_GROUP_get_order(CurveGroup(), num, get_bnctx());
+#ifndef NDEBUG
+      const int result =
+#endif
+          EC_GROUP_get_order(CurveGroup(), num, get_bnctx());
       assert(result != 0 && "Group for the curve not initialized?");
       return num;
     }(),
