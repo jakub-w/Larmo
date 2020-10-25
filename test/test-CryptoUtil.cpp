@@ -82,62 +82,79 @@ TEST(CryptoUtil, zkp_serialization) {
 }
 
 TEST(CryptoUtil, zkp_bad_serialization) {
-  std::vector<unsigned char> buffer(sizeof(std::size_t) * 3);
-  std::size_t *s1, *s2, *s3;
+  {
+    std::vector<unsigned char> buffer(sizeof(LRM_ZKP_SIZE_TYPE) * 3);
+    LRM_ZKP_SIZE_TYPE *s1, *s2, *s3;
 
-  s1 = reinterpret_cast<std::size_t*>(buffer.data());
-  s2 = s1 + 1;
-  s3 = s2 + 1;
-  *s1 = *s2 = *s3 = 0;
+    s1 = reinterpret_cast<LRM_ZKP_SIZE_TYPE*>(buffer.data());
+    s2 = s1 + 1;
+    s3 = s2 + 1;
+    *s1 = *s2 = *s3 = 0;
 
-  *s1 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Buffer over-read by setting the size of user_id to reach outside "
-      "of the buffer.\nSECURITY ISSUE!";
-  *s1 = 1;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Buffer over-read by setting the size of user_id to value inside "
-      "the buffer, but buffer is too short to contain that data.\n"
-      "SECURITY ISSUE!";
+    *s1 = sizeof(LRM_ZKP_SIZE_TYPE) * 10;
+    EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
+        << "Buffer over-read by setting the size of user_id to reach outside "
+        "of the buffer.\nSECURITY ISSUE!";
+    *s1 = 1;
+    EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
+        << "Buffer over-read by setting the size of user_id to value inside "
+        "the buffer, but buffer is too short to contain that data.\n"
+        "SECURITY ISSUE!";
 
-  *s1 = 0;
-  *s2 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Buffer over-read by setting the size of r.\nSECURITY ISSUE!";
+    *s1 = 0;
+    *s2 = sizeof(LRM_ZKP_SIZE_TYPE) * 10;
+    EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
+        << "Buffer over-read by setting the size of r.\nSECURITY ISSUE!";
 
-  *s2 = 0;
-  *s3 = sizeof(std::size_t) * 10;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Buffer over-read by setting the size of V.\nSECURITY ISSUE!";
+    *s2 = 0;
+    *s3 = sizeof(LRM_ZKP_SIZE_TYPE) * 10;
+    EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
+        << "Buffer over-read by setting the size of V.\nSECURITY ISSUE!";
+  }
 
-  *s3 = 0;
-  *s1 = -1 - 1000;
-  EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) + *s1)
-      << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Integer overflow on pointer by manipulating the size of user_id.\n"
-      "SECURITY ISSUE!";
+  {
+    std::vector<unsigned char> buffer(sizeof(std::size_t) * 3);
+    std::size_t *s1, *s2, *s3;
 
-  *s1 = 0;
-  *s2 = -1 - 1000;
-  EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) * 2 + *s2)
-      << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Integer overflow on pointer by manipulating the size of r.\n"
-      "SECURITY ISSUE!";
+    s1 = reinterpret_cast<std::size_t*>(buffer.data());
+    s2 = s1 + 1;
+    s3 = s2 + 1;
+    *s2 = *s3 = 0;
 
-  *s2 = 0;
-  *s3 = -1 - 1000;
-  EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(size_t) * 3 + *s3)
-      << "Error in a test";
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Integer overflow on pointer by manipulating the size of V.\n"
-      "SECURITY ISSUE!";
+    *s1 = -1 - 1000;
+    EXPECT_TRUE(buffer.data() > buffer.data() + sizeof(std::size_t) + *s1)
+        << "Error in a test";
+    EXPECT_ANY_THROW(
+        zkp::deserialize<std::size_t>(buffer.data(), buffer.size()))
+        << "Integer overflow on pointer by manipulating the size of user_id.\n"
+        "SECURITY ISSUE!";
 
-  *s3 = -1;
-  EXPECT_ANY_THROW(zkp::deserialize(buffer.data(), buffer.size()))
-      << "Very big value set as a size to the point of integer overflow on "
-      "a pointer, but inside the buffer.\nSECURITY ISSUE!";
+    *s1 = 0;
+    *s2 = -1 - 1000;
+    EXPECT_TRUE(
+        buffer.data() > buffer.data() + sizeof(std::size_t) * 2 + *s2)
+        << "Error in a test";
+    EXPECT_ANY_THROW(
+        zkp::deserialize<std::size_t>(buffer.data(), buffer.size()))
+        << "Integer overflow on pointer by manipulating the size of r.\n"
+        "SECURITY ISSUE!";
+
+    *s2 = 0;
+    *s3 = -1 - 1000;
+    EXPECT_TRUE(
+        buffer.data() > buffer.data() + sizeof(std::size_t) * 3 + *s3)
+        << "Error in a test";
+    EXPECT_ANY_THROW(
+        zkp::deserialize<std::size_t>(buffer.data(), buffer.size()))
+        << "Integer overflow on pointer by manipulating the size of V.\n"
+        "SECURITY ISSUE!";
+
+    *s3 = -1;
+    EXPECT_ANY_THROW(
+        zkp::deserialize<std::size_t>(buffer.data(), buffer.size()))
+        << "Very big value set as a size to the point of integer overflow on "
+        "a pointer, but inside the buffer.\nSECURITY ISSUE!";
+  }
 }
 
 TEST(CryptoUtil, EcPoint_conversions) {
