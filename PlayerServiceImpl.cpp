@@ -103,6 +103,7 @@ PlayerServiceImpl::AudioStream(ServerContext* context,
       fmt::format("Audio stream pipe: {}", strerror(errno))};
   }
 
+  spdlog::info("Playing audio from {}", context->peer());
   const auto result = player.PlayFromPipe(pipefd[0]);
   response->set_response(result);
 

@@ -137,8 +137,7 @@ int Player::Seek(int32_t seconds) {
 }
 
 int Player::PlayFromPipe(int fd) {
-  spdlog::info("Playing audio from pipe");
-  spdlog::debug("Sockfd: {}", fd);
+  spdlog::debug("Pipe sockfd: {}", fd);
 
   Input("fdclose://" + std::to_string(fd));
 
