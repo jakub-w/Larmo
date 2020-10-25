@@ -49,7 +49,7 @@ using EcScalar = std::unique_ptr<BIGNUM, decltype(&BN_free)>;
 using LRM_ZKP_SIZE_TYPE = std::uint8_t;
 
 static constexpr auto LRM_CURVE_NID = NID_X9_62_prime256v1;
-static const auto LRM_SESSION_KEY_SIZE = 64;
+static constexpr auto LRM_SESSION_KEY_SIZE = 64;
 
 #define HASH_TYPE EVP_sha3_512()
 

@@ -27,12 +27,6 @@
 
 using namespace lrm::crypto;
 
-static auto is_all_zeros =
-    [](const auto& container){
-      return not std::any_of(std::begin(container), std::end(container),
-                             [](unsigned char b){ return b != 0; });
-    };
-
 TEST(REPEAT_CryptoUtil, ZKP) {
   auto gen_keypair = []() -> std::pair<EcScalar, EcPoint> {
     EcScalar privkey = generate_private_key();

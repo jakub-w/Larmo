@@ -20,7 +20,6 @@ void safe_copy(const InputIt from, size_t count, const InputIt from_limit,
 }
 }
 
-// FIXME: Depending on architecture the size of size_t could be different
 template <typename SizeT>
 zkp zkp::deserialize(const unsigned char* data, std::size_t size) {
   const std::range_error err("Invalid access");
