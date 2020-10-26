@@ -135,7 +135,6 @@ bool PlayerClient::Authenticate() {
   } catch (const std::exception& e) {
     spdlog::error("Error when creating or serializing ZKP:\n\t{}",
                   e.what());
-    stream->Finish();
     return false;
   }
 
