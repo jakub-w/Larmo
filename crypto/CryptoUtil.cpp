@@ -19,12 +19,35 @@
 #include "CryptoUtil.h"
 
 #include <cstring>
+#include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <stdexcept>
 
 #include <openssl/evp.h>
 
 #include "Util.h"
+
+namespace {
+template<typename InputIt, typename OutputIt>
+void safe_copy(const InputIt from, size_t count, const InputIt from_limit,
+               OutputIt to, OutputIt to_limit) {
+  if (from == nullptr or from_limit == nullptr or
+      to == nullptr or to_limit == nullptr or
+      count == 0) {
+    throw std::invalid_argument("Any of arguments is either 0 or nullptr");
+  }
+  const auto from_end = from + count;
+  const auto to_end = to + count;
+  if (from_end < from or
+      from_limit < from_end or
+      to_end < to or
+      to_limit < to_end) {
+    throw std::range_error("Invalid access");
+  }
+
+  std::memcpy(to, from, count);
+}
+}
 
 namespace lrm::crypto {
 ShaHash encode_SHA512(std::string_view data) {
@@ -145,6 +168,23 @@ EcPoint BytesToEcPoint(const unsigned char* data, std::size_t size) {
   }
 
   return point;
+}
+
+std::vector<unsigned char> EcScalarToBytes(BIGNUM* scalar) {
+  std::vector<unsigned char> result(BN_num_bytes(scalar));
+  BN_bn2bin(scalar, result.data());
+  return result;
+}
+
+EcScalar BytesToEcScalar(const unsigned char* data, std::size_t size) {
+  assert(data != nullptr);
+
+  EcScalar result = make_scalar(BN_bin2bn(data, size, nullptr));
+  if (not result) {
+    int_error("Failed to convert data to BIGNUM");
+  }
+
+  return result;
 }
 
 EcScalar make_zkp_challenge(const EC_POINT* V,

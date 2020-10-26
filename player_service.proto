@@ -58,8 +58,15 @@ message TimeInfo {
   PlaybackState playback_state = 6;
 }
 
+message ZkpMessage {
+  string user_id = 1;
+  bytes V = 2;
+  bytes r = 3;
+}
+
 message AuthData {
   bytes data = 1;
+  ZkpMessage zkp = 4;
   bytes public_key = 3;
   bool denied = 2;
 }

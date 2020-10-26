@@ -37,6 +37,7 @@
 #include "ClientContexts.h"
 #include "Config.h"
 #include "crypto/CryptoUtil.h"
+#include "crypto/ZkpSerialization.h"
 
 namespace lrm {
 std::vector<char> PlayerClient::read_file(std::string_view filename) {
@@ -124,13 +125,14 @@ bool PlayerClient::Authenticate() {
   const auto pubkey_vect =
       crypto::EcPointToBytes(pubkey.get(), POINT_CONVERSION_COMPRESSED);
 
-  const auto zkp = crypto::make_zkp(crypto::generate_random_hex(16),
-                                    privkey.get(),
-                                    pubkey.get(), generator.get())
-                   .serialize();
+  ZkpMessage* zkp = new ZkpMessage(
+      crypto::zkp_serialize(
+          crypto::make_zkp(crypto::generate_random_hex(16),
+                           privkey.get(),
+                           pubkey.get(), generator.get())));
+  data.set_allocated_zkp(zkp);
 
   data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
-  data.set_data(zkp.data(), zkp.size());
   stream->Write(data);
   stream->WritesDone();
 

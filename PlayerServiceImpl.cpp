@@ -39,6 +39,7 @@
 #include "Config.h"
 #include "PlaybackState.h"
 #include "Util.h"
+#include "crypto/ZkpSerialization.h"
 
 #define CHECK_AUTH(context)                                            \
   if(not check_auth(context)) {                                        \
@@ -338,25 +339,7 @@ Status PlayerServiceImpl::Authenticate(
   AuthData data;
   stream->Read(&data); // zkp for the password
 
-  // Check if data.data().data() pointer can be converted to
-  // const unsigned char*
-  static_assert(
-      sizeof(std::remove_reference_t<decltype(data.data())>::value_type)
-      == sizeof(unsigned char));
-  static_assert(
-      alignof(std::remove_reference_t<decltype(data.data())>::value_type)
-      == alignof(unsigned char));
-
-  auto zkp = crypto::zkp::deserialize(
-      reinterpret_cast<const unsigned char*>(data.data().data()),
-      data.data().size());
-
-  auto peer_pubkey = crypto::BytesToEcPoint(
-      reinterpret_cast<const unsigned char*>(data.public_key().data()),
-      data.public_key().size());
-
-  if (not crypto::check_zkp(zkp, peer_pubkey.get(),
-                            server_id, secret.get())) {
+  const auto deny = [&]{
     data.Clear();
     data.set_denied(true);
     stream->Write(data);
@@ -366,6 +349,27 @@ Status PlayerServiceImpl::Authenticate(
         context->peer());
 
     return Status::OK;
+  };
+
+  if (not data.has_zkp()) {
+    return deny();
+  }
+
+  try {
+    auto peer_pubkey = crypto::BytesToEcPoint(
+      reinterpret_cast<const unsigned char*>(data.public_key().data()),
+      data.public_key().size());
+
+    auto zkp = crypto::zkp_deserialize(data.zkp());
+
+    if (not crypto::check_zkp(zkp, peer_pubkey.get(),
+                              server_id, secret.get())) {
+      return deny();
+    }
+  } catch (const std::exception& e) {
+    spdlog::warn("Error in processing auth data received from {}:\n\t{}",
+                 context->peer(), e.what());
+    return deny();
   }
 
   data.Clear();

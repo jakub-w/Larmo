@@ -19,14 +19,11 @@
 #ifndef LRM_CRYPTOUTIL_H_
 #define LRM_CRYPTOUTIL_H_
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
-#include <limits>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -46,8 +43,6 @@ using ShaHash = std::array<unsigned char, SHA512_DIGEST_LENGTH>;
 using EcPoint = std::unique_ptr<EC_POINT, decltype(&EC_POINT_free)>;
 using EcScalar = std::unique_ptr<BIGNUM, decltype(&BN_free)>;
 
-using LRM_ZKP_SIZE_TYPE = std::uint8_t;
-
 static constexpr auto LRM_CURVE_NID = NID_X9_62_prime256v1;
 static constexpr auto LRM_SESSION_KEY_SIZE = 64;
 
@@ -62,12 +57,6 @@ struct zkp {
 
   // r = v - privkey * c, where c = H(gen || V || pubkey || user_id)
   EcScalar r;
-
-  template<typename SizeT = LRM_ZKP_SIZE_TYPE>
-  std::vector<unsigned char> serialize() const;
-
-  template<typename SizeT = LRM_ZKP_SIZE_TYPE>
-  static zkp deserialize(const unsigned char* data, std::size_t size);
 };
 
 ShaHash encode_SHA512(std::string_view data);
@@ -166,6 +155,9 @@ std::vector<unsigned char> EcPointToBytes(
 
 EcPoint BytesToEcPoint(const unsigned char* data, std::size_t size);
 
+std::vector<unsigned char> EcScalarToBytes(BIGNUM* scalar);
+EcScalar BytesToEcScalar(const unsigned char* data, std::size_t size);
+
 EcScalar make_zkp_challenge(const EC_POINT* V,
                             const EC_POINT* public_key,
                             std::string_view user_id,
@@ -180,8 +172,6 @@ bool check_zkp(const zkp& zkp,
                const EC_POINT* public_key,
                std::string_view local_id,
                const EC_POINT* generator);
-
-#include "crypto/CryptoUtil.tpp"
 }
 
 #endif  // LRM_CRYPTOUTIL_H_
