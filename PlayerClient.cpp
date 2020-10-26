@@ -125,12 +125,19 @@ bool PlayerClient::Authenticate() {
   const auto pubkey_vect =
       crypto::EcPointToBytes(pubkey.get(), POINT_CONVERSION_COMPRESSED);
 
-  ZkpMessage* zkp = new ZkpMessage(
-      crypto::zkp_serialize(
-          crypto::make_zkp(crypto::generate_random_hex(16),
-                           privkey.get(),
-                           pubkey.get(), generator.get())));
-  data.set_allocated_zkp(zkp);
+  try {
+    ZkpMessage* zkp = new ZkpMessage(
+        crypto::zkp_serialize(
+            crypto::make_zkp(crypto::generate_random_hex(16),
+                             privkey.get(),
+                             pubkey.get(), generator.get())));
+    data.set_allocated_zkp(zkp);
+  } catch (const std::exception& e) {
+    spdlog::error("Error when creating or serializing ZKP:\n\t{}",
+                  e.what());
+    stream->Finish();
+    return false;
+  }
 
   data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
   stream->Write(data);
