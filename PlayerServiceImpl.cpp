@@ -377,18 +377,30 @@ Status PlayerServiceImpl::Authenticate(
   const auto key = generate_session_key();
   data.set_data(key.data(), key.size());
 
-  // TODO: Authenticate the server with the client.
-  // const auto [privkey, pubkey] = crypto::generate_key_pair(secret.get());
-  // const auto pubkey_vect = crypto::EcPointToBytes(pubkey.get());
-  // data.set_public_key(pubkey_vect.data(), pubkey_vect.size());
-
-  // const auto my_zkp = crypto::make_zkp(server_id, privkey.get(),
-  //                                      pubkey.get(), secret.get())
-  //                     .serialize();
-
   {
     std::lock_guard lck{sessions_mtx_};
     authenticated_sessions_.insert(std::move(key));
+  }
+
+  // Confirm to the client that the server also knows the password.
+  try {
+    auto [privkey, pubkey] = crypto::generate_key_pair(secret.get());
+
+    const auto pubkey_bytes = crypto::EcPointToBytes(pubkey.get());
+    data.set_public_key(pubkey_bytes.data(), pubkey_bytes.size());
+
+    ZkpMessage* zkp = new ZkpMessage{
+      crypto::zkp_serialize(
+          crypto::make_zkp(server_id, privkey.get(),
+                           pubkey.get(), secret.get()))};
+    data.set_allocated_zkp(zkp);
+  } catch (const std::exception& e) {
+    spdlog::error(
+        "Failed to generate authentication data to send to the client {}: {}",
+        e.what());
+    return grpc::Status{
+      StatusCode::INTERNAL,
+      "Couldn't generate authentication data"};
   }
 
   stream->Write(data);

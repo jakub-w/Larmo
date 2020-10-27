@@ -19,6 +19,7 @@
 #include "PlayerClient.h"
 
 #include <algorithm>
+#include <exception>
 #include <fstream>
 #include <sstream>
 #include <string_view>
@@ -125,12 +126,13 @@ bool PlayerClient::Authenticate() {
   const auto pubkey_vect =
       crypto::EcPointToBytes(pubkey.get(), POINT_CONVERSION_COMPRESSED);
 
+  std::string id;
   try {
+    id = crypto::generate_random_hex(16);
     ZkpMessage* zkp = new ZkpMessage(
         crypto::zkp_serialize(
-            crypto::make_zkp(crypto::generate_random_hex(16),
-                             privkey.get(),
-                             pubkey.get(), generator.get())));
+            crypto::make_zkp(id, privkey.get(), pubkey.get(),
+                             generator.get())));
     data.set_allocated_zkp(zkp);
   } catch (const std::exception& e) {
     spdlog::error("Error when creating or serializing ZKP:\n\t{}",
@@ -143,14 +145,31 @@ bool PlayerClient::Authenticate() {
   stream->WritesDone();
 
   data.Clear();
-
   stream->Read(&data);
+
+  try {
+    auto peer_pubkey = crypto::BytesToEcPoint(
+        reinterpret_cast<const unsigned char*>(data.public_key().data()),
+        data.public_key().size());
+
+    auto zkp = crypto::zkp_deserialize(data.zkp());
+
+    if (not crypto::check_zkp(zkp, peer_pubkey.get(),
+                              id, generator.get())) {
+      spdlog::error("Server failed to authenticate");
+      return false;
+    }
+  } catch (const std::exception& e) {
+    spdlog::error(
+        "Error deserializing authentication data sent from the server");
+    return false;
+  }
 
   const auto status = stream->Finish();
   if (status.ok()) {
-    spdlog::debug("Authentification stream has closed");
+    spdlog::debug("Authentication stream has closed");
   } else {
-    spdlog::error("Authentification stream has closed with an error: {}",
+    spdlog::error("Authentication stream has closed with an error: {}",
                   status.error_message());
   }
 
