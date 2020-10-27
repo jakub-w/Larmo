@@ -79,3 +79,19 @@ The server needs to have access to the private key that signed the certificate. 
 #+BEGIN_SRC sh
   meson --buildtype=release builddir && cd builddir && ninja
 #+END_SRC
+** On Ubuntu 20.04
+#+BEGIN_SRC sh
+  apt update && \
+  apt install -y git clang pkg-config meson libasio-dev libmpv-dev \
+      libprotobuf-dev protobuf-compiler libgrpc++-dev \
+      protobuf-compiler-grpc
+#+END_SRC
+
+#+BEGIN_SRC sh
+  git clone --recurse-submodules https://github.com/jakub-w/Larmo && \
+  cd Larmo
+#+END_SRC
+
+#+BEGIN_SRC sh
+  meson --buildtype=release builddir && cd builddir && ninja
+#+END_SRC
